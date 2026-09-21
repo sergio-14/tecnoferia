@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  feria:
+    build: .
+    container_name: feria_app
+    env_file:
+      - .env
+    expose:
+      - "3000"
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:3000', r => process.exit(r.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+networks:
+  dokploy-network:
+    external: true
