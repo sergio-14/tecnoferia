@@ -1,4 +1,4 @@
-// Importar las librerías
+//pero este esta en pryecto/backend-feria/server.js
 require('dotenv').config(); 
 const express = require('express');
 const cors = require('cors');
@@ -52,12 +52,75 @@ const db = new Pool({
 });
 
 db.connect()
-    .then(async () => {
-        console.log('✅ Conexión exitosa a PostgreSQL (tecno_feria_db)');
+    .then(async (client) => {
+        client.release();
+        console.log('✅ Conexión exitosa a PostgreSQL');
+
+        await db.query(`CREATE TABLE IF NOT EXISTS administradores (
+            ci VARCHAR(50) PRIMARY KEY,
+            nombre_completo VARCHAR(255) NOT NULL,
+            correo VARCHAR(255) UNIQUE NOT NULL,
+            contrasena VARCHAR(255)
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS expositores (
+            ci VARCHAR(50) PRIMARY KEY,
+            nombre_completo VARCHAR(255) NOT NULL,
+            institucion VARCHAR(255),
+            correo VARCHAR(255) UNIQUE,
+            celular VARCHAR(50),
+            contrasena VARCHAR(255)
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS tribunales (
+            usuario_tribunal VARCHAR(100) PRIMARY KEY,
+            nombre_completo VARCHAR(255) NOT NULL,
+            especialidad VARCHAR(255),
+            categoria_asignada VARCHAR(255),
+            proyectos_asignados TEXT,
+            correo VARCHAR(255) UNIQUE NOT NULL,
+            contrasena VARCHAR(255)
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS visitantes (
+            ci VARCHAR(50) PRIMARY KEY,
+            nombre_completo VARCHAR(255) NOT NULL,
+            institucion VARCHAR(255)
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS proyectos (
+            id SERIAL PRIMARY KEY,
+            ci_propietario VARCHAR(50) UNIQUE NOT NULL REFERENCES expositores(ci),
+            titulo VARCHAR(500) NOT NULL,
+            categoria VARCHAR(255),
+            integrantes TEXT,
+            eje_tematico VARCHAR(255),
+            enlace_pdf TEXT,
+            fecha_ultima_edicion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            estado_evaluacion VARCHAR(100),
+            nota_tribunal NUMERIC,
+            nota_ponderada NUMERIC,
+            observaciones_tribunal TEXT
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (
+            id SERIAL PRIMARY KEY,
+            id_proyecto INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+            ci_visitante VARCHAR(50) NOT NULL REFERENCES visitantes(ci),
+            nota NUMERIC NOT NULL,
+            latitud DOUBLE PRECISION,
+            longitud DOUBLE PRECISION
+        );`);
+        await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (
+            id SERIAL PRIMARY KEY,
+            id_proyecto INTEGER NOT NULL REFERENCES proyectos(id) ON DELETE CASCADE,
+            usuario_tribunal VARCHAR(100) NOT NULL,
+            nota NUMERIC NOT NULL,
+            observaciones TEXT
+        );`);
+
+        // Las que ya tenías
         await db.query(`CREATE TABLE IF NOT EXISTS sesiones_activas (ci_usuario VARCHAR(50) PRIMARY KEY, token VARCHAR(255) NOT NULL);`);
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP);`);
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
         await db.query(`CREATE TABLE IF NOT EXISTS instituciones (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL, tipo VARCHAR(100) NOT NULL);`);
+
+        console.log('✅ Tablas verificadas/creadas');
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
     
@@ -78,7 +141,7 @@ app.post('/api/configuraciones', async (req, res) => {
 
 app.get('/api/instituciones', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM institutions ORDER BY tipo DESC, nombre ASC');
+        const result = await db.query('SELECT * FROM instituciones ORDER BY tipo DESC, nombre ASC');
         res.json(result.rows);
     } catch (error) { res.status(500).json({ error: "Error al obtener instituciones" }); }
 });
