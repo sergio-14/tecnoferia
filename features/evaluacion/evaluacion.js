@@ -41,6 +41,9 @@ window.cargarProyectosParaEvaluar = async function() {
         let proyectosEncontrados = 0;
 
         todosLosProyectos.forEach(p => {
+            //  FILTRO: OCULTAR PROYECTOS QUE FUERON RECHAZADOS Y REEMPLAZADOS 
+            if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
+
             if (palabraClaveCategoria !== "" && !p.categoria.includes(palabraClaveCategoria)) return;
             if (Array.isArray(proyectosAsignadosArray) && !proyectosAsignadosArray.includes(String(p.id))) return;
 
@@ -89,9 +92,12 @@ window.guardarEvaluacionTribunal = async function(e) {
         alert("⚠️ Por favor, seleccione un proyecto de la lista antes de enviar.");
         return;
     }
-
-    if (isNaN(nota) || nota < 1 || nota > 100) {
-        alert("⛔ VALOR INVÁLIDO:\nEl puntaje técnico debe ser un número entero entre 1 y 100.");
+    
+    let incompletos = false;
+    document.querySelectorAll('.trib-nota').forEach(inp => { if(inp.value === "") incompletos = true; });
+    
+    if (incompletos || isNaN(nota) || nota < 1 || nota > 100) {
+        alert("⛔ VALOR INVÁLIDO:\nDebe completar las 6 casillas de la rúbrica correctamente (sin ceros ni espacios vacíos).");
         return;
     }
 
@@ -101,8 +107,6 @@ window.guardarEvaluacionTribunal = async function(e) {
 
     try {
         const correo = localStorage.getItem("feria_correo");
-        const nombreLocal = localStorage.getItem("feria_nombre") || "Ing. Evaluador";
-        const nombreReal = nombreLocal.split(" (")[0]; 
 
         const respuesta = await fetch('/api/evaluar', {
             method: 'POST',
@@ -124,24 +128,33 @@ window.guardarEvaluacionTribunal = async function(e) {
 
         let mensajeCorreo = "";
         if (dataRespuesta.estado === "Pre-seleccionado") {
-            mensajeCorreo = `¡Felicidades! Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/60 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\n¡Ha superado la etapa de Pre-selección!`;
+            mensajeCorreo = `¡Felicidades! Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/80 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\n¡Ha superado la etapa de Pre-selección!`;
         } else {
-            mensajeCorreo = `Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/60 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\nNo alcanzó la nota mínima de aprobación. Gracias por participar.`;
+            mensajeCorreo = `Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/80 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\nNo alcanzó la nota mínima de aprobación. Gracias por participar.`;
         }
 
+        let correoEnviado = false;
         if (dataRespuesta.correoEstudiante) {
             try {
-                await emailjs.send("service_m4ueyce", "template_0a9gr2t", {
-                    to_email: dataRespuesta.correoEstudiante,
-                    to_name: dataRespuesta.nombreExpositor, 
-                    message: mensajeCorreo    
-                }, "njcIu3KNPNiVrfy9f");
-            } catch (err) {
-                console.error("No se pudo enviar el correo:", err);
-            }
+                if (typeof emailjs !== 'undefined') {
+                    emailjs.init({ publicKey: "njcIu3KNPNiVrfy9f" }); 
+                    
+                    await emailjs.send("service_m4ueyce", "template_0a9gr2t", {
+                        to_email: dataRespuesta.correoEstudiante,
+                        to_name: dataRespuesta.nombreExpositor, 
+                        message: mensajeCorreo    
+                    }, "njcIu3KNPNiVrfy9f"); 
+                    
+                    correoEnviado = true;
+                }
+            } catch (err) { console.error(err); }
         }
 
-        alert(`✅ ¡Calificación Guardada Oficialmente!\n\nProyecto: ${dataRespuesta.tituloProyecto}\nNota Bruta: ${nota}/100\nNota Ponderada: ${dataRespuesta.notaPonderada}/60\nEstado: ${dataRespuesta.estado}`);
+        if(correoEnviado) {
+            alert(` ¡Calificación Guardada Oficialmente!\n\nSe envió un correo de notificación automática al expositor informando su nota de ${nota}/100 y si aprobó a la siguiente fase.`);
+        } else {
+            alert(` ¡Calificación Guardada Oficialmente en la Base de Datos!\n\n⚠️ NOTA: Tu navegador bloqueó EmailJS, por lo que el expositor no recibió el correo automático, pero la nota de ${nota}/100 ya está registrada y procesada en los resultados.`);
+        }
         
         document.getElementById('form-evaluacion-tribunal').reset();
         document.getElementById('eval-btn-doc').href = "#";
@@ -155,13 +168,3 @@ window.guardarEvaluacionTribunal = async function(e) {
         btn.disabled = false;
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    const inputNotaTribunal = document.getElementById('eval-nota');
-    if (inputNotaTribunal) {
-        inputNotaTribunal.addEventListener('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '').replace(/^0+/, '');
-            if (this.value !== "" && parseInt(this.value) > 100) this.value = '100';
-        });
-    }
-});

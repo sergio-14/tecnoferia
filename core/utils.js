@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: core/utils.js
-// FUNCIÓN: Herramientas globales, auto-completado y VISOR DE PDF UNIVERSAL
+// FUNCIÓN: Herramientas globales, auto-completado, sumatorias y PDF
 // =========================================================================
 
 let currentRole = "";
@@ -52,16 +52,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-//  MAGIA: Jalar datos, autocompletar y BLOQUEAR casillas al escribir CI
 document.addEventListener("input", async function(e) {
     const id = e.target.id;
     if (id === 'preCI' || id === 'hab-ci' || id === 'admin-hab-ci') {
         const ciIngresado = e.target.value.trim();
         
-        let inputNombre, selectInst;
-        if (id === 'preCI') { inputNombre = document.getElementById('preNombre'); selectInst = document.getElementById('preInst'); }
-        if (id === 'hab-ci') { inputNombre = document.getElementById('hab-nombre'); selectInst = document.getElementById('hab-institucion'); }
-        if (id === 'admin-hab-ci') { inputNombre = document.getElementById('admin-hab-nombre'); selectInst = document.getElementById('admin-hab-institucion'); }
+        let inputNombre, selectInst, inputCelular;
+        if (id === 'preCI') { inputNombre = document.getElementById('preNombre'); selectInst = document.getElementById('preInst'); inputCelular = document.getElementById('preCelular'); }
+        if (id === 'hab-ci') { inputNombre = document.getElementById('hab-nombre'); selectInst = document.getElementById('hab-institucion'); inputCelular = document.getElementById('hab-celular'); }
+        if (id === 'admin-hab-ci') { inputNombre = document.getElementById('admin-hab-nombre'); selectInst = document.getElementById('admin-hab-institucion'); inputCelular = document.getElementById('admin-hab-celular'); }
 
         if (ciIngresado.length < 5) {
             if (inputNombre) { 
@@ -69,6 +68,12 @@ document.addEventListener("input", async function(e) {
                 inputNombre.style.backgroundColor = ""; 
                 inputNombre.style.opacity = "1";
                 if(inputNombre.dataset.autofilled === "true") { inputNombre.value = ""; inputNombre.dataset.autofilled = "false"; }
+            }
+            if (inputCelular) { 
+                inputCelular.readOnly = false; 
+                inputCelular.style.backgroundColor = ""; 
+                inputCelular.style.opacity = "1";
+                if(inputCelular.dataset.autofilled === "true") { inputCelular.value = ""; inputCelular.dataset.autofilled = "false"; }
             }
             if (selectInst) { 
                 selectInst.style.pointerEvents = "auto"; 
@@ -91,6 +96,13 @@ document.addEventListener("input", async function(e) {
                         inputNombre.style.opacity = "0.7";
                         inputNombre.dataset.autofilled = "true";
                     }
+                    if (inputCelular && data.datos.celular) {
+                        inputCelular.value = data.datos.celular;
+                        inputCelular.readOnly = true; 
+                        inputCelular.style.backgroundColor = "rgba(0,0,0,0.3)";
+                        inputCelular.style.opacity = "0.7";
+                        inputCelular.dataset.autofilled = "true";
+                    }
                     if (selectInst && data.datos.institucion) {
                         let existe = Array.from(selectInst.options).some(opt => opt.value === data.datos.institucion);
                         if (!existe) selectInst.add(new Option(data.datos.institucion, data.datos.institucion));
@@ -107,26 +119,77 @@ document.addEventListener("input", async function(e) {
     }
 });
 
-//  VISOR UNIVERSAL BLINDADO (Usa PDF.js en PC y Móvil para evitar descargas)
+// 🔥 BLINDAJE INQUEBRANTABLE TRIBUNAL 🔥
+window.sumarTribunal = function(elemento) {
+    if (elemento) {
+        let val = elemento.value.replace(/[^0-9]/g, '');
+        val = val.replace(/^0+/, '');
+        if (val !== "") {
+            val = parseInt(val, 10);
+            let max = parseInt(elemento.getAttribute('max'), 10);
+            if (val > max) val = max;
+        }
+        elemento.value = val;
+    }
+    const inputs = document.querySelectorAll('.trib-nota');
+    let total = 0;
+    inputs.forEach(input => { if (input.value !== "") total += parseInt(input.value, 10); });
+    const evalNota = document.getElementById('eval-nota');
+    if(evalNota) evalNota.value = total;
+};
+
+// 🔥 BLINDAJE INQUEBRANTABLE PÚBLICO 🔥
+window.sumarPublico = function(elemento) {
+    if (elemento) {
+        let val = elemento.value.replace(/[^0-9]/g, '');
+        val = val.replace(/^0+/, '');
+        if (val !== "") {
+            val = parseInt(val, 10);
+            let max = parseInt(elemento.getAttribute('max'), 10);
+            if (val > max) val = max;
+        }
+        elemento.value = val;
+    }
+    const inputs = document.querySelectorAll('.pub-nota');
+    let total = 0;
+    let completados = 0;
+    inputs.forEach(input => {
+        if (input.value !== "") {
+            total += parseInt(input.value, 10);
+            completados++;
+        }
+    });
+    const votoPuntaje = document.getElementById('voto-puntaje');
+    if(votoPuntaje) votoPuntaje.value = total;
+    const btn = document.getElementById('btnEnviarVoto');
+    const ciInput = document.getElementById('voto-ci');
+    if (btn && ciInput) {
+        const ciVal = ciInput.value.trim();
+        if (completados === 4 && ciVal.length >= 5) {
+            window.calificacionActual = total; 
+            window.simularVerificacionCI();
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            btn.style.cursor = "not-allowed";
+        }
+    }
+};
+
 window.abrirVisorPDF = function(url) {
     if (!url || url === "undefined" || url === "null" || url === "") {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
-
-    // Ruta segura con bypass anti-caché
     let urlSegura = url.startsWith('/archivos_proyectos/') ? url.replace('/archivos_proyectos/', '/ver-pdf/') : url;
     let urlAbsoluta = window.location.origin + urlSegura + "?t=" + new Date().getTime();
 
-    // Eliminar modal anterior si existe
     const modalViejo = document.getElementById('modal-visor-pdf-global');
     if (modalViejo) document.body.removeChild(modalViejo);
 
-    // Crear fondo oscuro del visor
     const modal = document.createElement('div');
     modal.id = 'modal-visor-pdf-global';
     modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.95); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px);';
     
-    // Crear cabecera y botón de cerrar
     const header = document.createElement('div');
     header.style.cssText = 'width: 90%; max-width: 1000px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
     header.innerHTML = '<h3 style="color: white; margin: 0; font-family: sans-serif;"><i class="fas fa-file-pdf" style="color: #e74c3c;"></i> Visor Oficial Seguro</h3>';
@@ -138,7 +201,6 @@ window.abrirVisorPDF = function(url) {
     header.appendChild(btnCerrar);
     modal.appendChild(header);
 
-    // Contenedor universal donde se dibujará el PDF
     const container = document.createElement('div');
     container.style.cssText = 'width: 90%; max-width: 1000px; height: 82vh; background: #525659; border-radius: 8px; overflow-y: auto; text-align: center; padding: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.8);';
     
@@ -149,7 +211,6 @@ window.abrirVisorPDF = function(url) {
     modal.appendChild(container);
     document.body.appendChild(modal);
 
-    // INYECCIÓN DE LA LIBRERÍA PDF.JS (Evita la descarga renderizando la imagen)
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
     script.onload = () => {
@@ -163,8 +224,6 @@ window.abrirVisorPDF = function(url) {
                     const typedarray = new Uint8Array(this.result);
                     window.pdfjsLib.getDocument(typedarray).promise.then(pdf => {
                         loadingText.style.display = "none";
-                        
-                        // Determinamos el zoom según si es PC o Celular para que se lea perfecto
                         const esPC = window.innerWidth > 768;
                         const zoomScale = esPC ? 1.5 : 1.2;
 
@@ -187,6 +246,49 @@ window.abrirVisorPDF = function(url) {
             .catch(err => { loadingText.innerHTML = '❌ Error al cargar el documento.'; });
     };
     document.head.appendChild(script);
+};
+
+// 🔥 NUEVO: VISOR ESPECIAL PARA ENLACES EXTERNOS COMO GOOGLE DOCS 🔥
+window.abrirVisorDocs = function(url) {
+    if (!url) return;
+    
+    // Forzamos el modo "vista previa" de Google Docs para ocultar los menús
+    let urlLimpia = url.includes('/edit') ? url.replace('/edit', '/preview') : url;
+
+    const modalViejo = document.getElementById('modal-visor-docs-global');
+    if (modalViejo) document.body.removeChild(modalViejo);
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-visor-docs-global';
+    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.95); z-index: 9999999; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(8px);';
+    
+    const header = document.createElement('div');
+    header.style.cssText = 'width: 90%; max-width: 1000px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;';
+    header.innerHTML = '<h3 style="color: white; margin: 0; font-family: sans-serif;"><i class="fas fa-file-alt" style="color: #4db8ff;"></i> Convocatoria Oficial</h3>';
+    
+    const btnCerrar = document.createElement('button');
+    btnCerrar.innerHTML = '<i class="fas fa-times"></i> Cerrar Visor';
+    btnCerrar.style.cssText = 'background: #d32f2f; color: white; border: none; padding: 10px 20px; font-size: 1rem; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s;';
+    btnCerrar.onclick = () => document.body.removeChild(modal);
+    header.appendChild(btnCerrar);
+    modal.appendChild(header);
+
+    const container = document.createElement('div');
+    container.style.cssText = 'width: 90%; max-width: 1000px; height: 82vh; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; position: relative;';
+    
+    // Indicador de carga visual detrás del iframe
+    const loader = document.createElement('div');
+    loader.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x" style="color: #002b5c;"></i><p style="margin-top: 10px; font-weight: bold; color: #555;">Cargando documento...</p>';
+    loader.style.cssText = 'position: absolute; text-align: center; z-index: 1;';
+    container.appendChild(loader);
+
+    const iframe = document.createElement('iframe');
+    iframe.src = urlLimpia;
+    iframe.style.cssText = 'width: 100%; height: 100%; border: none; position: relative; z-index: 2; background: transparent;';
+    
+    container.appendChild(iframe);
+    modal.appendChild(container);
+    document.body.appendChild(modal);
 };
 
 window.activarModoPublico = function() {

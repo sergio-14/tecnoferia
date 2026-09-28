@@ -35,7 +35,7 @@ window.handleRegister = async function(e) {
         const FECHA_LIMITE_REGISTRO = new Date(dataConf.fecha_registro);
 
         if (new Date() > FECHA_LIMITE_REGISTRO) {
-            alert("🛑 INSCRIPCIONES CERRADAS\n\nEl plazo oficial ha finalizado.");
+            alert(" INSCRIPCIONES CERRADAS\n\nEl plazo oficial para registrarse ha finalizado.");
             btn.innerHTML = textoOriginal; btn.disabled = false;
             return;
         }
@@ -55,9 +55,9 @@ window.handleRegister = async function(e) {
 
         if (!res.ok) throw new Error("Error guardando datos o el C.I. ya existe en el sistema.");
 
-        alert("✅ ¡Cuenta de expositor creada exitosamente!\n\nPor favor, inicie sesión con su Carnet de Identidad y la contraseña que acaba de crear.");
+        alert(" ¡Cuenta de expositor creada exitosamente!\n\nPor favor, inicie sesión con su Carnet de Identidad y la contraseña que acaba de crear.");
 
-        // 🔥 NUEVO: Limpiar la URL para evitar el bucle al recargar
+        //  NUEVO: Limpiar la URL para evitar el bucle al recargar
         window.history.replaceState({}, document.title, window.location.pathname);
 
         e.target.reset();
@@ -65,7 +65,7 @@ window.handleRegister = async function(e) {
 
     } catch (error) {
         console.error("Error técnico al registrar:", error);
-        alert("❌ Ocurrió un error: " + error.message);
+        alert(" Ocurrió un error: " + error.message);
     } finally {
         if (btn) { btn.innerHTML = textoOriginal; btn.disabled = false; }
     }

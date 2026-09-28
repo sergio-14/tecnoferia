@@ -3,7 +3,6 @@
 // FUNCIÓN: Generación de reportes dinámicos conectados al Súper Puente SQL
 // =========================================================================
 
-//  NUEVO: Función Unificada para Cabeceras Oficiales (Elimina código repetido)
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
     const extraHtml = notaExtra ? `<p style="font-family: Arial, sans-serif; font-size: 13px; color: #333; margin-bottom: 15px;"><strong>Nota Explicativa:</strong> ${notaExtra}</p>` : "";
     return `
@@ -87,7 +86,9 @@ window.generarVistaPrevia = async function() {
         const db = await res.json();
         const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones } = db;
 
+        // ==========================================
         // 1. CUADRO DE HONOR Y RANKING
+        // ==========================================
         if (valor === "ranking") {
             const diccionarioProyectos = {}; 
 
@@ -109,7 +110,7 @@ window.generarVistaPrevia = async function() {
             votos.forEach(v => {
                 if (diccionarioProyectos[v.id_proyecto]) {
                     let notaP = parseFloat(v.nota) || 0; 
-                    if (notaP > 10) notaP = 10;
+                    if (notaP > 100) notaP = 100;
                     diccionarioProyectos[v.id_proyecto].sumaPublico += notaP;
                     diccionarioProyectos[v.id_proyecto].cantidadPublico += 1;
                 }
@@ -120,8 +121,9 @@ window.generarVistaPrevia = async function() {
             Object.values(diccionarioProyectos).forEach(proy => {
                 const pT = proy.cantidadTribunal > 0 ? (proy.sumaTribunal / proy.cantidadTribunal) : 0;
                 const pP = proy.cantidadPublico > 0 ? (proy.sumaPublico / proy.cantidadPublico) : 0;
-                const notaF = (pT * 0.60) + (pP * 4);
+                const notaF = (pT * 0.80) + (pP * 0.20);
                 const obj = { titulo: proy.titulo, integrantes: proy.integrantes, notaFinal: notaF };
+                
                 if (proy.categoria === "proyectos_estudiantes") topEstudiantes.push(obj);
                 if (proy.categoria === "proyectos_docentes") topDocentes.push(obj);
                 if (proy.categoria === "proyectos_emprendimientos") topEmprendimientos.push(obj);
@@ -168,7 +170,9 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         } 
 
+        // ==========================================
         // 2. EJES TEMÁTICOS
+        // ==========================================
         else if (valor === "ejes") {
             const ejesOficiales = ["Sistemas de Información para el Desarrollo Regional", "Tecnologías Emergentes y Transformación Digital", "Ingeniería de Software y Aplicaciones Web/Móviles", "Gobierno Electrónico y Transparencia Pública", "TIC para la Gestión Ambiental y Agropecuaria"];
             const proyectosPorEje = {};
@@ -220,7 +224,9 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // ==========================================
         // 3. ACTA DE TRIBUNALES
+        // ==========================================
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
@@ -246,7 +252,7 @@ window.generarVistaPrevia = async function() {
                             <tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
                                 <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 20%;">Proyecto Evaluado</th>
                                 <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Tribunal Asignado</th>
-                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Puntaje (60%)</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Puntaje (80%)</th>
                                 <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 45%;">Observaciones / Retroalimentación</th>
                             </tr>
                         </thead><tbody>`;
@@ -255,7 +261,7 @@ window.generarVistaPrevia = async function() {
                     lista.forEach(ev => {
                         let tribunal = ev.nombreTribunal || "Ing. Evaluador";
                         if (!tribunal.toLowerCase().startsWith('ing')) tribunal = "Ing. " + tribunal;
-                        const notaConv = ((parseFloat(ev.notaTribunal) || 0) * 0.60).toFixed(2);
+                        const notaConv = ((parseFloat(ev.notaTribunal) || 0) * 0.80).toFixed(2);
                         let obs = ev.observaciones || "Sin observaciones registradas.";
                         if (!obs.startsWith('"')) obs = '"' + obs + '"';
 
@@ -270,7 +276,7 @@ window.generarVistaPrevia = async function() {
                 return html + `</tbody></table>`;
             };
 
-            areaImpresion.innerHTML = generarCabeceraOficial("ACTA DETALLADA DE CALIFICACIONES DE TRIBUNALES", "El puntaje aquí reflejado representa únicamente la valoración técnica del Tribunal Evaluador, la cual equivale al 60% de la calificación final del proyecto.") + 
+            areaImpresion.innerHTML = generarCabeceraOficial("ACTA DETALLADA DE CALIFICACIONES DE TRIBUNALES", "El puntaje aquí reflejado representa únicamente la valoración técnica del Tribunal Evaluador, la cual equivale al 80% de la calificación final del proyecto.") + 
                 generarTabla("1. ESTUDIANTES (PREGRADO)", grupos["1. ESTUDIANTES (PREGRADO)"]) + generarTabla("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTabla("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTabla("OTRAS EVALUACIONES (Registros sin categoría)", grupos["OTRAS EVALUACIONES (Registros sin categoría)"]) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Representante del Tribunal</p></div>
@@ -278,7 +284,9 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
+        // ==========================================
         // 4. VISITANTES Y AFLUENCIA
+        // ==========================================
         else if (valor === "visitantes") {
             const diccProyectos = {};
             proyectos.forEach(p => {
@@ -295,24 +303,28 @@ window.generarVistaPrevia = async function() {
             votos.forEach(v => {
                 if (diccProyectos[v.id_proyecto]) {
                     diccProyectos[v.id_proyecto].visitas += 1;
-                    diccProyectos[v.id_proyecto].sumaNotas += Math.min(parseFloat(v.nota) || 0, 10);
+                    diccProyectos[v.id_proyecto].sumaNotas += Math.min(parseFloat(v.nota) || 0, 100);
                 }
             });
 
             const listaProy = [];
             Object.values(diccProyectos).forEach(p => {
-                if (p.visitas > 0) listaProy.push({ titulo: p.titulo, categoria: p.categoria, visitas: p.visitas, prom: p.sumaNotas / p.visitas, pts40: (p.sumaNotas / p.visitas) * 4 });
+                if (p.visitas > 0) listaProy.push({ titulo: p.titulo, categoria: p.categoria, visitas: p.visitas, prom: p.sumaNotas / p.visitas, pts20: (p.sumaNotas / p.visitas) * 0.20 }); 
             });
 
+            //  FIX DEL PROMEDIO: Solo divide entre proyectos Pre-seleccionados 
+            const totalProyValidos = proyectos.filter(p => p.estado_evaluacion === 'Pre-seleccionado').length;
+            const promVotosProyecto = totalProyValidos > 0 ? (votos.length / totalProyValidos).toFixed(2) : "0.00";
+
             const generarTablaV = (cat) => {
-                const filtrados = listaProy.filter(p => p.categoria === cat).sort((a, b) => b.pts40 - a.pts40);
+                const filtrados = listaProy.filter(p => p.categoria === cat).sort((a, b) => b.pts20 - a.pts20);
                 let html = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 20px; margin-bottom: 0;">${cat}</h3>
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
                         <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
                             <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 40%;">Nombre del Proyecto</th>
                             <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 20%;">Visitas Recibidas</th>
-                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 20%;">Promedio (1-10)</th>
-                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; color: var(--azul-uab); width: 20%;">Puntaje (40%)</th>
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 20%;">Promedio (1-100)</th>
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; color: var(--azul-uab); width: 20%;">Puntaje (20%)</th>
                         </tr></thead><tbody>`;
                 if (filtrados.length === 0) { html += `<tr><td colspan="4" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">Aún no hay votos del público en esta categoría.</td></tr>`; } 
                 else {
@@ -321,7 +333,7 @@ window.generarVistaPrevia = async function() {
                             <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${p.titulo}</td>
                             <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${p.visitas}</td>
                             <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${p.prom.toFixed(2)}</td>
-                            <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 14px; color: var(--azul-uab);">${p.pts40.toFixed(2)}</td>
+                            <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 14px; color: var(--azul-uab);">${p.pts20.toFixed(2)}</td>
                         </tr>`;
                     });
                 }
@@ -337,9 +349,9 @@ window.generarVistaPrevia = async function() {
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-family: Arial, sans-serif;">
                     <div style="border: 2px solid #001f54; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Total de Visitantes</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${visitantes.length}</p></div>
                     <div style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Votos Emitidos</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${votos.length}</p></div>
-                    <div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Promedio de Votos/Proyecto</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${proyectos.length > 0 ? (votos.length / proyectos.length).toFixed(2) : "0.00"}</p></div>
+                    <div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Promedio de Votos/Proyecto</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${promVotosProyecto}</p></div>
                 </div>
-                <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 30px;">A. Desglose de Votación por Proyecto (40% de la Nota Final)</h3>
+                <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 30px;">A. Desglose de Votación por Proyecto (20% de la Nota Final)</h3>
                 ${generarTablaV("1. ESTUDIANTES (PREGRADO)") + generarTablaV("2. DOCENTES INVESTIGADORES") + generarTablaV("3. EMPRENDIMIENTOS TECNOLÓGICOS")}
                 <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 40px;">B. Afluencia por Instituciones Externas</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
@@ -352,12 +364,15 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // ==========================================
         // 5. REPORTES DE DOCUMENTOS RECIBIDOS
+        // ==========================================
         else if (valor === "documentos") {
             const correosConProy = new Set();
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
 
             proyectos.forEach(p => {
+                if (p.estado_evaluacion === 'Evaluado (No clasifica)') return; // No contar los abandonados
                 const exp = expositores.find(e => e.ci === p.ci_propietario);
                 if (exp && exp.correo) correosConProy.add(exp.correo.toLowerCase());
                 let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
@@ -389,12 +404,14 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // ==========================================
         // 6. EXPOSITORES
+        // ==========================================
         else if (valor === "expositores") {
             const grupos = { "1. Estudiantes (Pregrado)": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
 
             expositores.forEach(e => {
-                const proy = proyectos.find(p => p.ci_propietario === e.ci);
+                const proy = proyectos.find(p => p.ci_propietario === e.ci && p.estado_evaluacion !== 'Evaluado (No clasifica)');
                 let cat = "4. Registrados sin Proyecto Subido (Pendientes)";
                 if (proy) cat = proy.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proy.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
                 grupos[cat].push({ nombre: e.nombre_completo || "Sin Nombre", ci: e.ci || "N/A", institucion: e.institucion || "N/A", correo: (e.correo || "").toLowerCase(), celular: e.celular || "N/A" });
@@ -419,7 +436,9 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // ==========================================
         // 7. VISITANTES PADRON
+        // ==========================================
         else if (valor === "padron_visitantes") {
             const filtroSelect = document.getElementById('institucion-select');
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
@@ -434,18 +453,21 @@ window.generarVistaPrevia = async function() {
             const lProy = proyectos.map(p => { const e = expositores.find(e => e.ci === p.ci_propietario); return { id: p.ci_propietario, c: e ? (e.correo||"").toLowerCase().trim() : "", t: p.titulo||"Proyecto sin título", int: (p.integrantes||"").trim() }; });
 
             const lVis = [];
+            
             visitantes.forEach(v => {
                 const i = (v.institucion || "N/A").trim();
+                const cel = v.celular || "Sin número"; //  FIX: Extraemos celular 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     let n = v.nombre_completo || "Sin Nombre";
                     const pF = lProy.find(p => esValido(p.int, n));
                     if (pF) n += `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.t}"</i></span>`;
-                    lVis.push({ n, ci: String(v.ci).trim(), i, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
+                    lVis.push({ n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
                 }
             });
 
             expositores.forEach(e => {
                 const i = (e.institucion || "N/A").trim();
+                const cel = e.celular || "Sin número"; //  FIX: Extraemos celular 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     const c = String(e.ci).trim();
                     const correo = (e.correo || "").toLowerCase().trim();
@@ -453,20 +475,35 @@ window.generarVistaPrevia = async function() {
                     const pF = lProy.find(p => p.id === c || (correo !== "" && p.c === correo) || esValido(p.int, nb));
                     const et = pF ? `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Expositor</b> — <i>"${pF.t}"</i></span>` : `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
                     const idx = lVis.findIndex(v => v.ci === c);
-                    if (idx === -1) lVis.push({ n: nb + et, ci: c, i, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                    else lVis[idx].n = nb + et;
+                    if (idx === -1) lVis.push({ n: nb + et, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
+                    else { lVis[idx].n = nb + et; lVis[idx].cel = cel; } //  Inyecta celular si existía 
                 }
             });
 
             lVis.sort((a, b) => a.n.localeCompare(b.n));
             let titTab = institucionElegida === "TODOS" ? "Padrón General (Visitantes y Expositores)" : (/colegio|unidad|escuela|uab|universidad|instituto/i.test(institucionElegida)) ? `Lista de Asistencia: ${institucionElegida}` : `Visitantes Externos: ${institucionElegida}`;
 
+            //  FIX: AÑADIDA COLUMNA CELULAR EN EL DISEÑO HTML 
             let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${titTab} (Total: ${lVis.length})</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
-                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;"><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 8%;">N°</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 37%;">Nombre Completo</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">C.I.</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 25%;">Institución</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Votos</th></tr></thead><tbody>`;
+                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre Completo</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 12%;">C.I.</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 28%;">Institución</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 10%;">Votos</th>
+                </tr></thead><tbody>`;
 
-            if (lVis.length === 0) htmlTabla += `<tr><td colspan="5" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay personas registradas en esta institución.</td></tr>`;
-            else lVis.forEach((v, i) => htmlTabla += `<tr><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td><td style="padding: 8px; border: 1px solid #ccc; text-transform: capitalize;">${v.n}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.ci}</td><td style="padding: 8px; border: 1px solid #ccc;">${v.i}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-size: 12px;">${v.v}</td></tr>`);
+            if (lVis.length === 0) htmlTabla += `<tr><td colspan="6" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay personas registradas en esta institución.</td></tr>`;
+            else lVis.forEach((v, i) => htmlTabla += `<tr>
+                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                <td style="padding: 8px; border: 1px solid #ccc; text-transform: capitalize;">${v.n}</td>
+                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.ci}</td>
+                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.cel}</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">${v.i}</td>
+                <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-size: 12px;">${v.v}</td>
+            </tr>`);
             htmlTabla += `</tbody></table>`;
 
             areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE VISITANTES Y ESTADO DE VOTACIÓN", `Filtro aplicado: ${institucionElegida === "TODOS" ? "Padrón General (Todas las Instituciones)" : institucionElegida}`) + htmlTabla +
@@ -476,17 +513,38 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
+        // ==========================================
         // 8. PADRON TRIBUNALES
+        // ==========================================
         else if (valor === "padron_tribunales") {
-            const lTrib = tribunales.map(t => ({ n: t.nombre_completo || "Sin Nombre", e: t.especialidad || "No especificada", c: t.correo || "No registrado" })).sort((a, b) => a.n.localeCompare(b.n));
+            //  FIX: AÑADIMOS EXTRACCIÓN DE CELULAR EN TRIBUNALES 
+            const lTrib = tribunales.map(t => ({ 
+                n: t.nombre_completo || "Sin Nombre", 
+                e: t.especialidad || "No especificada", 
+                c: t.correo || "No registrado",
+                cel: t.celular || "Sin número"
+            })).sort((a, b) => a.n.localeCompare(b.n));
 
             let htmlF = "";
-            if (lTrib.length === 0) htmlF = `<tr><td colspan="4" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
-            else lTrib.forEach((t, i) => htmlF += `<tr><td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td><td style="padding: 10px; border: 1px solid #ccc; font-weight: bold; text-transform: capitalize;">${t.n.toLowerCase()}</td><td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td><td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td></tr>`);
+            if (lTrib.length === 0) htmlF = `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
+            else lTrib.forEach((t, i) => htmlF += `<tr>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold; text-transform: capitalize;">${t.n.toLowerCase()}</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.cel}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
+            </tr>`);
 
+            //  FIX: AÑADIDA COLUMNA CELULAR EN EL DISEÑO HTML 
             areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE TRIBUNALES EVALUADORES") + `
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
-                    <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;"><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 8%;">N°</th><th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 42%;">Nombre del Tribunal</th><th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Especialidad</th><th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Correo Electrónico</th></tr></thead>
+                    <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;">
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre del Tribunal</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Especialidad</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Correo Electrónico</th>
+                    </tr></thead>
                     <tbody>${htmlF}</tbody>
                 </table>
                 <div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
@@ -495,10 +553,12 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
+        // ==========================================
         // 9. NO CLASIFICADOS
+        // ==========================================
         else if (valor === "9" || valor === "no_clasificados" || valor.includes("No Clasificados")) {
             let html = `<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; font-family: Arial, sans-serif;">
-                <thead><tr style="background-color: #002b5c; color: white;"><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 10px; border: 1px solid #ccc; width: 25%;">Título del Proyecto</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Categoría</th><th style="padding: 10px; border: 1px solid #ccc; width: 20%;">Integrantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Tribunal</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Ponderada (60%)</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Observaciones</th></tr></thead><tbody>`;
+                <thead><tr style="background-color: #002b5c; color: white;"><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 10px; border: 1px solid #ccc; width: 25%;">Título del Proyecto</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Categoría</th><th style="padding: 10px; border: 1px solid #ccc; width: 20%;">Integrantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Tribunal</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Ponderada (80%)</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Observaciones</th></tr></thead><tbody>`;
 
             let cont = 0;
             proyectos.forEach(p => {

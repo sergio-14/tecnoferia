@@ -207,7 +207,7 @@ window.reiniciarRelojInactividad = function() {
     if (pantallaPrincipal && pantallaPrincipal.style.display === "block") {
         clearTimeout(temporizadorInactividad);
         temporizadorInactividad = setTimeout(() => {
-            alert("⏳ Por motivos de seguridad, su sesión ha caducado debido a inactividad.\n\nPor favor, vuelva a iniciar sesión.");
+            alert(" Por motivos de seguridad, su sesión ha caducado debido a inactividad.\n\nPor favor, vuelva a iniciar sesión.");
             window.logout(); 
         }, TIEMPO_MAXIMO_INACTIVIDAD);
     }

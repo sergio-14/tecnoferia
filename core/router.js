@@ -49,21 +49,12 @@ window.navigate = function(id, el) {
     const sec = document.getElementById(id);
     if(sec) sec.style.display = "block"; 
 
-    if(id === 'evaluacion') {
-        const inputTribunal = document.querySelector('#panel-tribunal input[type="number"]');
-        if(inputTribunal) {
-            inputTribunal.setAttribute('min', '0');
-            inputTribunal.setAttribute('max', '100');
-            inputTribunal.oninput = function() { if(typeof validarPuntaje === 'function') validarPuntaje(this, 100); };
-        }
-    }
-    
     if(id === 'resultados') {
         if (typeof window.calcularResultadosEnTiempoReal === 'function') { window.calcularResultadosEnTiempoReal(); }
     }
 
     if(id === 'mi-proyecto') {
-        //  MAGIA DE PARPADEO: Ocultamos la tarjeta por JS ANTES de llamar a PostgreSQL
+        // Ocultamos la tarjeta por JS ANTES de llamar a PostgreSQL
         const formCard = document.querySelector('#mi-proyecto .form-card');
         if (formCard) formCard.style.display = 'none';
         

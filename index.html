@@ -7,15 +7,16 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V24">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V23">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V23">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V23">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V23">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V23">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V23">
+    <!-- 🔥 VERSIÓN V41: VISOR NATIVO PARA GOOGLE DOCS 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V41">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V41">
 
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body class="login-active">
 
@@ -49,12 +50,22 @@
                         </div>
                     </div>
     
-                    <div class="form-actions animate-fade-up delay-500">
+                    <div class="form-actions animate-fade-up delay-500" style="margin-bottom: 12px;">
                         <label class="checkbox-container"><input type="checkbox"><span>Recordarme</span></label>
                         <a href="#" onclick="toggleAuthMode(event, 'recover')" class="forgot-link">¿Olvidaste tu contraseña?</a>
                     </div>
+
+                    <div class="animate-fade-up delay-500" style="margin-top: 0; margin-bottom: 22px; text-align: center;">
+                        <p style="margin: 0; font-size: 0.9rem;">¿Quieres participar en la feria? <a href="#" onclick="toggleAuthMode(event, 'register')" style="color: #4db8ff; font-weight: bold; text-decoration: none; transition: 0.3s;" onmouseover="this.style.color='#ffffff'; this.style.textDecoration='underline'" onmouseout="this.style.color='#4db8ff'; this.style.textDecoration='none'">Inscríbete ya</a></p>
+                    </div>
     
                     <button type="submit" class="btn-modern-login animate-fade-up delay-600">Acceder al Sistema</button>
+                    
+                    <!-- 🔥 BOTÓN ACTUALIZADO PARA ABRIR GOOGLE DOCS EN EL VISOR INTERNO 🔥 -->
+                    <button type="button" onclick="window.abrirVisorDocs('https://docs.google.com/document/d/1jL_TX4DhONjvgenKZuW3TOwdIgZJkg7x/edit')" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 15px; background-color: #005f73;">
+                        <i class="fas fa-file-alt" style="margin-right: 8px;"></i> Convocatoria TecnoFeria
+                    </button>
+
                 </form>
             </div>
     
@@ -117,7 +128,6 @@
                 </div>
             </div>
 
-            
             <div id="recover-card" class="modern-form-wrapper" style="display: none;">
                 <h1 class="animate-fade-up delay-100" style="font-size: 2rem;">Restablecer</h1>
                 <p class="animate-fade-up delay-200 text-muted">Valide sus datos para crear una nueva contraseña.</p>
@@ -163,6 +173,10 @@
                     <div class="input-group">
                         <label>Nombre Completo</label>
                         <div class="glass-input-wrapper"><i class="fas fa-user input-icon"></i><input type="text" id="preNombre" placeholder="Ej. Ana López" required></div>
+                    </div>
+                    <div class="input-group">
+                        <label>Número de Celular</label>
+                        <div class="glass-input-wrapper"><i class="fas fa-phone input-icon"></i><input type="tel" id="preCelular" placeholder="Ej. 71234567" required></div>
                     </div>
                     
                     <div class="input-group">
@@ -266,7 +280,7 @@
                             <h3>Etapa 1: Pre-selección</h3>
                             <p>Los proyectos registrados son evaluados de manera técnica y documental por un <b>Tribunal Calificador</b> asignado por la institución.</p>
                             <ul style="color: #e0e0e0; margin-top: 15px; margin-left: 20px; font-size: 1.1rem; line-height: 1.6;">
-                                <li>Equivale al <b>60% de la nota final</b>.</li>
+                                <li>Equivale al <b>80% de la nota final</b>.</li>
                                 <li>Calificación máxima de 100 puntos.</li>
                                 <li>Requiere un mínimo de <b style="color: #dc3545;">51 pts ponderados</b> para aprobar y clasificar a la feria en vivo.</li>
                             </ul>
@@ -276,8 +290,8 @@
                             <h3>Etapa 2: Defensa Pública</h3>
                             <p>Los proyectos pre-seleccionados se exponen presencialmente en los stands de la Tecno Feria, sometiéndose a la votación de la comunidad.</p>
                             <ul style="color: #e0e0e0; margin-top: 15px; margin-left: 20px; font-size: 1.1rem; line-height: 1.6;">
-                                <li>Equivale al <b>40% de la nota final</b>.</li>
-                                <li>Los visitantes emiten estrellas (del 1 al 10) escaneando el código QR único del stand.</li>
+                                <li>Equivale al <b>20% de la nota final</b>.</li>
+                                <li>Los visitantes califican 4 criterios sobre 100 puntos en total escaneando el código QR único del stand.</li>
                             </ul>
                         </div>
                     </div>
@@ -374,12 +388,12 @@
         
         <section id="votar-proyecto" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--azul-secundario); z-index: 999999; overflow-y: auto;">
             <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
-                <div class="form-card" style="background: white; padding: 35px 25px; border-radius: 12px; border-top: 6px solid var(--rojo-uab); width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center;">
-                    <h3 style="color: var(--azul-uab); margin-top: 0; font-size: 1.5rem; margin-bottom: 5px; border-bottom: none;"><i class="fas fa-mobile-alt" style="color: var(--rojo-uab);"></i> Votación Oficial</h3>
-                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 20px;">Has escaneado el código QR del proyecto:</p>
+                <div class="form-card" style="background: rgba(25, 40, 60, 0.95); padding: 35px 25px; border-radius: 12px; border-top: 6px solid var(--rojo-uab); width: 100%; max-width: 500px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center;">
+                    <h3 style="color: #ffffff; margin-top: 0; font-size: 1.5rem; margin-bottom: 5px; border-bottom: none;"><i class="fas fa-mobile-alt" style="color: var(--rojo-uab);"></i> Votación Oficial</h3>
+                    <p style="color: #e0e0e0; font-size: 0.9rem; margin-bottom: 20px;">Has escaneado el código QR del proyecto:</p>
                     
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #eee;">
-                        <strong id="votar-titulo" style="color: var(--azul-uab); font-size: 1.15rem; line-height: 1.4;">Cargando proyecto...</strong>
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px solid rgba(255, 255, 255, 0.2);">
+                        <strong id="votar-titulo" style="color: #4db8ff; font-size: 1.15rem; line-height: 1.4;">Cargando proyecto...</strong>
                     </div>
                     
                     <form id="form-votacion" onsubmit="window.enviarCalificacion(event)">
@@ -387,32 +401,45 @@
                         <input type="hidden" id="voto-cat">
                         
                         <div style="text-align: left; margin-bottom: 25px;">
-                            <label style="display: block; color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Carnet de Identidad (CI)</label>
+                            <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Carnet de Identidad (CI)</label>
                             <div style="position: relative;">
-                                <i class="far fa-id-card" style="position: absolute; left: 15px; top: 15px; color: #888;"></i>
-                                <input type="number" id="voto-ci" placeholder="Ej. 1234567" required min="1" oninput="window.simularVerificacionCI()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid #ccc; border-radius: 8px; font-size: 1.05rem; background: #fff; color: #333; outline: none; transition: 0.3s;">
+                                <i class="far fa-id-card" style="position: absolute; left: 15px; top: 15px; color: #a0aec0;"></i>
+                                <input type="number" id="voto-ci" placeholder="Ej. 1234567" required min="1" oninput="window.simularVerificacionCI()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1.05rem; background: rgba(0, 0, 0, 0.2); color: #ffffff; outline: none; transition: 0.3s;">
                             </div>
                             <div id="mensaje-validacion-ci" style="font-size: 0.85rem; margin-top: 8px; font-weight: bold; min-height: 20px;"></div>
                         </div>
                         
                         <div style="text-align: center; margin-bottom: 25px;">
-                            <label style="display: block; color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 10px;">Calificación del Proyecto</label>
-                            <div id="star-rating-container" style="display: flex; justify-content: center; gap: 10px; font-size: 2.2rem; cursor: pointer; margin-bottom: 8px;">
-                                <i class="fas fa-star star-btn" id="star-1" onclick="window.calificarConEstrellas(1)" style="color: #ddd; transition: 0.2s;"></i>
-                                <i class="fas fa-star star-btn" id="star-2" onclick="window.calificarConEstrellas(2)" style="color: #ddd; transition: 0.2s;"></i>
-                                <i class="fas fa-star star-btn" id="star-3" onclick="window.calificarConEstrellas(3)" style="color: #ddd; transition: 0.2s;"></i>
-                                <i class="fas fa-star star-btn" id="star-4" onclick="window.calificarConEstrellas(4)" style="color: #ddd; transition: 0.2s;"></i>
-                                <i class="fas fa-star star-btn" id="star-5" onclick="window.calificarConEstrellas(5)" style="color: #ddd; transition: 0.2s;"></i>
+                            <label style="display: block; color: #ffffff; font-size: 1rem; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid var(--rojo-uab); padding-bottom:5px;">Calificación del Proyecto (20% de Nota Final)</label>
+                            
+                            <div style="text-align: left; background: rgba(0, 0, 0, 0.25); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">1. Claridad de la explicación (Máx 25)</label>
+                                    <input type="text" inputmode="numeric" class="pub-nota" max="25" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarPublico(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">2. Utilidad e impacto percibido (Máx 25)</label>
+                                    <input type="text" inputmode="numeric" class="pub-nota" max="25" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarPublico(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">3. Innovación percibida (Máx 25)</label>
+                                    <input type="text" inputmode="numeric" class="pub-nota" max="25" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarPublico(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">4. Atractivo del stand y demo (Máx 25)</label>
+                                    <input type="text" inputmode="numeric" class="pub-nota" max="25" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarPublico(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 2px solid rgba(255, 255, 255, 0.2); padding-top: 15px;">
+                                    <label style="margin:0; font-size:1.1rem; font-weight:bold; color:#4db8ff;">PUNTAJE TOTAL:</label>
+                                    <input type="text" id="voto-puntaje" readonly required style="width: 80px; padding: 10px; background: rgba(0, 43, 92, 0.6); border: 2px solid #4db8ff; border-radius: 4px; text-align:center; font-weight:bold; font-size:1.1rem; color: #4db8ff;">
+                                </div>
                             </div>
-                            <div id="texto-puntuacion" style="font-size: 0.95rem; font-weight: bold; color: #666; min-height: 24px;">Selecciona las estrellas</div>
-                            <input type="hidden" id="voto-puntaje" required>
                         </div>
                         
-                        <!-- Botón Confirmar -->
                         <button type="submit" id="btnEnviarVoto" disabled style="width: 100%; padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: not-allowed; margin-bottom: 15px; opacity: 0.5; transition: 0.3s;">Confirmar Voto</button>
                         
-                        <!-- Botón Volver (Limpiando Memoria) -->
-                        <button type="button" onclick="localStorage.clear(); window.location.href = window.location.pathname;" style="width: 100%; padding: 12px; background: white; color: #555; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-arrow-left"></i> Cancelar y Salir</button>
+                        <button type="button" onclick="localStorage.clear(); window.location.href = window.location.pathname;" style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-arrow-left"></i> Cancelar y Salir</button>
                     </form>
                 </div>
             </div>
@@ -441,11 +468,19 @@
                             </div>
                         </div>
                         
+                        <div style="text-align: left; margin-bottom: 20px;">
+                            <label style="display: block; color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Número de Celular</label>
+                            <div style="position: relative;">
+                                <i class="fas fa-phone" style="position: absolute; left: 15px; top: 15px; color: #888;"></i>
+                                <input type="tel" id="hab-celular" placeholder="Ej. 71234567" required style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1.05rem; background: #fff; color: #333; outline: none; transition: 0.3s;">
+                            </div>
+                        </div>
+
                         <div style="text-align: left; margin-bottom: 30px;">
                             <label style="display: block; color: #333; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Institución (Colegio/Universidad)</label>
                             <div style="position: relative; margin-bottom: 8px;">
                                 <i class="fas fa-university" style="position: absolute; left: 15px; top: 15px; color: #888; z-index: 10;"></i>
-                                <select id="hab-institucion" required onchange="window.toggleOtro(this, 'caja-hab-otro', 'hab-institucion-otro')" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1.05rem; background: #fff; color: #333; cursor: pointer; appearance: none; transition: 0.3s; outline: none;">
+                                <select id="hab-institucion" required onchange="window.toggleOtro(this, 'caja-hab-otro', 'hab-institucion-otro')" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 0.95rem; background: #fff; color: #333; cursor: pointer; appearance: none; transition: 0.3s; outline: none;">
                                     <option value="" disabled selected>Cargando instituciones...</option>
                                 </select>
                                 <i class="fas fa-chevron-down" style="position: absolute; right: 15px; top: 18px; color: #888; pointer-events: none;"></i>
@@ -473,7 +508,7 @@
                     <button class="tab-btn" onclick="openTab(event, 'tab-admin-visitantes')">Habilitar Visitante</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-visitantes'); window.cargarVotosPublico()">Votos del Público</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-votos-tribunal'); window.cargarVotosTribunal()">Votos del Tribunal</button>
-                    <button class="tab-btn" onclick="openTab(event, 'tab-fechas'); window.cargarFechasActuales()">Fechas</button>
+                    <button class="tab-btn" onclick="openTab(event, 'tab-fechas'); window.cargarFechasActuales()">Configuraciones</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-instituciones'); window.cargarTablaInstituciones()">Instituciones</button>
                 </div>
                 <div class="admin-layout">
@@ -555,6 +590,7 @@
                                         <p style="color: #94a3b8; font-size: 12px; margin: 0;">Seleccione una categoría para cargar los proyectos...</p>
                                     </div>
                                     <div class="form-group"><label>Correo Electrónico</label><input type="email" id="tribCorreo" placeholder="ejemplo@correo.com" required></div>
+                                    <div class="form-group"><label>Número de Celular</label><input type="tel" id="tribCelular" placeholder="Ej. 71234567" required></div>
                                     <div class="form-group"><label>Usuario Asignado</label><input type="text" id="tribUsuario" placeholder="ej. tribunal_1" oninput="this.value = this.value.toLowerCase().replace(/\s/g, '')" required></div>
                                     <div class="form-group"><label>Contraseña Temporal</label><input type="text" id="tribPass" placeholder="Mínimo 6 caracteres" minlength="6" required></div>
                                     <button type="submit" id="btnGuardarTribunal" class="btn-save"><i class="fas fa-user-shield"></i> Registrar y Enviar Credenciales</button>
@@ -599,6 +635,7 @@
                                 <form id="form-admin-habilitacion" onsubmit="registrarVisitanteBD(event)">
                                     <div class="form-group"><label>Carnet de Identidad (CI)</label><input type="number" id="admin-hab-ci" placeholder="Ej. 1234567" required min="1"></div>
                                     <div class="form-group"><label>Nombre Completo</label><input type="text" id="admin-hab-nombre" placeholder="Ej. Ana López" required></div>
+                                    <div class="form-group"><label>Número de Celular</label><input type="tel" id="admin-hab-celular" placeholder="Ej. 71234567" required></div>
                                     <div class="form-group">
                                         <label>Institución (Colegio/Universidad)</label>
                                         <select id="admin-hab-institucion" required onchange="window.toggleOtro(this, 'caja-admin-hab-otro', 'admin-hab-institucion-otro')">
@@ -643,24 +680,52 @@
                                 </div>
                             </div>
                         </div>
+
                         <div id="tab-fechas" class="tab-content section-animate" style="display: none;">
                             <div class="form-card">
-                                <h3 style="color: var(--azul-uab); margin-bottom: 20px;"><i class="fas fa-calendar-alt"></i> Configuración Global de Fechas</h3>
-                                <p style="color: #666; margin-bottom: 25px; font-size: 0.9rem;">Modifique los plazos límite. Los cambios afectarán inmediatamente a todos los usuarios del sistema.</p>
-                                <div class="form-group">
-                                    <label>Cierre de Registro de Expositores:</label>
-                                    <input type="datetime-local" id="confFechaRegistro" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                <h3 style="color: var(--azul-uab); margin-bottom: 20px;"><i class="fas fa-cogs"></i> Configuración Global del Sistema</h3>
+                                <p style="color: #666; margin-bottom: 25px; font-size: 0.9rem;">Modifique los plazos y parámetros de seguridad. Los cambios afectarán inmediatamente al sistema.</p>
+                                
+                                <h4 style="color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 2px solid #ccc; padding-bottom: 5px;"><i class="fas fa-calendar-alt"></i> Límites de Tiempo</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                    <div class="form-group">
+                                        <label>Cierre de Registro de Expositores:</label>
+                                        <input type="datetime-local" id="confFechaRegistro" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Cierre de Subida de Proyectos:</label>
+                                        <input type="datetime-local" id="confFechaSubida" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                    </div>
                                 </div>
-                                <div class="form-group">
-                                    <label>Cierre de Subida / Modificación de Proyectos:</label>
-                                    <input type="datetime-local" id="confFechaSubida" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                                    <div class="form-group">
+                                        <label>Apertura Oficial de Resultados:</label>
+                                        <input type="datetime-local" id="confFechaResultados" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label style="color: var(--rojo-uab); font-weight: bold;">Cierre de Votación del Público (Etapa 2):</label>
+                                        <input type="datetime-local" id="confFechaCierreVotacion" required style="padding: 10px; border-radius: 5px; width: 100%; border: 2px solid var(--rojo-uab); font-family: inherit;">
+                                    </div>
                                 </div>
-                                <div class="form-group" style="margin-bottom: 30px;">
-                                    <label>Apertura Oficial de Resultados (Ranking del Público):</label>
-                                    <input type="datetime-local" id="confFechaResultados" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+
+                                <h4 style="color: #333; margin-top: 20px; margin-bottom: 15px; border-bottom: 2px solid #ccc; padding-bottom: 5px;"><i class="fas fa-map-marker-alt"></i> Seguridad Anti-Fraude (GPS Público)</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+                                    <div class="form-group">
+                                        <label>Latitud de la Feria:</label>
+                                        <input type="text" id="confGpsLat" placeholder="Ej. -14.833917" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Longitud de la Feria:</label>
+                                        <input type="text" id="confGpsLon" placeholder="Ej. -64.899652" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Radio Permitido (metros):</label>
+                                        <input type="number" id="confGpsRadio" placeholder="Ej. 5000" min="10" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                    </div>
                                 </div>
+
                                 <button onclick="window.guardarNuevasFechas()" class="btn-save" style="background-color: #28a745;">
-                                    <i class="fas fa-save"></i> Guardar Nuevas Fechas
+                                    <i class="fas fa-save"></i> Guardar Configuraciones
                                 </button>
                             </div>
                         </div>
@@ -696,6 +761,7 @@
                                     <div class="form-group"><label>Carnet de Identidad (CI)</label><input type="text" id="adminNewCI" placeholder="Ej. 1234567" required></div>
                                     <div class="form-group"><label>Nombre Completo</label><input type="text" id="adminNewNombre" placeholder="Ing. Nombre Apellido" required></div>
                                     <div class="form-group"><label>Correo Electrónico</label><input type="email" id="adminNewCorreo" placeholder="ejemplo@correo.com" required></div>
+                                    <div class="form-group"><label>Número de Celular</label><input type="tel" id="adminNewCelular" placeholder="Ej. 71234567" required></div>
                                     <div class="form-group"><label>Contraseña Asignada</label><input type="text" id="adminNewPass" placeholder="Mínimo 6 caracteres" minlength="6" required></div>
                                     <button type="submit" id="btnGuardarAdmin" class="btn-save" style="background-color: #002b5c;"><i class="fas fa-save"></i> Crear Administrador y Habilitar</button>
                                 </form>
@@ -710,7 +776,8 @@
                 <div class="header-module text-center"><h2><i class="fas fa-clipboard-check"></i>Evaluación Técnica</h2></div>
                 <div class="eval-layout single-column">
                     <div id="panel-tribunal" class="form-card eval-card tribunal-card">
-                        <div class="eval-header"><h3>Evaluación Tribunal (60% de Nota Final)</h3></div>
+                        
+                        <div class="eval-header"><h3 style="color: var(--azul-uab); margin-bottom: 10px;">Evaluación Tribunal (80% de Nota Final)</h3></div>
                         <form id="form-evaluacion-tribunal" class="eval-form" onsubmit="window.guardarEvaluacionTribunal(event)">
                             <div class="form-group">
                                 <label>Seleccionar Proyecto a Evaluar</label>
@@ -722,7 +789,40 @@
                                     <i class="fas fa-eye"></i> Ver Documento Técnico
                                 </a>
                             </div>
-                            <div class="form-group"><label>Puntaje Técnico (1-100)</label><input type="number" id="eval-nota" min="0" max="100" placeholder="Ej. 85" required></div>
+
+                            <div style="background: rgba(0, 0, 0, 0.25); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
+                                <h4 style="margin-top:0; color: #ffffff; font-size:1.1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom:5px; margin-bottom: 15px;">Rúbrica Oficial</h4>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">1. Pertinencia y alineación (Máx 15)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">2. Innovación y creatividad (Máx 15)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">3. Calidad técnica (Máx 20)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="20" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">4. Funcionalidad y demostración (Máx 20)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="20" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">5. Impacto (Máx 15)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">6. Presentación y dominio (Máx 15)</label>
+                                    <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
+                                </div>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 2px solid rgba(255, 255, 255, 0.2); padding-top: 15px;">
+                                    <label style="margin:0; font-size:1.1rem; font-weight:bold; color:#ff6b6b;">PUNTAJE OBTENIDO (100):</label>
+                                    <input type="text" id="eval-nota" readonly required style="width: 80px; padding: 10px; background: rgba(220, 53, 69, 0.3); border: 2px solid #ff6b6b; border-radius: 4px; text-align:center; font-weight:bold; font-size:1.1rem; color: #ffffff;">
+                                </div>
+                            </div>
+
                             <div class="form-group"><label>Observaciones o Retroalimentación</label><input type="text" id="eval-obs" placeholder="Escriba aquí los comentarios..."></div>
                             <button type="submit" class="btn-save btn-tribunal">Enviar Calificación Oficial</button>
                         </form>
@@ -747,7 +847,7 @@
                                 <div class="dash-header-verde">Top Proyectos - Estudiantes</div>
                                 <div class="scroll-dash-tabla">
                                     <table class="dash-tabla">
-                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota</th></tr></thead>
+                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota Final</th></tr></thead>
                                         <tbody id="top-estudiantes"></tbody>
                                     </table>
                                 </div>
@@ -767,7 +867,7 @@
                                 <div class="dash-header-verde">Top Proyectos - Docentes</div>
                                 <div class="scroll-dash-tabla">
                                     <table class="dash-tabla">
-                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota</th></tr></thead>
+                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota Final</th></tr></thead>
                                         <tbody id="top-docentes"></tbody>
                                     </table>
                                 </div>
@@ -787,7 +887,7 @@
                                 <div class="dash-header-verde">Top Proyectos - Emprendimientos</div>
                                 <div class="scroll-dash-tabla">
                                     <table class="dash-tabla">
-                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota</th></tr></thead>
+                                        <thead><tr><th>Proyecto</th><th style="text-align: center;">Nota Final</th></tr></thead>
                                         <tbody id="top-emprendimientos"></tbody>
                                     </table>
                                 </div>
@@ -806,7 +906,7 @@
                         <h4 style="color: var(--azul-uab); margin-top: 15px; margin-bottom: 10px;"><i class="fas fa-user-graduate"></i> Ranking Estudiantes</h4>
                         <div class="scroll-tabla-proyectos" style="margin-bottom: 30px;">
                             <table class="ranking-table" style="width: 100%;">
-                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal</th><th style="width: 15%;">Público</th><th style="width: 20%;">Nota Final</th></tr></thead>
+                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal (80%)</th><th style="width: 15%;">Público (20%)</th><th style="width: 20%;">Nota Final</th></tr></thead>
                                 <tbody id="ranking-estudiantes"></tbody>
                             </table>
                         </div>
@@ -815,7 +915,7 @@
                         <h4 style="color: var(--azul-uab); margin-top: 15px; margin-bottom: 10px;"><i class="fas fa-chalkboard-teacher"></i> Ranking Docentes</h4>
                         <div class="scroll-tabla-proyectos" style="margin-bottom: 30px;">
                             <table class="ranking-table" style="width: 100%;">
-                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal</th><th style="width: 15%;">Público</th><th style="width: 20%;">Nota Final</th></tr></thead>
+                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal (80%)</th><th style="width: 15%;">Público (20%)</th><th style="width: 20%;">Nota Final</th></tr></thead>
                                 <tbody id="ranking-docentes"></tbody>
                             </table>
                         </div>
@@ -824,7 +924,7 @@
                         <h4 style="color: var(--azul-uab); margin-top: 15px; margin-bottom: 10px;"><i class="fas fa-lightbulb"></i> Ranking Emprendimientos</h4>
                         <div class="scroll-tabla-proyectos" style="margin-bottom: 30px;">
                             <table class="ranking-table" style="width: 100%;">
-                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal</th><th style="width: 15%;">Público</th><th style="width: 20%;">Nota Final</th></tr></thead>
+                                <thead><tr><th style="text-align: center; width: 10%;">Lugar</th><th style="width: 40%;">Proyecto</th><th style="width: 15%;">Tribunal (80%)</th><th style="width: 15%;">Público (20%)</th><th style="width: 20%;">Nota Final</th></tr></thead>
                                 <tbody id="ranking-emprendimientos"></tbody>
                             </table>
                         </div>
@@ -862,18 +962,25 @@
         </section>
     </div>
     
-    <script src="core/utils.js?v=FERIA_V23"></script>
-    <script src="core/router.js?v=FERIA_V23"></script>
-    <script src="features/auth/auth.js?v=FERIA_V23"></script>
-    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V24"></script>
-    <script src="features/admin/admin.js?v=FERIA_V23"></script>
-    <script src="features/votacion/votacion.js?v=FERIA_V23"></script>
-    <script src="features/habilitacion/habilitacion.js?v=FERIA_V23"></script>
-    <script src="features/registro/registro.js?v=FERIA_V23"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V23"></script>
-    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V23"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V23"></script>
-    <script src="features/resultados/resultados.js?v=FERIA_V23"></script>
-    <script src="features/informes/informes.js?v=FERIA_V23"></script>
+    <script type="text/javascript">
+        (function(){
+            if(typeof emailjs !== 'undefined'){
+                emailjs.init({ publicKey: "njcIu3KNPNiVrfy9f" });
+            }
+        })();
+    </script>
+    <script src="core/utils.js?v=FERIA_V43"></script>
+    <script src="core/router.js?v=FERIA_V43"></script>
+    <script src="features/auth/auth.js?v=FERIA_V43"></script>
+    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V43"></script>
+    <script src="features/admin/admin.js?v=FERIA_V43"></script>
+    <script src="features/votacion/votacion.js?v=FERIA_V43"></script>
+    <script src="features/habilitacion/habilitacion.js?v=FERIA_V43"></script>
+    <script src="features/registro/registro.js?v=FERIA_V43"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V43"></script>
+    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V43"></script> 
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V43"></script>
+    <script src="features/resultados/resultados.js?v=FERIA_V43"></script>
+    <script src="features/informes/informes.js?v=FERIA_V43"></script>
 </body>
 </html>

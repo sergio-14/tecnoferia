@@ -5,21 +5,23 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    //  ESCUDO: Bloquear números en las cajas de Nombre
-    const bloquearNumeros = function() {
-        this.value = this.value.replace(/[0-9]/g, '');
-    };
+    const bloquearNumeros = function() { this.value = this.value.replace(/[0-9]/g, ''); };
+    const soloNumeros = function() { this.value = this.value.replace(/[^0-9]/g, ''); };
 
     const inputPreNombre = document.getElementById('preNombre');
     const inputHabNombre = document.getElementById('hab-nombre');
-    const inputAdminHabNombre = document.getElementById('admin-hab-nombre'); // 🔥 NUEVO ADMIN
+    const inputAdminHabNombre = document.getElementById('admin-hab-nombre');
     
     if (inputPreNombre) inputPreNombre.addEventListener('input', bloquearNumeros);
     if (inputHabNombre) inputHabNombre.addEventListener('input', bloquearNumeros);
     if (inputAdminHabNombre) inputAdminHabNombre.addEventListener('input', bloquearNumeros);
 
-    //ESCUCHADOR CI: Auto-llenado de Expositores
-    const configurarEscuchadorCI = (idCI, idNombre, idSelectInst, idDivOtro, idInputOtro) => {
+    if (document.getElementById('preCelular')) document.getElementById('preCelular').addEventListener('input', soloNumeros);
+    if (document.getElementById('hab-celular')) document.getElementById('hab-celular').addEventListener('input', soloNumeros);
+    if (document.getElementById('admin-hab-celular')) document.getElementById('admin-hab-celular').addEventListener('input', soloNumeros);
+
+    //  FIX: Añadimos idCelular a la configuración del escuchador 
+    const configurarEscuchadorCI = (idCI, idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro) => {
         const inputCI = document.getElementById(idCI);
         if (inputCI) {
             inputCI.addEventListener('input', async function() {
@@ -27,21 +29,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ci = this.value.trim();
                 
                 if (ci.length >= 4) { 
-                    await window.verificarYAutoLlenarExpositor(ci, idNombre, idSelectInst, idDivOtro, idInputOtro);
+                    await window.verificarYAutoLlenarExpositor(ci, idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
                 } else {
-                    window.limpiarSiEstabaAutollenado(idNombre, idSelectInst, idDivOtro, idInputOtro);
+                    window.limpiarSiEstabaAutollenado(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
                 }
             });
         }
     };
 
-    // Conectamos los formularios
-    configurarEscuchadorCI('preCI', 'preNombre', 'preInst', 'caja-pre-otro', 'preInstOtro');
-    configurarEscuchadorCI('hab-ci', 'hab-nombre', 'hab-institucion', 'caja-hab-otro', 'hab-institucion-otro');
-    configurarEscuchadorCI('admin-hab-ci', 'admin-hab-nombre', 'admin-hab-institucion', 'caja-admin-hab-otro', 'admin-hab-institucion-otro'); // 🔥 NUEVO ADMIN
+    configurarEscuchadorCI('preCI', 'preNombre', 'preCelular', 'preInst', 'caja-pre-otro', 'preInstOtro');
+    configurarEscuchadorCI('hab-ci', 'hab-nombre', 'hab-celular', 'hab-institucion', 'caja-hab-otro', 'hab-institucion-otro');
+    configurarEscuchadorCI('admin-hab-ci', 'admin-hab-nombre', 'admin-hab-celular', 'admin-hab-institucion', 'caja-admin-hab-otro', 'admin-hab-institucion-otro'); 
 });
 
-//  Función que oculta o muestra la caja de escribir manualmente
 window.toggleOtro = function(selectElement, divOtroId, inputOtroId) {
     const divOtro = document.getElementById(divOtroId);
     const inputOtro = document.getElementById(inputOtroId);
@@ -57,9 +57,10 @@ window.toggleOtro = function(selectElement, divOtroId, inputOtroId) {
     }
 };
 
-// Función global que busca al expositor en PostgreSQL usando el puente de Usuarios
-window.verificarYAutoLlenarExpositor = async function(ci, idNombre, idSelectInst, idDivOtro, idInputOtro) {
+//  FIX: Función actualizada para jalar e inyectar el número de celular 
+window.verificarYAutoLlenarExpositor = async function(ci, idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro) {
     const inputNombre = document.getElementById(idNombre);
+    const inputCelular = document.getElementById(idCelular);
     const selectInst = document.getElementById(idSelectInst);
     const divOtro = document.getElementById(idDivOtro);
     const inputOtro = document.getElementById(idInputOtro);
@@ -72,10 +73,11 @@ window.verificarYAutoLlenarExpositor = async function(ci, idNombre, idSelectInst
         if (respuesta.ok) {
             const data = await respuesta.json();
             
-            if (data.rol === "EXPOSITOR") {
-                const datosExpositor = data.datos;
-                const nombreCompleto = datosExpositor.nombre_completo || "";
-                const institucionReal = datosExpositor.institucion || "Estudiante UABJB - Ing. de Sistemas";
+            if (data.rol) {
+                const datosUsuario = data.datos;
+                const nombreCompleto = datosUsuario.nombre_completo || "";
+                const institucionReal = datosUsuario.institucion || (data.rol === "EXPOSITOR" ? "Estudiante UABJB - Ing. de Sistemas" : "No registrada");
+                const celularReal = datosUsuario.celular || "";
 
                 selectInst.style.display = "none";
                 selectInst.removeAttribute("required");
@@ -87,6 +89,14 @@ window.verificarYAutoLlenarExpositor = async function(ci, idNombre, idSelectInst
                 inputNombre.value = nombreCompleto;
                 inputNombre.disabled = true;
                 
+                // Si el usuario tiene celular registrado en la BD, lo inyectamos y bloqueamos
+                if (inputCelular && celularReal !== "") {
+                    inputCelular.value = celularReal;
+                    inputCelular.disabled = true;
+                    inputCelular.setAttribute("data-autofilled", "true");
+                    inputCelular.style.backgroundColor = "#e2e3e5";
+                }
+                
                 inputNombre.setAttribute("data-autofilled", "true");
                 inputOtro.setAttribute("data-autofilled", "true");
                 
@@ -94,19 +104,20 @@ window.verificarYAutoLlenarExpositor = async function(ci, idNombre, idSelectInst
                 inputOtro.style.backgroundColor = "#e2e3e5";
                 inputOtro.style.color = "#333";
             } else {
-                window.limpiarSiEstabaAutollenado(idNombre, idSelectInst, idDivOtro, idInputOtro);
+                window.limpiarSiEstabaAutollenado(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
             }
         } else {
-            window.limpiarSiEstabaAutollenado(idNombre, idSelectInst, idDivOtro, idInputOtro);
+            window.limpiarSiEstabaAutollenado(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
         }
     } catch (error) {
-        console.error("Error al consultar expositores en PostgreSQL:", error);
-        window.limpiarSiEstabaAutollenado(idNombre, idSelectInst, idDivOtro, idInputOtro);
+        console.error("Error al consultar BD:", error);
+        window.limpiarSiEstabaAutollenado(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
     }
 };
 
-window.limpiarSiEstabaAutollenado = function(idNombre, idSelectInst, idDivOtro, idInputOtro) {
+window.limpiarSiEstabaAutollenado = function(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro) {
     const inputNombre = document.getElementById(idNombre);
+    const inputCelular = document.getElementById(idCelular);
     const selectInst = document.getElementById(idSelectInst);
     const divOtro = document.getElementById(idDivOtro);
     const inputOtro = document.getElementById(idInputOtro);
@@ -118,6 +129,14 @@ window.limpiarSiEstabaAutollenado = function(idNombre, idSelectInst, idDivOtro, 
         inputNombre.disabled = false;
         inputNombre.removeAttribute("data-autofilled");
         inputNombre.style.backgroundColor = (idNombre === 'admin-hab-nombre') ? "#fff" : "#f9f9f9";
+
+        // Limpiar también el celular
+        if (inputCelular) {
+            inputCelular.value = "";
+            inputCelular.disabled = false;
+            inputCelular.removeAttribute("data-autofilled");
+            inputCelular.style.backgroundColor = (idNombre === 'admin-hab-nombre') ? "#fff" : "#f9f9f9";
+        }
 
         selectInst.style.display = "block";
         selectInst.value = ""; 
@@ -138,33 +157,34 @@ window.limpiarSiEstabaAutollenado = function(idNombre, idSelectInst, idDivOtro, 
     }
 };
 
-// ====================================================================
-// Procesar el envío del formulario de VISITANTES (Multiformulario)
-// ====================================================================
 window.registrarVisitanteBD = async function(e) {
     e.preventDefault();
     
-    let idCI, idNombre, idSelectInst, idInputOtro, idBtn, idDivOtro;
+    let idCI, idNombre, idSelectInst, idInputOtro, idBtn, idDivOtro, idCelular;
 
-    //  MAGIA DE ENRUTAMIENTO: Detectamos qué formulario se envió
     if (e.target.id === "form-habilitacion") {
         idCI = 'hab-ci'; idNombre = 'hab-nombre'; idSelectInst = 'hab-institucion';
         idInputOtro = 'hab-institucion-otro'; idBtn = 'btnHabilitar'; idDivOtro = 'caja-hab-otro';
+        idCelular = 'hab-celular';
     } else if (e.target.id === "form-admin-habilitacion") {
         idCI = 'admin-hab-ci'; idNombre = 'admin-hab-nombre'; idSelectInst = 'admin-hab-institucion';
         idInputOtro = 'admin-hab-institucion-otro'; idBtn = 'btnAdminHabilitar'; idDivOtro = 'caja-admin-hab-otro';
+        idCelular = 'admin-hab-celular';
     } else {
         idCI = 'preCI'; idNombre = 'preNombre'; idSelectInst = 'preInst';
         idInputOtro = 'preInstOtro'; idBtn = null; idDivOtro = 'caja-pre-otro';
+        idCelular = 'preCelular';
     }
 
     const inputNombre = document.getElementById(idNombre);
     const selectInst = document.getElementById(idSelectInst);
     const inputOtro = document.getElementById(idInputOtro);
     const inputCI = document.getElementById(idCI);
+    const inputCelular = document.getElementById(idCelular);
 
     const ciValue = inputCI.value.trim();
     let nombreValue = inputNombre.value.trim();
+    const celularValue = inputCelular ? inputCelular.value.trim() : "";
     let instValue = "";
     
     if (selectInst.style.display === "none" || selectInst.value === "OTRO") {
@@ -196,7 +216,8 @@ window.registrarVisitanteBD = async function(e) {
             body: JSON.stringify({
                 ci: ciValue,
                 nombreCompleto: nombreValue,
-                institucion: instValue
+                institucion: instValue,
+                celular: celularValue
             })
         });
 
@@ -208,14 +229,13 @@ window.registrarVisitanteBD = async function(e) {
             btn.disabled = false;
             
             e.target.reset();
-            window.limpiarSiEstabaAutollenado(idNombre, idSelectInst, idDivOtro, idInputOtro);
+            window.limpiarSiEstabaAutollenado(idNombre, idCelular, idSelectInst, idDivOtro, idInputOtro);
             inputCI.focus();
             return; 
         }
 
         alert(datos.mensaje);
         
-        // Limpiamos todo para el siguiente visitante (Modo Kiosco / Modo Venta Múltiple)
         e.target.reset(); 
         
         selectInst.style.display = "block";
@@ -227,6 +247,12 @@ window.registrarVisitanteBD = async function(e) {
         inputNombre.disabled = false;
         inputNombre.removeAttribute("data-autofilled");
         inputNombre.style.backgroundColor = (idNombre === 'admin-hab-nombre') ? "#fff" : "#f9f9f9";
+
+        if (inputCelular) {
+            inputCelular.disabled = false;
+            inputCelular.removeAttribute("data-autofilled");
+            inputCelular.style.backgroundColor = (idNombre === 'admin-hab-nombre') ? "#fff" : "#f9f9f9";
+        }
 
         inputOtro.disabled = false;
         inputOtro.removeAttribute("required");

@@ -11,7 +11,16 @@ window.calcularResultadosEnTiempoReal = async function() {
         const resConf = await fetch('/api/configuraciones');
         const conf = await resConf.json();
         
-        const fechaResultados = new Date(conf.fecha_resultados);
+        // 🔥 FIX FRONTEND: Armando la fecha manualmente 🔥
+        let fechaResultados = new Date(NaN);
+        const resStr = conf.fecha_resultados;
+        if (resStr) {
+            const [dPart, tPart] = resStr.split('T');
+            const [yy, mm, dd] = dPart.split('-');
+            const [hh, mns, ss] = tPart.split(':');
+            fechaResultados = new Date(yy, mm - 1, dd, hh, mns, ss);
+        }
+
         const ahora = new Date();
         const rolActual = localStorage.getItem("feria_rol") || "";
 
@@ -73,12 +82,10 @@ window.calcularResultadosEnTiempoReal = async function() {
 
 window.renderizarTablasRanking = async function() {
     try {
-        //  Envía el CI al servidor para demostrar si somos administradores o público
         const ciFeria = localStorage.getItem("feria_ci") || "publico";
         const respuesta = await fetch(`/api/resultados?ci=${ciFeria}`);
         const data = await respuesta.json();
 
-        //  Si el servidor nos mandó a volar porque no es la fecha y no somos admin, cortamos el código aquí.
         if (data.error) {
             console.warn(data.error);
             return;
@@ -173,7 +180,7 @@ window.renderizarTablasRanking = async function() {
             arreglo.forEach((proy, index) => {
                 const medallaHTML = index === 0 ? '<i class="fas fa-trophy" style="color: #FFD700; font-size: 1.5rem;"></i>' : index === 1 ? '<i class="fas fa-trophy" style="color: #C0C0C0; font-size: 1.5rem;"></i>' : index === 2 ? '<i class="fas fa-trophy" style="color: #CD7F32; font-size: 1.5rem;"></i>' : `<b>${index + 1}º</b>`;
                 if (index < 3) tbTop.innerHTML += `<tr><td><div style="display:flex; align-items:center; gap:10px;">${medallaHTML} <span>${proy.titulo}</span></div></td><td style="text-align:center; font-weight:bold; font-size:1.1rem; color:#4db8ff;">${proy.nota_final.toFixed(2)}</td></tr>`;
-                tbRank.innerHTML += `<tr><td style="text-align:center;">${medallaHTML}</td><td>${proy.titulo}</td><td style="text-align:center;">${proy.tribunal_60.toFixed(2)}</td><td style="text-align:center;">${proy.publico_40.toFixed(2)}</td><td style="text-align:center; font-weight:bold; color:var(--rojo-uab); font-size:1.1rem;">${proy.nota_final.toFixed(2)}</td></tr>`;
+                tbRank.innerHTML += `<tr><td style="text-align:center;">${medallaHTML}</td><td>${proy.titulo}</td><td style="text-align:center;">${proy.tribunal_80.toFixed(2)}</td><td style="text-align:center;">${proy.publico_20.toFixed(2)}</td><td style="text-align:center; font-weight:bold; color:var(--rojo-uab); font-size:1.1rem;">${proy.nota_final.toFixed(2)}</td></tr>`;
             });
         };
 

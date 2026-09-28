@@ -13,9 +13,11 @@ window.cargarProyectosAdmin = async function() {
         const respuesta = await fetch('/api/proyectos_admin');
         const proyectosBD = await respuesta.json();
 
-        const est = proyectosBD.filter(p => p.categoria.includes('estudiante'));
-        const doc = proyectosBD.filter(p => p.categoria.includes('docente'));
-        const emp = proyectosBD.filter(p => p.categoria.includes('emprendimiento'));
+        const proyectosActivos = proyectosBD.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+
+        const est = proyectosActivos.filter(p => p.categoria.includes('estudiante'));
+        const doc = proyectosActivos.filter(p => p.categoria.includes('docente'));
+        const emp = proyectosActivos.filter(p => p.categoria.includes('emprendimiento'));
 
         renderizarTablaSQL(est, 'tabla-estudiantes', 'proyectos_estudiantes');
         renderizarTablaSQL(doc, 'tabla-docentes', 'proyectos_docentes');
@@ -49,10 +51,13 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
             <td style="padding: 12px; border-bottom: 1px solid #eee;">${proyecto.integrantes}</td>
             <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">
                 <button type="button" onclick="window.abrirVisorPDF('${proyecto.enlace_pdf}')" style="display: inline-block; padding: 6px 12px; margin-right: 5px; background: white; color: #002b5c; border: 1px solid #002b5c; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                    <i class="fas fa-file-pdf"></i> Ver PDF
+                    <i class="fas fa-file-pdf"></i> PDF
                 </button>
-                <button onclick="window.crearQRProyecto('${idUnicoProyecto}', '${nombreColeccion}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="padding: 6px 12px; background: #002b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                    <i class="fas fa-qrcode"></i> Crear QR
+                <button onclick="window.crearQRProyecto('${idUnicoProyecto}', '${nombreColeccion}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 12px; margin-right: 5px; background: #002b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    <i class="fas fa-qrcode"></i> QR
+                </button>
+                <button onclick="window.eliminarProyectoAdmin('${idUnicoProyecto}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Eliminar proyecto de forma definitiva">
+                    <i class="fas fa-trash"></i>
                 </button>
             </td>
         `;
@@ -63,6 +68,22 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
         tabla.appendChild(fila);
     });
 }
+
+window.eliminarProyectoAdmin = async function(idProyecto, tituloProyecto) {
+    if (!confirm(`🛑 ADVERTENCIA DE SEGURIDAD 🛑\n\n¿Estás completamente seguro de que deseas ELIMINAR el proyecto:\n"${tituloProyecto}"?\n\nEsta acción borrará toda su documentación, los votos del público y la calificación del tribunal vinculada a este proyecto de forma irreversible.`)) {
+        return; 
+    }
+
+    try {
+        const respuesta = await fetch(`/api/proyectos_admin/${idProyecto}`, { method: 'DELETE' });
+        if (!respuesta.ok) throw new Error("No se pudo eliminar el proyecto de la base de datos.");
+        alert(`✅ El proyecto "${tituloProyecto}" ha sido eliminado exitosamente del sistema.\n\nEl expositor ahora puede ingresar a 'Mi Proyecto' y subir una nueva postulación desde cero si así lo desea.`);
+        window.cargarProyectosAdmin();
+    } catch (error) {
+        console.error("Error al eliminar el proyecto:", error);
+        alert("❌ Ocurrió un error al intentar eliminar el proyecto: " + error.message);
+    }
+};
 
 window.crearQRProyecto = function(idProyecto, categoria, tituloProyecto) {
     const urlDestino = `${window.location.origin}${window.location.pathname}?idProy=${idProyecto}&cat=${categoria}#/votar`;
@@ -106,9 +127,6 @@ window.crearQRProyecto = function(idProyecto, categoria, tituloProyecto) {
     modal.style.display = 'flex';
 };
 
-// ==========================================================
-//  MOTOR CENTRALIZADO DE IMPRESIÓN DE TICKETS QR
-// ==========================================================
 window.imprimirTicketQRGen = function(subtitulo, tituloProyecto, urlImg, mensajeFooter, colorBorde) {
     const ventanaImpresion = window.open('', '_blank');
     ventanaImpresion.document.write(`
@@ -138,19 +156,9 @@ window.imprimirTicketQRGen = function(subtitulo, tituloProyecto, urlImg, mensaje
     ventanaImpresion.document.close();
 };
 
-window.imprimirEsteQR = function(titulo, urlImg) {
-    window.imprimirTicketQRGen("U.A.B.J.B.", `STAND: ${titulo}`, urlImg, "Escanee este código con su celular para registrar su calificación.", "#002b5c");
-};
-
-window.imprimirQRHabilitacion = function() {
-    const url = `${window.location.origin}${window.location.pathname}?action=registro_visitante`;
-    window.imprimirTicketQRGen("Registro Oficial de Visitantes", "PUNTO DE HABILITACIÓN", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código en la entrada para registrar su C.I. y quedar habilitado.", "#d93025");
-};
-
-window.imprimirQRExpositor = function() {
-    const url = `${window.location.origin}${window.location.pathname}?action=registro_expositor`;
-    window.imprimirTicketQRGen("U.A.B.J.B.", "REGISTRO DE EXPOSITOR", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código para crear su cuenta y subir la documentación.", "#002b5c");
-};
+window.imprimirEsteQR = function(titulo, urlImg) { window.imprimirTicketQRGen("U.A.B.J.B.", `STAND: ${titulo}`, urlImg, "Escanee este código con su celular para registrar su calificación.", "#002b5c"); };
+window.imprimirQRHabilitacion = function() { const url = `${window.location.origin}${window.location.pathname}?action=registro_visitante`; window.imprimirTicketQRGen("Registro Oficial de Visitantes", "PUNTO DE HABILITACIÓN", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código en la entrada para registrar su C.I. y quedar habilitado.", "#d93025"); };
+window.imprimirQRExpositor = function() { const url = `${window.location.origin}${window.location.pathname}?action=registro_expositor`; window.imprimirTicketQRGen("U.A.B.J.B.", "REGISTRO DE EXPOSITOR", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código para crear su cuenta y subir la documentación.", "#002b5c"); };
 
 window.cargarVotosPublico = async function() {
     const tbodyEst = document.getElementById('tabla-votos-est');
@@ -160,17 +168,13 @@ window.cargarVotosPublico = async function() {
     if (!tbodyEst || !tbodyDoc || !tbodyEmp) return;
 
     const msjCarga = '<tr><td colspan="3" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Cargando votos desde la Base de Datos...</td></tr>';
-    tbodyEst.innerHTML = msjCarga;
-    tbodyDoc.innerHTML = msjCarga;
-    tbodyEmp.innerHTML = msjCarga;
+    tbodyEst.innerHTML = msjCarga; tbodyDoc.innerHTML = msjCarga; tbodyEmp.innerHTML = msjCarga;
 
     try {
         const respuesta = await fetch('/api/votos_admin');
         const votosBD = await respuesta.json();
         
-        let votosEst = [];
-        let votosDoc = [];
-        let votosEmp = [];
+        let votosEst = []; let votosDoc = []; let votosEmp = [];
 
         votosBD.forEach((voto) => {
             if (voto.categoria_proyecto.includes('estudiante')) votosEst.push(voto);
@@ -195,7 +199,7 @@ window.cargarVotosPublico = async function() {
                     </td>
                     <td style="padding: 12px; color: #e2e8f0;">${voto.nombre_proyecto || "Sin nombre"}</td>
                     <td style="padding: 12px; text-align: center; font-weight: bold; color: #ffc107; font-size: 1.1rem;">
-                        ${voto.nota} / 10
+                        ${voto.nota} / 100
                         <br>
                         <button onclick="window.eliminarVotoPublico('${voto.id_voto}', '${(voto.nombre_visitante || "Visitante").replace(/'/g, "\\'")}')" style="margin-top: 6px; background: rgba(220, 53, 69, 0.8); color: white; border: 1px solid #ef4444; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;" title="Eliminar este voto y recalcular">
                             <i class="fas fa-trash-alt"></i> Borrar
@@ -213,29 +217,20 @@ window.cargarVotosPublico = async function() {
     } catch (error) {
         console.error("Error al cargar los votos:", error);
         const msjError = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: red;">❌ Error de conexión al cargar los votos.</td></tr>';
-        tbodyEst.innerHTML = msjError;
-        tbodyDoc.innerHTML = msjError;
-        tbodyEmp.innerHTML = msjError;
+        tbodyEst.innerHTML = msjError; tbodyDoc.innerHTML = msjError; tbodyEmp.innerHTML = msjError;
     }
 };
 
 window.eliminarVotoPublico = async function(idVoto, nombreVisitante) {
-    if (!confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR el voto emitido por "${nombreVisitante}"?\n\nAl borrarlo, el puntaje final del proyecto se recalculará automáticamente en todo el sistema.`)) {
-        return;
-    }
+    if (!confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR el voto emitido por "${nombreVisitante}"?\n\nAl borrarlo, el puntaje final del proyecto se recalculará automáticamente en todo el sistema.`)) return;
 
     try {
-        const respuesta = await fetch(`/api/votos_admin/${idVoto}`, {
-            method: 'DELETE'
-        });
-
+        const respuesta = await fetch(`/api/votos_admin/${idVoto}`, { method: 'DELETE' });
         if (!respuesta.ok) throw new Error("Error al eliminar en la BD");
         
         alert("✅ Voto eliminado con éxito. El sistema ha recalculado el promedio.");
         window.cargarVotosPublico();
-        if (typeof window.calcularResultadosEnTiempoReal === 'function') {
-            window.calcularResultadosEnTiempoReal();
-        }
+        if (typeof window.calcularResultadosEnTiempoReal === 'function') window.calcularResultadosEnTiempoReal();
 
     } catch (error) {
         console.error("Error al eliminar el voto:", error);
@@ -251,17 +246,13 @@ window.cargarVotosTribunal = async function() {
     if (!tbodyEst || !tbodyDoc || !tbodyEmp) return;
 
     const msjCarga = '<tr><td colspan="3" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Cargando evaluaciones...</td></tr>';
-    tbodyEst.innerHTML = msjCarga;
-    tbodyDoc.innerHTML = msjCarga;
-    tbodyEmp.innerHTML = msjCarga;
+    tbodyEst.innerHTML = msjCarga; tbodyDoc.innerHTML = msjCarga; tbodyEmp.innerHTML = msjCarga;
 
     try {
         const respuesta = await fetch('/api/evaluaciones_admin');
         const evalsBD = await respuesta.json();
         
-        let evalEst = [];
-        let evalDoc = [];
-        let evalEmp = [];
+        let evalEst = []; let evalDoc = []; let evalEmp = [];
 
         evalsBD.forEach((voto) => {
             if (voto.categoria.includes('estudiante')) evalEst.push(voto);
@@ -286,12 +277,16 @@ window.cargarVotosTribunal = async function() {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td>
-                        <b style="font-size: 0.95rem; text-transform: capitalize;">${nombreFinal}</b><br>
+                        <b style="font-size: 0.95rem; text-transform: capitalize; color: #ffffff;">${nombreFinal}</b><br>
                         <span style="color:#28a745; font-size:0.75rem; font-weight: bold;">Tribunal evaluador</span>
                     </td>
-                    <td>${voto.nombre_proyecto || "Proyecto Desconocido"}</td>
-                    <td style="text-align: center; font-weight: bold; color: var(--azul-uab); font-size: 1.1rem;">
+                    <td style="color: #e2e8f0;">${voto.nombre_proyecto || "Proyecto Desconocido"}</td>
+                    <td style="text-align: center; font-weight: bold; color: var(--azul-uab); font-size: 1.1rem; color: #ffc107;">
                         ${voto.nota} / 100
+                        <br>
+                        <button onclick="window.eliminarVotoTribunal('${voto.id_evaluacion}', '${nombreFinal.replace(/'/g, "\\'")}', '${(voto.nombre_proyecto || "Proyecto").replace(/'/g, "\\'")}')" style="margin-top: 6px; background: rgba(220, 53, 69, 0.8); color: white; border: 1px solid #ef4444; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; transition: 0.2s;" title="Eliminar evaluación de este tribunal">
+                            <i class="fas fa-trash-alt"></i> Borrar
+                        </button>
                     </td>
                 `;
                 contenedorTbody.appendChild(tr);
@@ -305,9 +300,27 @@ window.cargarVotosTribunal = async function() {
     } catch (error) {
         console.error("Error al cargar las evaluaciones del tribunal:", error);
         const msjError = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: red;">❌ Error de conexión al cargar las evaluaciones.</td></tr>';
-        tbodyEst.innerHTML = msjError;
-        tbodyDoc.innerHTML = msjError;
-        tbodyEmp.innerHTML = msjError;
+        tbodyEst.innerHTML = msjError; tbodyDoc.innerHTML = msjError; tbodyEmp.innerHTML = msjError;
+    }
+};
+
+window.eliminarVotoTribunal = async function(idEvaluacion, nombreTribunal, nombreProyecto) {
+    if (!confirm(`🛑 ADVERTENCIA DE SEGURIDAD 🛑\n\n¿Estás seguro de que deseas ELIMINAR la evaluación del tribunal "${nombreTribunal}" para el proyecto "${nombreProyecto}"?\n\nAl borrarla, el proyecto regresará a la Etapa 1 (estado Pendiente) y se eliminará del ranking público.`)) {
+        return;
+    }
+
+    try {
+        const respuesta = await fetch(`/api/evaluaciones_admin/${idEvaluacion}`, { method: 'DELETE' });
+
+        if (!respuesta.ok) throw new Error("Error al eliminar la evaluación en la BD");
+        
+        alert("✅ Evaluación de tribunal eliminada con éxito. El proyecto ha regresado a estado Pendiente.");
+        window.cargarVotosTribunal();
+        if (typeof window.calcularResultadosEnTiempoReal === 'function') window.calcularResultadosEnTiempoReal();
+
+    } catch (error) {
+        console.error("Error al eliminar la evaluación del tribunal:", error);
+        alert("❌ Ocurrió un error al intentar eliminar la evaluación.");
     }
 };
 
@@ -371,58 +384,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selAlc) selAlc.addEventListener('change', window.cargarProyectosParaAsignar);
 });
 
-// =========================================================================
-// FUNCIONES PARA EL PANEL DE CONFIGURACIÓN DE FECHAS
-// =========================================================================
+// 🔥 FIX: AHORA LEE LA FECHA EXACTA ENVIADA POR POSTGRESQL (SIN DISTORSIONES MATEMÁTICAS) 🔥
 window.cargarFechasActuales = async function() {
     try {
         const res = await fetch('/api/configuraciones');
         const data = await res.json();
         
-        const formatoInput = (fechaISO) => {
-            if (!fechaISO) return '';
-            const d = new Date(fechaISO);
-            const tzOffset = d.getTimezoneOffset() * 60000;
-            return (new Date(d - tzOffset)).toISOString().slice(0, 16);
-        };
-
-        document.getElementById('confFechaRegistro').value = formatoInput(data.fecha_registro);
-        document.getElementById('confFechaSubida').value = formatoInput(data.fecha_subida);
-        document.getElementById('confFechaResultados').value = formatoInput(data.fecha_resultados);
-    } catch (error) {
-        console.error("No se pudieron cargar las fechas.", error);
-    }
+        document.getElementById('confFechaRegistro').value = data.fecha_registro ? data.fecha_registro.substring(0, 16) : '';
+        document.getElementById('confFechaSubida').value = data.fecha_subida ? data.fecha_subida.substring(0, 16) : '';
+        document.getElementById('confFechaResultados').value = data.fecha_resultados ? data.fecha_resultados.substring(0, 16) : '';
+        document.getElementById('confFechaCierreVotacion').value = data.fecha_cierre_votacion ? data.fecha_cierre_votacion.substring(0, 16) : '';
+        
+        document.getElementById('confGpsLat').value = data.gps_latitud || '';
+        document.getElementById('confGpsLon').value = data.gps_longitud || '';
+        document.getElementById('confGpsRadio').value = data.gps_radio || '';
+        
+    } catch (error) { console.error("No se pudieron cargar las configuraciones.", error); }
 };
 
 window.guardarNuevasFechas = async function() {
     const reg = document.getElementById('confFechaRegistro').value;
     const sub = document.getElementById('confFechaSubida').value;
     const res = document.getElementById('confFechaResultados').value;
+    const cierreVot = document.getElementById('confFechaCierreVotacion').value;
+    const lat = document.getElementById('confGpsLat').value;
+    const lon = document.getElementById('confGpsLon').value;
+    const rad = document.getElementById('confGpsRadio').value;
 
-    if (!reg || !sub || !res) {
-        alert("⚠️ Por favor, seleccione todas las fechas antes de guardar.");
-        return;
+    if (!reg || !sub || !res || !cierreVot || !lat || !lon || !rad) { 
+        alert("⚠️ Por favor, complete todos los campos de configuración antes de guardar."); 
+        return; 
     }
 
     try {
         const respuesta = await fetch('/api/configuraciones', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fechaRegistro: reg, fechaSubida: sub, fechaResultados: res })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                fechaRegistro: reg, 
+                fechaSubida: sub, 
+                fechaResultados: res,
+                fechaCierreVotacion: cierreVot,
+                gpsLatitud: lat,
+                gpsLongitud: lon,
+                gpsRadio: rad
+            })
         });
-        
         if (!respuesta.ok) throw new Error("Error del servidor");
-        
-        alert("✅ ¡Las nuevas fechas han sido establecidas exitosamente para todo el sistema!");
-    } catch (error) {
-        console.error(error);
-        alert("❌ Ocurrió un error al intentar guardar las fechas.");
-    }
+        alert("✅ ¡Las configuraciones globales han sido actualizadas exitosamente y ya están en vigor!");
+    } catch (error) { console.error(error); alert("❌ Ocurrió un error al intentar guardar la configuración."); }
 };
 
-// =========================================================================
-//  GESTIÓN DINÁMICA DE INSTITUCIONES (COLEGIOS Y UNIVERSIDADES)
-// =========================================================================
 window.cargarInstitucionesSelects = async function() {
     try {
         const res = await fetch('/api/instituciones');
@@ -434,7 +445,6 @@ window.cargarInstitucionesSelects = async function() {
             grupos[inst.tipo].push(inst);
         });
 
-        // 1. LISTA ESTRICTA (Solo BD) - Para Expositores
         let htmlEstricto = '<option value="" disabled selected style="background-color: #ffffff !important; color: #333333 !important;">Seleccione su institución...</option>';
         for (const [tipo, lista] of Object.entries(grupos)) {
             htmlEstricto += `<optgroup label="${tipo}" style="background-color: #f1f5f9 !important; color: #002b5c !important; font-weight: bold !important;">`;
@@ -444,19 +454,17 @@ window.cargarInstitucionesSelects = async function() {
             htmlEstricto += `</optgroup>`;
         }
         
-        // 2. LISTA FLEXIBLE (Con "Otro") - Solo para Visitantes/Público
         let htmlFlexible = htmlEstricto + `
             <optgroup label="Visitantes Particulares / Otros" style="background-color: #f1f5f9 !important; color: #002b5c !important; font-weight: bold !important;">
                 <option value="OTRO" style="background-color: #ffffff !important; color: #0056b3 !important; font-weight: bold !important;">Escribir manualmente / Otro...</option>
             </optgroup>
         `;
 
-        const selReg = document.getElementById('regInstitucion'); // Formulario Expositor
-        const selPre = document.getElementById('preInst');        // Formulario Preregistro
-        const selHab = document.getElementById('hab-institucion'); // Formulario Habilitación
-        const selAdminHab = document.getElementById('admin-hab-institucion'); // Formulario del Admin
+        const selReg = document.getElementById('regInstitucion'); 
+        const selPre = document.getElementById('preInst');        
+        const selHab = document.getElementById('hab-institucion'); 
+        const selAdminHab = document.getElementById('admin-hab-institucion'); 
         
-        // Asignamos las listas
         if (selReg) selReg.innerHTML = htmlEstricto;
         if (selPre) selPre.innerHTML = htmlFlexible;
         if (selHab) selHab.innerHTML = htmlFlexible;
@@ -526,15 +534,13 @@ window.eliminarInstitucion = async function(id, nombre) {
     } catch (error) { alert("❌ Error al eliminar."); }
 };
 
-// =========================================================================
-// REGISTRO DE NUEVOS ADMINISTRADORES (POSTGRESQL DIRECTO)
-// =========================================================================
 window.registrarNuevoAdmin = async function(e) {
     e.preventDefault();
     
     const ci = document.getElementById('adminNewCI').value.trim();
     const nombre = document.getElementById('adminNewNombre').value.trim();
     const correo = document.getElementById('adminNewCorreo').value.trim();
+    const celular = document.getElementById('adminNewCelular').value.trim();
     const pass = document.getElementById('adminNewPass').value;
     
     const btn = document.getElementById('btnGuardarAdmin');
@@ -544,7 +550,6 @@ window.registrarNuevoAdmin = async function(e) {
     btn.disabled = true;
 
     try {
-        // Enviar datos directamente a tu servidor Node.js
         const respuesta = await fetch('/api/administradores', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -552,6 +557,7 @@ window.registrarNuevoAdmin = async function(e) {
                 ci: ci,
                 nombre: nombre,
                 correo: correo,
+                celular: celular,
                 password: pass
             })
         });
@@ -563,7 +569,7 @@ window.registrarNuevoAdmin = async function(e) {
         }
 
         alert("✅ ¡Cuenta de administrador creada exitosamente en la base de datos!\n\nEl nuevo usuario ya puede iniciar sesión.");
-        e.target.reset(); // Limpia el formulario
+        e.target.reset(); 
         
     } catch (error) {
         console.error("Error al registrar administrador:", error);

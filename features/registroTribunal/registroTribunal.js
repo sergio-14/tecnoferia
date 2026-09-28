@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/registroTribunal/registroTribunal.js
-// FUNCIÓN: Migrado a PostgreSQL con Encriptación
+// FUNCIÓN: Migrado a PostgreSQL con Encriptación y FIX AntiBloqueos
 // =========================================================================
 
 window.registrarNuevoTribunal = async function(e) {
@@ -11,6 +11,7 @@ window.registrarNuevoTribunal = async function(e) {
     const categoriaValor = document.getElementById('tribCategoria').value; 
     const categoriaTexto = document.getElementById('tribCategoria').options[document.getElementById('tribCategoria').selectedIndex].text; 
     const correo = document.getElementById('tribCorreo').value.trim();
+    const celular = document.getElementById('tribCelular').value.trim();
     const usuario = document.getElementById('tribUsuario').value.trim();
     const password = document.getElementById('tribPass').value;
 
@@ -18,7 +19,7 @@ window.registrarNuevoTribunal = async function(e) {
     const textoOriginal = btn.innerHTML;
     
     let arrayProyectosAsignados = "TODOS";
-    let textoProyectosParaCorreo = "⚡ TODOS LOS PROYECTOS DE LA CATEGORÍA";
+    let textoProyectosParaCorreo = " TODOS LOS PROYECTOS DE LA CATEGORÍA";
 
     const elAlcance = document.getElementById('tribAlcance');
     if (elAlcance && elAlcance.value === "ESPECIFICOS") {
@@ -45,6 +46,7 @@ window.registrarNuevoTribunal = async function(e) {
             categoria: categoriaValor,
             proyectosAsignados: typeof arrayProyectosAsignados === 'string' ? arrayProyectosAsignados : JSON.stringify(arrayProyectosAsignados),
             correo: correo,
+            celular: celular,
             password: password 
         };
 
@@ -59,31 +61,34 @@ window.registrarNuevoTribunal = async function(e) {
             throw new Error(errorData.error || "Error al guardar los datos del tribunal.");
         }
 
-        console.log("Enviando correo automático a:", correo);
-        const serviceID = "service_m4ueyce"; 
-        const templateID = "template_c8zd2xj";
-        const publicKey = "njcIu3KNPNiVrfy9f";
-
-        const templateParams = {
-            nombre_tribunal: nombre,
-            correo_destino: correo,
-            usuario_asignado: usuario,
-            password_asignado: password,
-            categoria_asignada: categoriaTexto,
-            proyectos_asignados: textoProyectosParaCorreo,
-            enlace_sistema: window.location.origin
-        };
-
+        //  FIX ANTIBLOQUEO: Intentamos mandar el correo 
+        let correoEnviado = false;
         try {
-            await emailjs.send(serviceID, templateID, templateParams, publicKey);
-            console.log("¡Correo enviado con éxito al tribunal!");
+            if (typeof emailjs !== 'undefined') {
+                emailjs.init({ publicKey: "njcIu3KNPNiVrfy9f" }); // Inicialización obligatoria
+                
+                // IMPORTANTE: Pasamos la publicKey (4to parámetro) para evitar el error de autenticación
+                await emailjs.send("service_m4ueyce", "template_c8zd2xj", {
+                    nombre_tribunal: nombre,
+                    correo_destino: correo,
+                    usuario_asignado: usuario,
+                    password_asignado: password,
+                    categoria_asignada: categoriaTexto,
+                    proyectos_asignados: textoProyectosParaCorreo,
+                    enlace_sistema: window.location.origin
+                }, "njcIu3KNPNiVrfy9f"); 
+                
+                correoEnviado = true;
+            }
         } catch (errorCorreo) {
-            console.error("Fallo al enviar correo:", errorCorreo);
-            alert("⚠️ El Tribunal fue registrado en la base de datos, pero el correo falló.");
+            console.error("Fallo EmailJS:", errorCorreo);
         }
 
-        let detalleAlcance = arrayProyectosAsignados === "TODOS" ? "Todos los de la categoría" : `${arrayProyectosAsignados.length} proyectos específicos`;
-        alert(`✅ Tribunal registrado exitosamente.\n\nUsuario: ${usuario}\nCategoría: ${categoriaTexto}\nCarga Asignada: ${detalleAlcance}\n\nContraseña enviada al correo.`);
+        if (correoEnviado) {
+            alert(` Tribunal registrado exitosamente.\n\nUsuario: ${usuario}\nContraseña enviada al correo.`);
+        } else {
+            alert(` TRIBUNAL REGISTRADO, PERO EL CORREO FALLÓ.\n\nTu navegador bloqueó el envío automático o hay un error en EmailJS.\nPor favor, entrega estas credenciales manualmente:\n\n👤 Usuario: ${usuario}\n🔑 Contraseña: ${password}`);
+        }
         
         e.target.reset();
         const contProy = document.getElementById('contenedor-lista-proyectos');
@@ -96,4 +101,4 @@ window.registrarNuevoTribunal = async function(e) {
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
     }
-}; 
+};
