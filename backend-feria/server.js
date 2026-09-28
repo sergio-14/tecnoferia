@@ -57,7 +57,7 @@ db.connect()
     .then(async () => {
         console.log('✅ Conexión exitosa a PostgreSQL (tecno_feria_db)');
         
-        // 1. CREACIÓN DE TABLAS (Fusión con el código de Sergio)
+        // 1. CREACIÓN DE TABLAS
         await db.query(`CREATE TABLE IF NOT EXISTS sesiones_activas (ci_usuario VARCHAR(50) PRIMARY KEY, token VARCHAR(255) NOT NULL);`);
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP, fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59', gps_latitud DECIMAL(15,8) DEFAULT -14.83391721, gps_longitud DECIMAL(15,8) DEFAULT -64.89965234, gps_radio INTEGER DEFAULT 5000);`);
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
@@ -78,6 +78,12 @@ db.connect()
         try { await db.query(`ALTER TABLE visitantes ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS latitud DECIMAL(15,8);`); } catch(e){}
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS longitud DECIMAL(15,8);`); } catch(e){}
+
+        // 🔥 FIX URGENTE PARA EL SERVIDOR DE PRODUCCIÓN: FORZAR INYECCIÓN DE COLUMNAS NUEVAS 🔥
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59';`); } catch(e){}
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_latitud DECIMAL(15,8) DEFAULT -14.83391721;`); } catch(e){}
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_longitud DECIMAL(15,8) DEFAULT -64.89965234;`); } catch(e){}
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_radio INTEGER DEFAULT 5000;`); } catch(e){}
 
         // 3. ÍNDICES DE ACELERACIÓN PARA SOPORTAR 500+ USUARIOS
         try { await db.query(`CREATE INDEX IF NOT EXISTS idx_proyectos_ci ON proyectos(ci_propietario);`); } catch(e){}
