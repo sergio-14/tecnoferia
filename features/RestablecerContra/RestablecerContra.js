@@ -45,7 +45,7 @@ window.recuperarContrasena = async function(e) {
         }
 
         // Si todo sale bien
-        alert(`✅ ¡ÉXITO!\n\n${data.mensaje}\nYa puedes iniciar sesión con tu nueva contraseña.`);
+        alert(` ¡ÉXITO!\n\n${data.mensaje}\nYa puedes iniciar sesión con tu nueva contraseña.`);
         
         // Limpiamos los campos
         document.getElementById('recoverCI').value = '';

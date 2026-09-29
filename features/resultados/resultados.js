@@ -11,7 +11,7 @@ window.calcularResultadosEnTiempoReal = async function() {
         const resConf = await fetch('/api/configuraciones');
         const conf = await resConf.json();
         
-        // 🔥 FIX FRONTEND: Armando la fecha manualmente 🔥
+        //  FIX FRONTEND: Armando la fecha manualmente 
         let fechaResultados = new Date(NaN);
         const resStr = conf.fecha_resultados;
         if (resStr) {
