@@ -70,18 +70,18 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
 }
 
 window.eliminarProyectoAdmin = async function(idProyecto, tituloProyecto) {
-    if (!confirm(`🛑 ADVERTENCIA DE SEGURIDAD 🛑\n\n¿Estás completamente seguro de que deseas ELIMINAR el proyecto:\n"${tituloProyecto}"?\n\nEsta acción borrará toda su documentación, los votos del público y la calificación del tribunal vinculada a este proyecto de forma irreversible.`)) {
+    if (!confirm(` ADVERTENCIA DE SEGURIDAD \n\n¿Estás completamente seguro de que deseas ELIMINAR el proyecto:\n"${tituloProyecto}"?\n\nEsta acción borrará toda su documentación, los votos del público y la calificación del tribunal vinculada a este proyecto de forma irreversible.`)) {
         return; 
     }
 
     try {
         const respuesta = await fetch(`/api/proyectos_admin/${idProyecto}`, { method: 'DELETE' });
         if (!respuesta.ok) throw new Error("No se pudo eliminar el proyecto de la base de datos.");
-        alert(`✅ El proyecto "${tituloProyecto}" ha sido eliminado exitosamente del sistema.\n\nEl expositor ahora puede ingresar a 'Mi Proyecto' y subir una nueva postulación desde cero si así lo desea.`);
+        alert(` El proyecto "${tituloProyecto}" ha sido eliminado exitosamente del sistema.\n\nEl expositor ahora puede ingresar a 'Mi Proyecto' y subir una nueva postulación desde cero si así lo desea.`);
         window.cargarProyectosAdmin();
     } catch (error) {
         console.error("Error al eliminar el proyecto:", error);
-        alert("❌ Ocurrió un error al intentar eliminar el proyecto: " + error.message);
+        alert(" Ocurrió un error al intentar eliminar el proyecto: " + error.message);
     }
 };
 
@@ -222,19 +222,19 @@ window.cargarVotosPublico = async function() {
 };
 
 window.eliminarVotoPublico = async function(idVoto, nombreVisitante) {
-    if (!confirm(`⚠️ ¿Estás seguro de que deseas ELIMINAR el voto emitido por "${nombreVisitante}"?\n\nAl borrarlo, el puntaje final del proyecto se recalculará automáticamente en todo el sistema.`)) return;
+    if (!confirm(` ¿Estás seguro de que deseas ELIMINAR el voto emitido por "${nombreVisitante}"?\n\nAl borrarlo, el puntaje final del proyecto se recalculará automáticamente en todo el sistema.`)) return;
 
     try {
         const respuesta = await fetch(`/api/votos_admin/${idVoto}`, { method: 'DELETE' });
         if (!respuesta.ok) throw new Error("Error al eliminar en la BD");
         
-        alert("✅ Voto eliminado con éxito. El sistema ha recalculado el promedio.");
+        alert(" Voto eliminado con éxito. El sistema ha recalculado el promedio.");
         window.cargarVotosPublico();
         if (typeof window.calcularResultadosEnTiempoReal === 'function') window.calcularResultadosEnTiempoReal();
 
     } catch (error) {
         console.error("Error al eliminar el voto:", error);
-        alert("❌ Ocurrió un error al intentar eliminar el voto.");
+        alert(" Ocurrió un error al intentar eliminar el voto.");
     }
 };
 
@@ -299,13 +299,13 @@ window.cargarVotosTribunal = async function() {
 
     } catch (error) {
         console.error("Error al cargar las evaluaciones del tribunal:", error);
-        const msjError = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: red;">❌ Error de conexión al cargar las evaluaciones.</td></tr>';
+        const msjError = '<tr><td colspan="3" style="text-align: center; padding: 20px; color: red;"> Error de conexión al cargar las evaluaciones.</td></tr>';
         tbodyEst.innerHTML = msjError; tbodyDoc.innerHTML = msjError; tbodyEmp.innerHTML = msjError;
     }
 };
 
 window.eliminarVotoTribunal = async function(idEvaluacion, nombreTribunal, nombreProyecto) {
-    if (!confirm(`🛑 ADVERTENCIA DE SEGURIDAD 🛑\n\n¿Estás seguro de que deseas ELIMINAR la evaluación del tribunal "${nombreTribunal}" para el proyecto "${nombreProyecto}"?\n\nAl borrarla, el proyecto regresará a la Etapa 1 (estado Pendiente) y se eliminará del ranking público.`)) {
+    if (!confirm(` ADVERTENCIA DE SEGURIDAD \n\n¿Estás seguro de que deseas ELIMINAR la evaluación del tribunal "${nombreTribunal}" para el proyecto "${nombreProyecto}"?\n\nAl borrarla, el proyecto regresará a la Etapa 1 (estado Pendiente) y se eliminará del ranking público.`)) {
         return;
     }
 
@@ -314,13 +314,13 @@ window.eliminarVotoTribunal = async function(idEvaluacion, nombreTribunal, nombr
 
         if (!respuesta.ok) throw new Error("Error al eliminar la evaluación en la BD");
         
-        alert("✅ Evaluación de tribunal eliminada con éxito. El proyecto ha regresado a estado Pendiente.");
+        alert(" Evaluación de tribunal eliminada con éxito. El proyecto ha regresado a estado Pendiente.");
         window.cargarVotosTribunal();
         if (typeof window.calcularResultadosEnTiempoReal === 'function') window.calcularResultadosEnTiempoReal();
 
     } catch (error) {
         console.error("Error al eliminar la evaluación del tribunal:", error);
-        alert("❌ Ocurrió un error al intentar eliminar la evaluación.");
+        alert(" Ocurrió un error al intentar eliminar la evaluación.");
     }
 };
 
@@ -384,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selAlc) selAlc.addEventListener('change', window.cargarProyectosParaAsignar);
 });
 
-// 🔥 FIX: AHORA LEE LA FECHA EXACTA ENVIADA POR POSTGRESQL (SIN DISTORSIONES MATEMÁTICAS) 🔥
 window.cargarFechasActuales = async function() {
     try {
         const res = await fetch('/api/configuraciones');
@@ -430,8 +429,8 @@ window.guardarNuevasFechas = async function() {
             })
         });
         if (!respuesta.ok) throw new Error("Error del servidor");
-        alert("✅ ¡Las configuraciones globales han sido actualizadas exitosamente y ya están en vigor!");
-    } catch (error) { console.error(error); alert("❌ Ocurrió un error al intentar guardar la configuración."); }
+        alert(" ¡Las configuraciones globales han sido actualizadas exitosamente y ya están en vigor!");
+    } catch (error) { console.error(error); alert(" Ocurrió un error al intentar guardar la configuración."); }
 };
 
 window.cargarInstitucionesSelects = async function() {
@@ -518,20 +517,20 @@ window.agregarInstitucion = async function(e) {
         });
         if (res.ok) {
             document.getElementById('nueva-inst-nombre').value = '';
-            alert("✅ Institución agregada correctamente.");
+            alert(" Institución agregada correctamente.");
             window.cargarTablaInstituciones();
             window.cargarInstitucionesSelects(); 
         }
-    } catch (error) { alert("❌ Error al agregar."); }
+    } catch (error) { alert(" Error al agregar."); }
 };
 
 window.eliminarInstitucion = async function(id, nombre) {
-    if(!confirm(`⚠️ ¿Seguro que deseas eliminar "${nombre}" de la lista?`)) return;
+    if(!confirm(` ¿Seguro que deseas eliminar "${nombre}" de la lista?`)) return;
     try {
         await fetch(`/api/instituciones/${id}`, { method: 'DELETE' });
         window.cargarTablaInstituciones();
         window.cargarInstitucionesSelects(); 
-    } catch (error) { alert("❌ Error al eliminar."); }
+    } catch (error) { alert(" Error al eliminar."); }
 };
 
 window.registrarNuevoAdmin = async function(e) {
@@ -568,14 +567,133 @@ window.registrarNuevoAdmin = async function(e) {
             throw new Error(data.error || "No se pudo crear el administrador.");
         }
 
-        alert("✅ ¡Cuenta de administrador creada exitosamente en la base de datos!\n\nEl nuevo usuario ya puede iniciar sesión.");
+        alert(" ¡Cuenta de administrador creada exitosamente en la base de datos!\n\nEl nuevo usuario ya puede iniciar sesión.");
         e.target.reset(); 
         
     } catch (error) {
         console.error("Error al registrar administrador:", error);
-        alert("❌ Ocurrió un error: " + error.message);
+        alert(" Ocurrió un error: " + error.message);
     } finally {
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
+    }
+};
+
+//  NUEVAS FUNCIONES: PADRÓN GLOBAL DE USUARIOS 
+window.usuariosCargadosBD = { expositores: [], tribunales: [], visitantes: [] };
+window.subTabUsuariosActual = 'expositor';
+
+window.cargarUsuariosGlobal = async function() {
+    const tbody = document.getElementById('tabla-usuarios-global');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Obteniendo usuarios desde la Base de Datos...</td></tr>';
+    
+    try {
+        const res = await fetch('/api/usuarios_admin');
+        const data = await res.json();
+        
+        window.usuariosCargadosBD = data;
+        window.filtrarUsuariosGlobal();
+    } catch (error) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Error al cargar los usuarios.</td></tr>';
+    }
+};
+
+window.cambiarSubTabUsuarios = function(rolSeleccionado) {
+    window.subTabUsuariosActual = rolSeleccionado;
+    
+    document.getElementById('btn-subtab-exp').classList.remove('active');
+    document.getElementById('btn-subtab-trib').classList.remove('active');
+    document.getElementById('btn-subtab-vis').classList.remove('active');
+    
+    if (rolSeleccionado === 'expositor') document.getElementById('btn-subtab-exp').classList.add('active');
+    if (rolSeleccionado === 'tribunal') document.getElementById('btn-subtab-trib').classList.add('active');
+    if (rolSeleccionado === 'visitante') document.getElementById('btn-subtab-vis').classList.add('active');
+    
+    window.filtrarUsuariosGlobal();
+};
+
+window.filtrarUsuariosGlobal = function() {
+    const tbody = document.getElementById('tabla-usuarios-global');
+    if (!tbody) return;
+    
+    const termino = document.getElementById('buscador-usuarios').value.toLowerCase().trim();
+    let listaMostrar = [];
+    
+    if (window.subTabUsuariosActual === 'expositor') listaMostrar = window.usuariosCargadosBD.expositores || [];
+    if (window.subTabUsuariosActual === 'tribunal') listaMostrar = window.usuariosCargadosBD.tribunales || [];
+    if (window.subTabUsuariosActual === 'visitante') listaMostrar = window.usuariosCargadosBD.visitantes || [];
+
+    if (termino !== "") {
+        listaMostrar = listaMostrar.filter(u => 
+            (u.nombre_completo && u.nombre_completo.toLowerCase().includes(termino)) ||
+            (u.id && u.id.toString().toLowerCase().includes(termino))
+        );
+    }
+
+    tbody.innerHTML = '';
+    
+    if (listaMostrar.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b; font-style: italic;">No se encontraron usuarios en esta categoría.</td></tr>`;
+        return;
+    }
+
+    listaMostrar.forEach(u => {
+        const idUnico = u.id;
+        const instOEspec = u.institucion || "<span style='color:#94a3b8; font-size:0.8rem;'>Sin asignar</span>";
+        const btnEliminar = `
+            <button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${u.nombre_completo.replace(/'/g, "\\'")}')" 
+                    style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.2s;"
+                    onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'" title="Borrar cuenta y datos">
+                <i class="fas fa-trash-alt"></i> Eliminar
+            </button>
+        `;
+
+        tbody.innerHTML += `
+            <tr style="border-bottom: 1px solid #e2e8f0 !important; background-color: #ffffff !important;">
+                <td style="padding: 12px !important; color: #0f172a !important;">
+                    <strong style="font-size: 0.95rem;">${u.nombre_completo}</strong><br>
+                    <span style="color: #64748b; font-size: 0.8rem;"><i class="fas fa-phone-alt"></i> ${u.celular || 'S/N'}</span>
+                </td>
+                <td style="padding: 12px !important; color: #0f172a !important;">
+                    <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 0.9rem;">${idUnico}</span>
+                </td>
+                <td style="padding: 12px !important; color: #334155 !important; font-size: 0.9rem !important;">
+                    ${instOEspec}<br>
+                    <span style="color: #3b82f6; font-size: 0.8rem;">${u.correo || ''}</span>
+                </td>
+                <td style="padding: 12px !important; text-align: center !important;">
+                    ${btnEliminar}
+                </td>
+            </tr>
+        `;
+    });
+};
+
+window.eliminarUsuarioTotal = async function(rol, idUsuario, nombre) {
+    let msgAdvertencia = ` ATENCIÓN \n\n¿Estás absolutamente seguro de ELIMINAR al usuario "${nombre}" del sistema?\n\n`;
+    
+    if (rol === 'expositor') msgAdvertencia += "Se borrará su cuenta, su proyecto subido, y TODOS los votos y evaluaciones vinculadas a él de forma irreversible.";
+    else if (rol === 'tribunal') msgAdvertencia += "Se borrará su cuenta y TODAS las evaluaciones que haya emitido a los proyectos volverán a cero.";
+    else if (rol === 'visitante') msgAdvertencia += "Se borrará su registro y TODOS los votos que haya emitido al público serán descontados del ranking.";
+
+    if (!confirm(msgAdvertencia)) return;
+
+    try {
+        const res = await fetch(`/api/usuarios_admin/${rol}/${idUsuario}`, { method: 'DELETE' });
+        const data = await res.json();
+        
+        if (!res.ok) throw new Error(data.error || "Error desconocido en el servidor");
+        
+        alert(`✅ ${data.mensaje}`);
+        
+        window.cargarUsuariosGlobal();
+        if (typeof window.cargarProyectosAdmin === 'function') window.cargarProyectosAdmin();
+        if (typeof window.calcularResultadosEnTiempoReal === 'function') window.calcularResultadosEnTiempoReal();
+
+    } catch (error) {
+        console.error("Error al eliminar usuario:", error);
+        alert(`❌ Ocurrió un error al intentar eliminar la cuenta:\n${error.message}`);
     }
 };

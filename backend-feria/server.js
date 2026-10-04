@@ -57,7 +57,6 @@ db.connect()
     .then(async () => {
         console.log('✅ Conexión exitosa a PostgreSQL (tecno_feria_db)');
         
-        // 1. CREACIÓN DE TABLAS
         await db.query(`CREATE TABLE IF NOT EXISTS sesiones_activas (ci_usuario VARCHAR(50) PRIMARY KEY, token VARCHAR(255) NOT NULL);`);
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP, fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59', gps_latitud DECIMAL(15,8) DEFAULT -14.83391721, gps_longitud DECIMAL(15,8) DEFAULT -64.89965234, gps_radio INTEGER DEFAULT 5000);`);
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
@@ -71,7 +70,6 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
 
-        // 2. ACTUALIZACIONES DE SEGURIDAD Y COLUMNAS FALTANTES
         try { await db.query(`ALTER TABLE votos_publico DROP CONSTRAINT IF EXISTS votos_publico_nota_check;`); } catch(e) {}
         try { await db.query(`ALTER TABLE administradores ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
@@ -79,13 +77,11 @@ db.connect()
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS latitud DECIMAL(15,8);`); } catch(e){}
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS longitud DECIMAL(15,8);`); } catch(e){}
 
-        // 🔥 FIX URGENTE PARA EL SERVIDOR DE PRODUCCIÓN: FORZAR INYECCIÓN DE COLUMNAS NUEVAS 🔥
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59';`); } catch(e){}
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_latitud DECIMAL(15,8) DEFAULT -14.83391721;`); } catch(e){}
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_longitud DECIMAL(15,8) DEFAULT -64.89965234;`); } catch(e){}
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_radio INTEGER DEFAULT 5000;`); } catch(e){}
 
-        // 3. ÍNDICES DE ACELERACIÓN PARA SOPORTAR 500+ USUARIOS
         try { await db.query(`CREATE INDEX IF NOT EXISTS idx_proyectos_ci ON proyectos(ci_propietario);`); } catch(e){}
         try { await db.query(`CREATE INDEX IF NOT EXISTS idx_votos_proy ON votos_publico(id_proyecto);`); } catch(e){}
         try { await db.query(`CREATE INDEX IF NOT EXISTS idx_votos_ci ON votos_publico(ci_visitante);`); } catch(e){}
@@ -94,6 +90,47 @@ db.connect()
         console.log('✅ Base de datos verificada y optimizada.');
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
+
+// 🔥 RUTAS NUEVAS PARA GESTIÓN GLOBAL DE USUARIOS 🔥
+app.get('/api/usuarios_admin', async (req, res) => {
+    try {
+        const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
+        const tribunales = await db.query('SELECT usuario_tribunal as id, nombre_completo, especialidad as institucion, celular, correo FROM tribunales ORDER BY nombre_completo ASC');
+        const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
+        
+        res.json({
+            expositores: expositores.rows,
+            tribunales: tribunales.rows,
+            visitantes: visitantes.rows
+        });
+    } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
+});
+
+app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
+    const { rol, id } = req.params;
+    try {
+        if (rol === 'expositor') {
+            const proyectosUsuario = await db.query('SELECT id FROM proyectos WHERE ci_propietario = $1', [id]);
+            for (let proy of proyectosUsuario.rows) {
+                await db.query('DELETE FROM votos_publico WHERE id_proyecto = $1', [proy.id]);
+                await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [proy.id]);
+            }
+            await db.query('DELETE FROM proyectos WHERE ci_propietario = $1', [id]);
+            await db.query('DELETE FROM expositores WHERE ci = $1', [id]);
+        } 
+        else if (rol === 'tribunal') {
+            await db.query('DELETE FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
+            await db.query('DELETE FROM tribunales WHERE usuario_tribunal = $1', [id]);
+        } 
+        else if (rol === 'visitante') {
+            await db.query('DELETE FROM votos_publico WHERE ci_visitante = $1', [id]);
+            await db.query('DELETE FROM visitantes WHERE ci = $1', [id]);
+        } 
+        else { return res.status(400).json({ error: "Rol no válido." }); }
+
+        res.json({ mensaje: `Usuario eliminado correctamente del sistema.` });
+    } catch (error) { res.status(500).json({ error: "Error interno al intentar eliminar al usuario." }); }
+});
 
 app.get('/api/configuraciones', async (req, res) => {
     try {

@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- 🔥 VERSIÓN V41: VISOR NATIVO PARA GOOGLE DOCS 🔥 -->
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V41">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V41">
+    <!-- 🔥 VERSIÓN V42: PANEL GESTOR DE USUARIOS 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V42">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V42">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -50,20 +50,18 @@
                         </div>
                     </div>
     
-                    <div class="form-actions animate-fade-up delay-500" style="margin-bottom: 12px;">
+                    <div class="form-actions animate-fade-up delay-500" style="margin-bottom: 20px;">
                         <label class="checkbox-container"><input type="checkbox"><span>Recordarme</span></label>
                         <a href="#" onclick="toggleAuthMode(event, 'recover')" class="forgot-link">¿Olvidaste tu contraseña?</a>
                     </div>
 
                     <button type="submit" class="btn-modern-login animate-fade-up delay-600">Acceder al Sistema</button>
 
-
                     <div class="animate-fade-up delay-600" style="margin-top: 15px; margin-bottom: 5px; text-align: center;">
                         <p style="margin: 0; font-size: 0.9rem;">¿Quieres participar en la feria? <a href="#" onclick="toggleAuthMode(event, 'register')" style="color: #4db8ff; font-weight: bold; text-decoration: none; transition: 0.3s;" onmouseover="this.style.color='#ffffff'; this.style.textDecoration='underline'" onmouseout="this.style.color='#4db8ff'; this.style.textDecoration='none'">Inscríbete ya</a></p>
                     </div>
-    
-                    <!-- 🔥 BOTÓN ACTUALIZADO PARA ABRIR GOOGLE DOCS EN EL VISOR INTERNO 🔥 -->
-                    <button type="button" onclick="window.abrirVisorDocs('https://docs.google.com/document/d/1jL_TX4DhONjvgenKZuW3TOwdIgZJkg7x/edit')" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 15px; background-color: #005f73;">
+                    
+                    <button type="button" onclick="window.abrirVisorDocs('https://docs.google.com/document/d/1jL_TX4DhONjvgenKZuW3TOwdIgZJkg7x/edit')" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 10px; background-color: #005f73;">
                         <i class="fas fa-file-alt" style="margin-right: 8px;"></i> Convocatoria TecnoFeria
                     </button>
 
@@ -121,6 +119,15 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- CASILLA DE POLÍTICAS DE PRIVACIDAD -->
+                    <div style="margin-bottom: 15px; text-align: left; font-size: 0.8rem; color: #cbd5e1;">
+                        <label style="display: flex; align-items: start; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" required style="margin-top: 3px;">
+                            <span>He leído y acepto las <a href="#" onclick="document.getElementById('modal-privacidad').style.display='flex'; return false;" style="color: #4db8ff; text-decoration: underline;">Políticas de Privacidad</a> del sistema.</span>
+                        </label>
+                    </div>
+
                     <button type="submit" class="btn-modern-login">Crear Cuenta y Entrar</button>
                 </form>
                 
@@ -194,6 +201,15 @@
                             <input type="text" id="preInstOtro" placeholder="Escriba el nombre aquí..." style="width: 100%; padding: 12px 12px 12px 42px; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; background: rgba(255,255,255,0.15); color: #fff;">
                         </div>
                     </div>
+                    
+                    <!-- CASILLA DE POLÍTICAS DE PRIVACIDAD -->
+                    <div style="margin-bottom: 15px; text-align: left; font-size: 0.8rem; color: #cbd5e1;">
+                        <label style="display: flex; align-items: start; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" required style="margin-top: 3px;">
+                            <span>He leído y acepto las <a href="#" onclick="document.getElementById('modal-privacidad').style.display='flex'; return false;" style="color: #4db8ff; text-decoration: underline;">Políticas de Privacidad</a> del sistema.</span>
+                        </label>
+                    </div>
+
                     <button type="submit" class="btn-modern-login animate-fade-up delay-400" style="background-color: var(--rojo-uab); margin-top: 10px;">Habilitarme para Votar</button>
                 </form>
                 <div class="auth-toggle modern-auth-toggle animate-fade-up delay-500">
@@ -504,6 +520,8 @@
                 <div class="header-module"><h2><i class="fas fa-users-cog"></i> Registro y Administración</h2></div>
                 <div class="tabs-admin-center" style="flex-wrap: wrap;">
                     <button class="tab-btn active" onclick="openTab(event, 'tab-proyectos')">Proyectos / QRs</button>
+                    <!-- 🔥 NUEVA PESTAÑA AÑADIDA: "Usuarios" 🔥 -->
+                    <button class="tab-btn" onclick="openTab(event, 'tab-usuarios-global'); window.cargarUsuariosGlobal()">Usuarios</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-tribunales')">Tribunales</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-registrar-admin')">Registrar Admin</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-admin-visitantes')">Habilitar Visitante</button>
@@ -565,7 +583,47 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="tab-tribunales" class="tab-content section-animate">
+
+                        <!-- 🔥 NUEVA PESTAÑA: PANEL DE CONTROL DE USUARIOS 🔥 -->
+                        <div id="tab-usuarios-global" class="tab-content section-animate" style="display: none;">
+                            <div class="form-card" style="background: rgba(255, 255, 255, 0.05) !important;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                                    <div>
+                                        <h3 style="color: #60a5fa !important; margin: 0;"><i class="fas fa-users"></i> Padrón Global de Usuarios</h3>
+                                        <p style="color: #cbd5e1 !important; margin: 5px 0 0 0; font-size: 0.9rem;">Busca y gestiona cuentas de Expositores, Tribunales y Visitantes.</p>
+                                    </div>
+                                    
+                                    <div style="position: relative; width: 100%; max-width: 350px;">
+                                        <i class="fas fa-search" style="position: absolute; left: 15px; top: 12px; color: #64748b;"></i>
+                                        <input type="text" id="buscador-usuarios" placeholder="Buscar por Nombre, CI o Usuario..." oninput="window.filtrarUsuariosGlobal()" style="width: 100%; padding: 10px 10px 10px 40px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #f8fafc; font-size: 0.95rem; outline: none;">
+                                    </div>
+                                </div>
+
+                                <div class="tabs-admin-center" style="margin-bottom: 15px; background: transparent; padding: 0;">
+                                    <button class="tab-btn active" id="btn-subtab-exp" onclick="window.cambiarSubTabUsuarios('expositor')" style="flex: 1;">Expositores</button>
+                                    <button class="tab-btn" id="btn-subtab-trib" onclick="window.cambiarSubTabUsuarios('tribunal')" style="flex: 1;">Tribunales</button>
+                                    <button class="tab-btn" id="btn-subtab-vis" onclick="window.cambiarSubTabUsuarios('visitante')" style="flex: 1;">Visitantes</button>
+                                </div>
+
+                                <div class="table-responsive" style="border: 1px solid #475569 !important; background: #ffffff !important; border-radius: 8px !important; overflow-y: auto !important; max-height: 450px !important;">
+                                    <table class="ranking-table" style="width: 100% !important; font-size: 0.9rem !important; border-collapse: collapse !important;">
+                                        <thead style="position: sticky; top: 0; z-index: 10; background-color: #f1f5f9 !important;">
+                                            <tr style="border-bottom: 2px solid #cbd5e1 !important;">
+                                                <th style="text-align: left !important; color: #0f172a !important; padding: 12px !important; font-weight: bold !important; width: 35%;">Nombre Completo</th>
+                                                <th style="text-align: left !important; color: #0f172a !important; padding: 12px !important; font-weight: bold !important; width: 20%;">CI / Usuario</th>
+                                                <th style="text-align: left !important; color: #0f172a !important; padding: 12px !important; font-weight: bold !important; width: 30%;">Institución / Especialidad</th>
+                                                <th style="text-align: center !important; color: #0f172a !important; padding: 12px !important; font-weight: bold !important; width: 15%;">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tabla-usuarios-global">
+                                            <tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Cargando usuarios...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="tab-tribunales" class="tab-content section-animate" style="display: none;">
                             <div class="form-card">
                                 <h3><i class="fas fa-gavel"></i> Registro de Tribunal</h3>
                                 <form onsubmit="registrarNuevoTribunal(event)">
@@ -598,7 +656,7 @@
                                 </form>
                             </div>
                         </div>
-                        <div id="tab-visitantes" class="tab-content section-animate">
+                        <div id="tab-visitantes" class="tab-content section-animate" style="display: none;">
                             <div class="form-card">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                                     <h3 style="margin: 0; border-bottom: none;"><i class="fas fa-mobile-alt"></i> Monitoreo de Votos del Público</h3>
@@ -963,6 +1021,25 @@
         </section>
     </div>
     
+    <!-- Modal de Políticas de Privacidad -->
+    <div id="modal-privacidad" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
+        <div style="background: white; border-radius: 8px; max-width: 600px; width: 100%; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <div style="background: var(--azul-uab); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-shield-alt"></i> Políticas de Privacidad y Uso</h3>
+                <button onclick="document.getElementById('modal-privacidad').style.display='none'" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; color: #333; font-size: 0.9rem; line-height: 1.6;">
+                <p><strong>1. Recopilación de Datos Personales:</strong> Para participar en la TecnoFeria, el sistema recopila los siguientes datos: Nombre Completo, Carnet de Identidad (C.I.), Número de Celular, Correo Electrónico e Institución de procedencia.</p>
+                <p><strong>2. Datos de Geolocalización (GPS):</strong> Durante el proceso de votación del público, el sistema solicita acceso temporal a la ubicación GPS del dispositivo del visitante. Estos datos se utilizan de manera algorítmica <b>únicamente en el instante del voto</b> para verificar que el usuario se encuentre dentro del recinto ferial, como medida de seguridad anti-fraude. La ubicación exacta queda registrada en la base de datos vinculada al voto.</p>
+                <p><strong>3. Uso de la Información:</strong> Los datos recopilados tienen un fin única y exclusivamente académico y administrativo para la gestión de la feria (certificaciones, cuadros de honor y estadísticas de afluencia). <b>En ningún caso estos datos serán vendidos, cedidos o comercializados a entidades externas.</b></p>
+                <p><strong>4. Seguridad:</strong> Las contraseñas son encriptadas bajo protocolos criptográficos antes de ser almacenadas. El Comité Organizador se reserva el derecho de eliminar registros que presenten anomalías o intentos de vulneración al sistema.</p>
+            </div>
+            <div style="padding: 15px 20px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
+                <button onclick="document.getElementById('modal-privacidad').style.display='none'" style="background: var(--rojo-uab); color: white; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer;">Entendido</button>
+            </div>
+        </div>
+    </div>
+    
     <script type="text/javascript">
         (function(){
             if(typeof emailjs !== 'undefined'){
@@ -974,7 +1051,7 @@
     <script src="core/router.js?v=FERIA_V43"></script>
     <script src="features/auth/auth.js?v=FERIA_V43"></script>
     <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V43"></script>
-    <script src="features/admin/admin.js?v=FERIA_V43"></script>
+    <script src="features/admin/admin.js?v=FERIA_V42"></script>
     <script src="features/votacion/votacion.js?v=FERIA_V43"></script>
     <script src="features/habilitacion/habilitacion.js?v=FERIA_V43"></script>
     <script src="features/registro/registro.js?v=FERIA_V43"></script>
