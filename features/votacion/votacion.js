@@ -97,7 +97,7 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
                 const estado = proyecto.estado_evaluacion;
-                
+                /*
                 if (!estado || estado === "Pendiente") {
                     tituloEl.innerHTML = `<i class="fas fa-clock"></i> El proyecto <b>"${proyecto.titulo}"</b> aún está siendo evaluado por el Tribunal. Las votaciones públicas no están habilitadas.`;
                     tituloEl.style.color = "#f39c12"; 
@@ -114,7 +114,7 @@ window.cargarProyectoParaVotar = async function() {
                     formEl.style.display = 'none';
                     return;
                 }
-
+                */
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;

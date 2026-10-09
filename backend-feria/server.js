@@ -485,10 +485,11 @@ app.post('/api/votar', async (req, res) => {
         if (proyCheck.rows.length > 0 && proyCheck.rows[0].ci_propietario === ci) {
             return res.status(400).json({ error: "⛔ Fraude Detectado: No puedes calificar tu propio proyecto." });
         }
+        /*
         if (proyCheck.rows.length > 0 && proyCheck.rows[0].estado_evaluacion !== 'Pre-seleccionado') {
             return res.status(400).json({ error: "⛔ Operación Rechazada: Este proyecto no superó la pre-selección y no está habilitado para el público." });
         }
-
+        */
         // Si es un dispositivo nuevo, lo guardamos en la base de datos con el colegio que seleccionó
         if (ci.startsWith('DEV-')) {
             const checkVis = await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci]);
