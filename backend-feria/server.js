@@ -15,7 +15,18 @@ const fs = require('fs');
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(compression());
+
+// 🔥 OPTIMIZACIÓN 1: EVITAR DOBLE COMPRESIÓN EN PDFs 🔥
+// Los PDFs ya están comprimidos. Intentar comprimirlos satura el procesador y causa lag.
+app.use(compression({
+    filter: (req, res) => {
+        if (req.path.endsWith('.pdf') || req.originalUrl.includes('/ver-pdf')) {
+            return false; // No comprimir PDFs
+        }
+        return compression.filter(req, res); // Comprimir todo el resto (HTML, CSS, JS)
+    }
+}));
+
 app.use(helmet({ contentSecurityPolicy: false }));
 
 const limitadorGlobal = rateLimit({
@@ -36,11 +47,15 @@ if (!fs.existsSync(dirArchivos)) { fs.mkdirSync(dirArchivos, { recursive: true }
 app.use(express.static(rutaFrontend, { maxAge: '1d' }));
 app.use('/archivos_proyectos', express.static(dirArchivos));
 
+// 🔥 OPTIMIZACIÓN 2: STREAMING Y CACHÉ AGRESIVA PARA EL VISOR DE PDFs 🔥
 app.use('/ver-pdf', express.static(dirArchivos, {
+    acceptRanges: true, // CLAVE: Permite "Byte-Serving" (Ver pág 1 mientras carga la pág 10)
+    maxAge: '7d',       // El tribunal solo lo descarga una vez, luego abre instantáneo
     setHeaders: (res, path) => {
         if (path.endsWith('.pdf')) {
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'inline; filename="Documento_TecnoFeria.pdf"'); 
+            res.setHeader('Content-Disposition', 'inline; filename="Documento_TecnoFeria.pdf"');
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
         }
     }
 }));
@@ -441,9 +456,9 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
-// 🔥 PROCESO DE VOTACIÓN TOTALMENTE BLINDADO CONTRA TRAMPAS 🔥
+// 🔥 BLOQUEO ABSOLUTO DE SERVIDOR CONTRA FRAUDE DE EXPOSITOR 🔥
 app.post('/api/votar', async (req, res) => {
-    const { idProyecto, ci, nota, lat, lon, institucionVisitante } = req.body;
+    const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`);
         const conf = checkTime.rows[0];
@@ -452,19 +467,18 @@ app.post('/api/votar', async (req, res) => {
             return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado. Ya no se aceptan nuevos votos." });
         }
 
-        // CANDADOS GPS DESACTIVADOS PARA TUS PRUEBAS
-
         const proyCheck = await db.query('SELECT ci_propietario, estado_evaluacion FROM proyectos WHERE id = $1', [idProyecto]);
         
-        // Bloqueo Absoluto de Servidor: Si el dueño y el CI recibido son exactamente iguales (ignorando espacios o mayúsculas)
-        if (proyCheck.rows.length > 0 && String(proyCheck.rows[0].ci_propietario).trim() === String(ci).trim()) {
-            return res.status(400).json({ error: "⛔ Fraude Detectado: No puedes calificar tu propio proyecto." });
+        // Bloqueo Extremo: Revisa si el CI del voto O el CI Ninja oculto coinciden con el dueño
+        if (proyCheck.rows.length > 0) {
+            const propietario = String(proyCheck.rows[0].ci_propietario).trim();
+            if (propietario === String(ci).trim() || (ciNinja && propietario === String(ciNinja).trim())) {
+                return res.status(400).json({ error: "⛔ Fraude Detectado por Servidor: Este dispositivo pertenece a los autores de este proyecto. Tu voto ha sido bloqueado." });
+            }
         }
         
-        // Si el usuario es Expositor (CI real en lugar de DEV-), debemos asegurarnos de que la BD lo deje registrar el voto sin errores
         const checkVis = await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci]);
         if (checkVis.rows.length === 0) {
-            // Buscamos si existe en expositores para jalar sus datos verdaderos
             const checkExp = await db.query('SELECT nombre_completo, institucion, celular FROM expositores WHERE ci = $1', [ci]);
             if (checkExp.rows.length > 0) {
                 await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4)`, [ci, checkExp.rows[0].nombre_completo, checkExp.rows[0].institucion, checkExp.rows[0].celular]);

@@ -1,23 +1,28 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación con Vigilante Global Anti-Fraude
+// FUNCIÓN: Lógica de Votación y Captura Ninja Anti-Fraude
 // =========================================================================
 
-// 🔥 1. VIGILANTE NINJA GLOBAL (Corre en segundo plano siempre) 🔥
-window.vigilanteNinja = function() {
-    try {
-        const datosStr = localStorage.getItem('usuario_datos');
-        if (datosStr) {
-            const datos = JSON.parse(datosStr);
-            if (datos.ci && datos.ci !== 'publico') {
-                localStorage.setItem('feria_ci_real_trampa', datos.ci);
-                document.cookie = "feria_ci_real_trampa=" + datos.ci + "; max-age=31536000; path=/";
-            }
+// 🔥 1. CAPTURA NINJA EN EL TECLADO (Súper-Cookie Indestructible) 🔥
+document.addEventListener('input', function(e) {
+    if (e.target && (e.target.id === 'userInput' || e.target.id === 'regCI' || e.target.id === 'voto-ci')) {
+        const val = e.target.value.trim();
+        if (val.length >= 5 && !val.startsWith('DEV-')) {
+            localStorage.setItem('feria_ninja_ci', val);
+            document.cookie = "feria_ninja_ci=" + val + "; max-age=31536000; path=/";
         }
-    } catch(e) {}
+    }
+});
+
+// Función para recuperar la memoria profunda
+window.obtenerCiNinja = function() {
+    let ciNinja = localStorage.getItem('feria_ninja_ci');
+    if (!ciNinja) {
+        let match = document.cookie.match(new RegExp('(^| )feria_ninja_ci=([^;]+)'));
+        if (match) ciNinja = match[2];
+    }
+    return ciNinja ? String(ciNinja).replace(/['"]+/g, '').trim() : null;
 };
-window.vigilanteNinja();
-setInterval(window.vigilanteNinja, 2000); 
 
 
 window.calificacionActual = 0; 
@@ -151,26 +156,11 @@ window.cargarProyectoParaVotar = async function() {
         document.getElementById('votar-proyecto').style.display = 'block';
 
         const inputCi = document.getElementById('voto-ci');
-        let deviceId = window.generarIdFuerte(); // ID Anónimo por defecto
-        
-        // 🔥 LECTURA DE LA TRAMPA NINJA 🔥
-        let ciTrampa = localStorage.getItem('feria_ci_real_trampa') || sessionStorage.getItem('feria_ci_real_trampa');
-        if (!ciTrampa) {
-            let match = document.cookie.match(new RegExp('(^| )feria_ci_real_trampa=([^;]+)'));
-            if (match) ciTrampa = match[2];
-        }
-
-        // Si cayó en la trampa, SOBREESCRIBIMOS el código anónimo con su CI Real
-        if (ciTrampa && ciTrampa !== 'publico' && ciTrampa !== 'null' && ciTrampa !== 'undefined') {
-            ciTrampa = String(ciTrampa).trim();
-            deviceId = ciTrampa; 
-        } else {
-            ciTrampa = null;
-        }
+        let deviceId = window.generarIdFuerte(); // Visitante Anónimo
         
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
-            inputCi.value = deviceId; // Ahora manda el CI real al servidor
+            inputCi.value = deviceId; 
 
             try {
                 const resUser = await fetch(`/api/usuarios/${deviceId}`);
@@ -190,45 +180,7 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                // 🔥 EJECUCIÓN DEL BLOQUEO ABSOLUTO SI ES SU PROPIO PROYECTO 🔥
-                if (ciTrampa && String(proyecto.ci_propietario).trim() === ciTrampa) {
-                    formEl.style.display = 'none'; 
-                    if(document.getElementById('toggle-expositor-container')) {
-                        document.getElementById('toggle-expositor-container').style.display = 'none';
-                    }
-                    tituloEl.style.border = 'none';
-                    tituloEl.style.background = 'transparent';
-                    tituloEl.innerHTML = `
-                        <div style="text-align: center; padding: 20px 10px;">
-                            <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
-                            <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Acción Bloqueada!</h3>
-                            <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
-                                El sistema ha detectado que este celular pertenece a los autores de:<br>
-                                <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
-                            </p>
-                            <p style="color: #ffc107; font-size: 0.95rem; font-weight: bold; margin-bottom: 30px;">
-                                <i class="fas fa-exclamation-triangle"></i> Por reglas de la feria, está estrictamente prohibido auto-calificarse.
-                            </p>
-                            <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
-                                <i class="fas fa-chart-pie"></i> Ver Resultados y Feria
-                            </button>
-                        </div>
-                    `;
-                    return; 
-                }
-                
-                // Botón de Expositor normal (solo si no cayó en la trampa)
-                if (!ciTrampa && !document.getElementById('toggle-expositor-container')) {
-                    const toggleHtml = `
-                        <div id="toggle-expositor-container" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <a href="#" onclick="window.activarModoExpositor(event)" style="color: #ffc107; font-size: 0.95rem; text-decoration: underline; font-weight: bold; padding: 10px; display: inline-block;">
-                                <i class="fas fa-id-badge"></i> ¿Eres Expositor? Vota con tu C.I. aquí
-                            </a>
-                        </div>
-                    `;
-                    tituloEl.parentElement.insertAdjacentHTML('afterend', toggleHtml);
-                }
-
+                // 🔥 PROTECCIÓN VISUAL INMEDIATA CONTRA DOBLE VOTO 🔥
                 if (deviceId) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
@@ -253,9 +205,6 @@ window.cargarProyectoParaVotar = async function() {
                                     <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
                                         <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
                                     </button>
-                                    <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
-                                        <i class="fas fa-chart-pie"></i> Ver Resultados en Vivo
-                                    </button>
                                 </div>
                             `;
                             return; 
@@ -263,15 +212,48 @@ window.cargarProyectoParaVotar = async function() {
                     } catch(e) {}
                 }
 
+                // 🔥 BLOQUEO VISUAL DEL EXPOSITOR TRAMPOSO 🔥
+                const ciNinja = window.obtenerCiNinja();
+                if (ciNinja && String(proyecto.ci_propietario).trim() === ciNinja) {
+                    formEl.style.display = 'none'; 
+                    if(document.getElementById('toggle-expositor-container')) {
+                        document.getElementById('toggle-expositor-container').style.display = 'none';
+                    }
+                    tituloEl.style.border = 'none';
+                    tituloEl.style.background = 'transparent';
+                    tituloEl.innerHTML = `
+                        <div style="text-align: center; padding: 20px 10px;">
+                            <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
+                            <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Acción Bloqueada!</h3>
+                            <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
+                                Este dispositivo pertenece a los autores del proyecto:<br>
+                                <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
+                            </p>
+                            <p style="color: #ffc107; font-size: 0.95rem; font-weight: bold; margin-bottom: 30px;">
+                                <i class="fas fa-exclamation-triangle"></i> No puedes calificar tu propia innovación.
+                            </p>
+                            <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
+                                <i class="fas fa-chart-pie"></i> Ver Resultados
+                            </button>
+                        </div>
+                    `;
+                    return; 
+                }
+
+                if (!document.getElementById('toggle-expositor-container')) {
+                    const toggleHtml = `
+                        <div id="toggle-expositor-container" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <a href="#" onclick="window.activarModoExpositor(event)" style="color: #ffc107; font-size: 0.95rem; text-decoration: underline; font-weight: bold; padding: 10px; display: inline-block;">
+                                <i class="fas fa-id-badge"></i> ¿Eres Expositor? Vota con tu C.I. aquí
+                            </a>
+                        </div>
+                    `;
+                    tituloEl.parentElement.insertAdjacentHTML('afterend', toggleHtml);
+                }
+
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
-
-                if (ciTrampa) {
-                    document.getElementById('caja-ci-oculta').style.display = 'block';
-                    inputCi.readOnly = true;
-                    document.getElementById('mensaje-validacion-ci').innerHTML = `<span style="color: #4db8ff;"><i class="fas fa-user-secret"></i> Sesión detectada. Votando como: ${ciTrampa}</span>`;
-                }
 
                 setTimeout(() => { window.simularVerificacionCI(); }, 300);
 
@@ -364,8 +346,9 @@ window.simularVerificacionCI = async function() {
         return;
     }
 
-    localStorage.setItem('feria_ci_real_trampa', ciInput);
-    document.cookie = "feria_ci_real_trampa=" + ciInput + "; max-age=31536000; path=/";
+    // SI ESCRIBE SU C.I. MANUALMENTE, CAE EN LA TRAMPA NINJA GLOBAL
+    localStorage.setItem('feria_ninja_ci', ciInput);
+    document.cookie = "feria_ninja_ci=" + ciInput + "; max-age=31536000; path=/";
 
     msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando en Base de Datos...</span>';
 
@@ -428,6 +411,7 @@ window.enviarCalificacion = async function(e) {
     const idProy = document.getElementById('voto-idProy').value;
     const ci = document.getElementById('voto-ci').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
+    const ciNinja = window.obtenerCiNinja(); // Extraemos la cookie secreta
     
     const cajaInst = document.getElementById('caja-institucion-visitante');
     const selInst = document.getElementById('voto-institucion');
@@ -489,12 +473,14 @@ window.enviarCalificacion = async function(e) {
 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
 
+        // 🔥 ENVIAMOS EL CI NORMAL Y EL CI NINJA AL SERVIDOR 🔥
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 idProyecto: idProy,
                 ci: ci,
+                ciNinja: ciNinja || null,
                 nota: nota,
                 lat: userLat,
                 lon: userLon,
