@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación y Modo Visitante / Público (Persistencia Reforzada)
+// FUNCIÓN: Lógica de Votación con Trampa Silenciosa para Expositores
 // =========================================================================
 
 window.calificacionActual = 0; 
@@ -12,15 +12,10 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const radLat2 = lat2 * Math.PI / 180;
     const deltaLat = (lat2 - lat1) * Math.PI / 180;
     const deltaLon = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-              Math.cos(radLat1) * Math.cos(radLat2) *
-              Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; 
+    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
 }
 
-// 🔥 FUNCIÓN PARA ENTRAR AL SISTEMA COMO PÚBLICO 🔥
 window.ingresarComoPublico = async function() {
     const panelVoto = document.getElementById('votar-proyecto');
     if (panelVoto) panelVoto.style.display = 'none';
@@ -34,9 +29,7 @@ window.ingresarComoPublico = async function() {
     });
 
     const mainContent = document.getElementById('main-content');
-    if (mainContent) {
-        mainContent.style.display = 'block';
-    }
+    if (mainContent) mainContent.style.display = 'block';
 
     const menusPrivados = ['nav-mi-proyecto', 'nav-registro', 'nav-evaluacion', 'nav-informes'];
     menusPrivados.forEach(id => {
@@ -44,8 +37,14 @@ window.ingresarComoPublico = async function() {
         if(el) el.style.display = 'none';
     });
 
+    // Registramos que es visitante, pero SIN borrar la trampa ninja si existe
     localStorage.setItem('usuario_rol', 'VISITANTE');
-    localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
+    
+    // Solo sobreescribimos los datos visuales, no la identidad profunda
+    const datosActuales = localStorage.getItem('usuario_datos');
+    if (!datosActuales || JSON.parse(datosActuales).ci === 'publico') {
+        localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
+    }
 
     if (typeof navigate === 'function') {
         const btnInicio = document.querySelector('#nav-links-menu li a');
@@ -70,48 +69,55 @@ window.cargarInstitucionesParaVoto = async function() {
         let htmlOpciones = '<option value="" disabled selected>Seleccione su colegio...</option>';
         for (const [tipo, lista] of Object.entries(grupos)) {
             htmlOpciones += `<optgroup label="${tipo}" style="background: #fff; color: #000;">`;
-            lista.forEach(inst => {
-                htmlOpciones += `<option value="${inst.nombre}" style="background: #fff; color: #000;">${inst.nombre}</option>`;
-            });
+            lista.forEach(inst => { htmlOpciones += `<option value="${inst.nombre}" style="background: #fff; color: #000;">${inst.nombre}</option>`; });
             htmlOpciones += `</optgroup>`;
         }
-        htmlOpciones += `
-            <optgroup label="Otros" style="background: #fff; color: #000;">
-                <option value="Visitante Particular / Otro" style="background: #fff; color: #000;">Visitante Particular / Otro</option>
-            </optgroup>
-        `;
+        htmlOpciones += `<optgroup label="Otros" style="background: #fff; color: #000;"><option value="Visitante Particular / Otro" style="background: #fff; color: #000;">Visitante Particular / Otro</option></optgroup>`;
         selVoto.innerHTML = htmlOpciones;
-    } catch (e) {
-        console.error("Error al cargar colegios", e);
-    }
+    } catch (e) { console.error("Error al cargar colegios", e); }
 };
 
-// 🔥 GENERADOR SÚPER-PERSISTENTE (Evita colisiones y resiste borrado de caché temporal) 🔥
 window.generarIdFuerte = function() {
-    // 1. Buscamos en todas las capas de memoria del celular
     let id = localStorage.getItem('feria_device_id') || sessionStorage.getItem('feria_device_id');
     if (!id) {
         let match = document.cookie.match(new RegExp('(^| )feria_device_id=([^;]+)'));
         if (match) id = match[2];
     }
-
-    // Si encontramos el ID guardado, lo restauramos en todas partes
     if (id) {
         localStorage.setItem('feria_device_id', id);
         sessionStorage.setItem('feria_device_id', id);
         document.cookie = "feria_device_id=" + id + "; max-age=31536000; path=/";
         return id;
     }
-
-    // 2. Si es nuevo, generamos un ID único aleatorio (Soluciona el problema de celulares idénticos)
     const randomHash = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
     const finalId = 'DEV-' + randomHash.toUpperCase();
-
-    // 3. Lo cimentamos en las 3 memorias
     localStorage.setItem('feria_device_id', finalId);
     sessionStorage.setItem('feria_device_id', finalId);
     document.cookie = "feria_device_id=" + finalId + "; max-age=31536000; path=/";
     return finalId;
+};
+
+window.activarModoExpositor = function(e) {
+    if(e) e.preventDefault();
+    
+    document.getElementById('toggle-expositor-container').style.display = 'none';
+    const cajaInst = document.getElementById('caja-institucion-visitante');
+    if(cajaInst) cajaInst.style.display = 'none';
+    
+    const cajaCi = document.getElementById('caja-ci-oculta');
+    cajaCi.style.display = 'block';
+    
+    const inputCi = document.getElementById('voto-ci');
+    inputCi.value = ''; 
+    inputCi.readOnly = false;
+    inputCi.focus();
+    
+    document.getElementById('mensaje-validacion-ci').innerHTML = '<span style="color: #ffc107; font-size: 0.9rem;"><i class="fas fa-info-circle"></i> Escriba su C.I. para verificar su identidad...</span>';
+    
+    const btn = document.getElementById('btnEnviarVoto');
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "not-allowed";
 };
 
 window.cargarProyectoParaVotar = async function() {
@@ -136,23 +142,44 @@ window.cargarProyectoParaVotar = async function() {
         const inputCi = document.getElementById('voto-ci');
         let deviceId = "";
         
+        // 🔥 INICIO DE LA TRAMPA NINJA 🔥
+        let ciTrampa = localStorage.getItem('feria_ci_real_trampa'); // Buscamos si dejó rastro antes
+        try {
+            const datosStr = localStorage.getItem('usuario_datos');
+            if (datosStr) {
+                const datos = JSON.parse(datosStr);
+                // Si el sistema encuentra que este celular tiene una sesión de usuario real guardada
+                if (datos.ci && datos.ci !== 'publico') {
+                    ciTrampa = datos.ci;
+                    localStorage.setItem('feria_ci_real_trampa', ciTrampa); // Lo marcamos de por vida
+                }
+            }
+        } catch(e) {}
+        
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            // Usamos el nuevo generador fuerte
-            deviceId = window.generarIdFuerte();
-            inputCi.value = deviceId;
+            if (ciTrampa) {
+                // EL USUARIO CAYÓ EN LA TRAMPA: Le forzamos su C.I. verdadero silenciosamente
+                deviceId = ciTrampa;
+                inputCi.value = deviceId;
+                document.getElementById('caja-institucion-visitante').style.display = 'none';
+                
+            } else {
+                // Es un visitante 100% puro y anónimo
+                deviceId = window.generarIdFuerte();
+                inputCi.value = deviceId;
 
-            // Verificamos si la Base de Datos ya conoce este celular
-            try {
-                const resUser = await fetch(`/api/usuarios/${deviceId}`);
-                if (resUser.ok) {
-                    document.getElementById('caja-institucion-visitante').style.display = 'none';
-                } else {
-                    document.getElementById('caja-institucion-visitante').style.display = 'block';
-                    window.cargarInstitucionesParaVoto();
-                }
-            } catch(e) { console.error(e); }
+                try {
+                    const resUser = await fetch(`/api/usuarios/${deviceId}`);
+                    if (resUser.ok) {
+                        document.getElementById('caja-institucion-visitante').style.display = 'none';
+                    } else {
+                        document.getElementById('caja-institucion-visitante').style.display = 'block';
+                        window.cargarInstitucionesParaVoto();
+                    }
+                } catch(e) { console.error(e); }
+            }
         }
 
         try {
@@ -162,7 +189,18 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
                 
-                // 🔥 PROTECCIÓN VISUAL INMEDIATA CONTRA DOBLE VOTO 🔥
+                // Mostrar botón de expositor SOLO si no cayó en la trampa
+                if (!ciTrampa && !document.getElementById('toggle-expositor-container')) {
+                    const toggleHtml = `
+                        <div id="toggle-expositor-container" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <a href="#" onclick="window.activarModoExpositor(event)" style="color: #ffc107; font-size: 0.95rem; text-decoration: underline; font-weight: bold; padding: 10px; display: inline-block;">
+                                <i class="fas fa-id-badge"></i> ¿Eres Expositor? Vota con tu C.I. aquí
+                            </a>
+                        </div>
+                    `;
+                    tituloEl.parentElement.insertAdjacentHTML('afterend', toggleHtml);
+                }
+
                 if (deviceId) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
@@ -170,6 +208,7 @@ window.cargarProyectoParaVotar = async function() {
                         
                         if (dataVerif.yaVoto) {
                             formEl.style.display = 'none'; 
+                            if(document.getElementById('toggle-expositor-container')) document.getElementById('toggle-expositor-container').style.display = 'none';
                             tituloEl.style.border = 'none';
                             tituloEl.style.background = 'transparent';
                             tituloEl.innerHTML = `
@@ -200,6 +239,13 @@ window.cargarProyectoParaVotar = async function() {
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
 
+                // Si cayó en la trampa ninja, mostramos un pequeño texto advirtiendo que lo reconocimos
+                if (ciTrampa) {
+                    document.getElementById('caja-ci-oculta').style.display = 'block';
+                    inputCi.readOnly = true;
+                    document.getElementById('mensaje-validacion-ci').innerHTML = `<span style="color: #4db8ff;"><i class="fas fa-user-secret"></i> Sesión detectada. Votando como: ${ciTrampa}</span>`;
+                }
+
                 setTimeout(() => { window.simularVerificacionCI(); }, 300);
 
             } else {
@@ -207,9 +253,7 @@ window.cargarProyectoParaVotar = async function() {
                 document.getElementById('votar-titulo').style.color = "#d32f2f";
                 document.getElementById('form-votacion').style.display = 'none';
             }
-        } catch (error) {
-            console.error(error);
-        }
+        } catch (error) { console.error(error); }
     }
 };
 
@@ -258,35 +302,76 @@ window.simularVerificacionCI = async function() {
         instSeleccionada = false;
     }
 
-    msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Conectando dispositivo...</span>';
+    if (!ciInput) {
+        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+        return;
+    }
+
+    msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Verificando conexión...</span>';
 
     if (ciInput.startsWith('DEV-')) {
-        // Validación secundaria en caso de que logren evadir la pantalla de bloqueo
         try {
             const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
             const dataVerif = await resVerif.json();
             
             if (dataVerif.yaVoto) {
                 msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Este celular ya votó por este proyecto.</span>`;
-                btn.disabled = true;
-                btn.style.opacity = "0.5";
-                btn.style.cursor = "not-allowed";
+                btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
                 return;
             }
         } catch(e) {}
 
-        msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Conectado Correctamente</span>`;
+        msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Habilitado</span>`;
         
         if (window.completadosPublico === 4 && instSeleccionada) {
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            btn.style.cursor = "pointer";
+            btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
         } else {
-            btn.disabled = true;
-            btn.style.opacity = "0.5";
-            btn.style.cursor = "not-allowed";
+            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
         }
         return;
+    }
+
+    if (ciInput.length < 5) {
+        msj.innerHTML = `<span style="color: #f39c12;"><i class="fas fa-exclamation-triangle"></i> Carnet muy corto...</span>`;
+        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+        return;
+    }
+
+    // SI ESCRIBE SU C.I. MANUALMENTE, CAE EN LA TRAMPA Y LO GUARDAMOS PARA SIEMPRE
+    localStorage.setItem('feria_ci_real_trampa', ciInput);
+
+    msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando en Base de Datos...</span>';
+
+    try {
+        const res = await fetch(`/api/usuarios/${ciInput}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.datos) {
+                try {
+                    const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
+                    const dataVerif = await resVerif.json();
+                    if (dataVerif.yaVoto) {
+                        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Ya emitiste tu voto por este proyecto.</span>`;
+                        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+                        return;
+                    }
+                } catch(e) {}
+
+                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-user-check"></i> Hola ${data.datos.nombre_completo} (${data.rol})</span>`;
+
+                if (window.completadosPublico === 4) {
+                    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+                } else {
+                    btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+                }
+            }
+        } else {
+            msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-times-circle"></i> C.I. no encontrado. Debes estar registrado.</span>`;
+            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+        }
+    } catch(e) {
+        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-wifi"></i> Error de conexión con el servidor.</span>`;
+        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
     }
 };
 
@@ -321,7 +406,6 @@ window.enviarCalificacion = async function(e) {
     const selInst = document.getElementById('voto-institucion');
     let institucionVisitante = "Visitante Anónimo (Dispositivo)";
     
-    // Solo toma el valor del select si la caja está visible en la pantalla
     if (cajaInst && cajaInst.style.display !== 'none' && selInst && selInst.value) {
         institucionVisitante = selInst.value;
     }
@@ -354,7 +438,6 @@ window.enviarCalificacion = async function(e) {
             }
         }
 
-        // GPS ACTIVADO
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
