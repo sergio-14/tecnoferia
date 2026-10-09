@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de la pantalla pública de votación por QR con Huella Digital y Selección de Institución
+// FUNCIÓN: Lógica de Votación con Huella Fuerte y Prevención Visual de Duplicados
 // =========================================================================
 
 window.calificacionActual = 0; 
@@ -53,7 +53,6 @@ window.cargarInstitucionesParaVoto = async function() {
     }
 };
 
-// 🔥 ALGORITMO ESTRICTO DE HUELLA FÍSICA (Ignora la memoria caché) 🔥
 window.generarHuellaDigitalFuerte = async function() {
     let savedId = localStorage.getItem('feria_device_id');
     if(savedId) return savedId;
@@ -112,10 +111,12 @@ window.cargarProyectoParaVotar = async function() {
         document.getElementById('votar-proyecto').style.display = 'block';
 
         const inputCi = document.getElementById('voto-ci');
+        let deviceId = "";
+        
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            let deviceId = await window.generarHuellaDigitalFuerte();
+            deviceId = await window.generarHuellaDigitalFuerte();
             inputCi.value = deviceId;
 
             try {
@@ -136,9 +137,45 @@ window.cargarProyectoParaVotar = async function() {
             if (res.ok) {
                 const proyecto = await res.json();
                 const tituloEl = document.getElementById('votar-titulo');
+                const formEl = document.getElementById('form-votacion');
                 
-                // 🔥 CANDADO DE ESTADO TRIBUNAL DESACTIVADO PARA PRUEBAS 🔥
-                
+                // 🔥 VERIFICACIÓN INMEDIATA: SI YA VOTÓ, OCULTAMOS TODO Y MOSTRAMOS MENSAJE 🔥
+                if (deviceId) {
+                    try {
+                        const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
+                        const dataVerif = await resVerif.json();
+                        
+                        if (dataVerif.yaVoto) {
+                            formEl.style.display = 'none'; // Oculta el formulario de estrellas
+                            tituloEl.style.border = 'none';
+                            tituloEl.style.background = 'transparent';
+                            tituloEl.innerHTML = `
+                                <div style="text-align: center; padding: 20px 10px;">
+                                    <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
+                                    <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Voto ya registrado!</h3>
+                                    <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
+                                        Tu dispositivo ya emitió un voto válido para la innovación:<br>
+                                        <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
+                                    </p>
+                                    <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 30px;">
+                                        <i class="fas fa-shield-alt"></i> Por seguridad, el sistema solo permite un (1) voto por dispositivo para cada stand.
+                                    </p>
+                                    <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
+                                        <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
+                                    </button>
+                                </div>
+                            `;
+                            return; // Cortar ejecución aquí para que no cargue lo demás
+                        }
+                    } catch(e) { console.error("Error al verificar duplicado", e); }
+                }
+
+                // CANDADO DEL TRIBUNAL COMENTADO PARA TUS PRUEBAS
+                /*
+                const estado = proyecto.estado_evaluacion;
+                if (!estado || estado === "Pendiente") { ... }
+                */
+
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
@@ -204,19 +241,6 @@ window.simularVerificacionCI = async function() {
     msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Conectando dispositivo...</span>';
 
     if (ciInput.startsWith('DEV-')) {
-        try {
-            const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
-            const dataVerif = await resVerif.json();
-            
-            if (dataVerif.yaVoto) {
-                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Este dispositivo ya emitió un voto para este proyecto.</span>`;
-                btn.disabled = true;
-                btn.style.opacity = "0.5";
-                btn.style.cursor = "not-allowed";
-                return;
-            }
-        } catch(e) {}
-
         msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Conectado Correctamente</span>`;
         
         if (window.completadosPublico === 4 && instSeleccionada) {
@@ -267,18 +291,54 @@ window.enviarCalificacion = async function(e) {
         return;
     }
 
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+    btn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Verificando Reglas y GPS...';
     btn.disabled = true;
     btn.style.opacity = "0.7";
     btn.style.cursor = "wait";
 
     try {
+        const resConf = await fetch('/api/configuraciones');
+        const configuracion = await resConf.json();
+        
+        const cierreStr = configuracion.fecha_cierre_votacion; 
+        if (cierreStr) {
+            const [dateP, timeP] = cierreStr.split('T');
+            const [yy, mm, dd] = dateP.split('-');
+            const [hh, mns, ss] = timeP.split(':');
+            const fechaCierre = new Date(yy, mm - 1, dd, hh, mns, ss);
+            
+            if (new Date() > fechaCierre) {
+                alert("⏳ El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
+                btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+                return;
+            }
+        }
+
+        // 🔥 GPS ACTIVADO PARA TUS PRUEBAS 🔥
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
 
-        // 🔥 VALIDACIONES DE GPS DESACTIVADAS EN FRONTEND PARA PRUEBAS 🔥
-        
+        const LAT_FERIA = parseFloat(configuracion.gps_latitud);
+        const LON_FERIA = parseFloat(configuracion.gps_longitud);
+        const RADIO_FERIA = parseInt(configuracion.gps_radio, 10);
+
+        if (isNaN(LAT_FERIA) || isNaN(LON_FERIA) || isNaN(RADIO_FERIA) || isNaN(userLat) || isNaN(userLon)) {
+            alert("⛔ ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+            return;
+        }
+
+        const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
+
+        if (distanciaMetros > RADIO_FERIA) {
+            alert(`⛔ ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${distanciaMetros.toFixed(0)} metros de distancia.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la ubicación configurada.`);
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+            return;
+        }
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
