@@ -16,14 +16,13 @@ const fs = require('fs');
 const app = express();
 app.set('trust proxy', 1);
 
-// 🔥 OPTIMIZACIÓN 1: EVITAR DOBLE COMPRESIÓN EN PDFs 🔥
-// Los PDFs ya están comprimidos. Intentar comprimirlos satura el procesador y causa lag.
+// 🔥 OPTIMIZACIÓN 1: Evitar doble compresión de PDFs 🔥
 app.use(compression({
     filter: (req, res) => {
-        if (req.path.endsWith('.pdf') || req.originalUrl.includes('/ver-pdf')) {
-            return false; // No comprimir PDFs
+        if (req.path.endsWith('.pdf')) {
+            return false; // Los PDFs ya están comprimidos. Intentarlo de nuevo ralentiza el servidor.
         }
-        return compression.filter(req, res); // Comprimir todo el resto (HTML, CSS, JS)
+        return compression.filter(req, res); // Comprime solo HTML, CSS y JS
     }
 }));
 
@@ -36,8 +35,14 @@ const limitadorGlobal = rateLimit({
 });
 app.use('/api/', limitadorGlobal); 
 app.use(cors());
-app.use(express.json({ limit: '2mb' })); 
-app.use(fileUpload({ createParentPath: true, limits: { fileSize: 15 * 1024 * 1024 } }));
+app.use(express.json({ limit: '5mb' })); 
+
+// 🔥 OPTIMIZACIÓN 2: Evitar archivos corruptos o truncados 🔥
+app.use(fileUpload({ 
+    createParentPath: true, 
+    limits: { fileSize: 25 * 1024 * 1024 }, // Aumentado a 25MB
+    abortOnLimit: true // CRÍTICO: Rechaza el archivo si pesa más, en lugar de cortarlo y corromperlo
+}));
 
 const rutaFrontend = path.join(__dirname, '../');
 const dirArchivos = path.join(__dirname, '../archivos_proyectos');
@@ -45,17 +50,16 @@ const dirArchivos = path.join(__dirname, '../archivos_proyectos');
 if (!fs.existsSync(dirArchivos)) { fs.mkdirSync(dirArchivos, { recursive: true }); }
 
 app.use(express.static(rutaFrontend, { maxAge: '1d' }));
-app.use('/archivos_proyectos', express.static(dirArchivos));
 
-// 🔥 OPTIMIZACIÓN 2: STREAMING Y CACHÉ AGRESIVA PARA EL VISOR DE PDFs 🔥
-app.use('/ver-pdf', express.static(dirArchivos, {
-    acceptRanges: true, // CLAVE: Permite "Byte-Serving" (Ver pág 1 mientras carga la pág 10)
-    maxAge: '7d',       // El tribunal solo lo descarga una vez, luego abre instantáneo
-    setHeaders: (res, path) => {
-        if (path.endsWith('.pdf')) {
+// 🔥 OPTIMIZACIÓN 3: Streaming (Byte-Serving) para Visor Rápido 🔥
+app.use('/archivos_proyectos', express.static(dirArchivos, {
+    acceptRanges: true, // Permite descargar el PDF en "pedacitos" (Streaming)
+    maxAge: '7d',       // Guarda en memoria caché del dispositivo por 7 días
+    setHeaders: (res, pathStr) => {
+        if (pathStr.endsWith('.pdf')) {
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'inline; filename="Documento_TecnoFeria.pdf"');
-            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Access-Control-Allow-Origin', '*'); // Evita bloqueos de seguridad del visor
         }
     }
 }));
@@ -469,7 +473,6 @@ app.post('/api/votar', async (req, res) => {
 
         const proyCheck = await db.query('SELECT ci_propietario, estado_evaluacion FROM proyectos WHERE id = $1', [idProyecto]);
         
-        // Bloqueo Extremo: Revisa si el CI del voto O el CI Ninja oculto coinciden con el dueño
         if (proyCheck.rows.length > 0) {
             const propietario = String(proyCheck.rows[0].ci_propietario).trim();
             if (propietario === String(ci).trim() || (ciNinja && propietario === String(ciNinja).trim())) {
