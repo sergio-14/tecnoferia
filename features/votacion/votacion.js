@@ -149,7 +149,7 @@ window.cargarProyectoParaVotar = async function() {
                 const formEl = document.getElementById('form-votacion');
                 
                 // CANDADO DEL TRIBUNAL COMENTADO PARA PRUEBAS
-                
+                /*
                 const estado = proyecto.estado_evaluacion;
                 if (!estado || estado === "Pendiente") {
                     tituloEl.innerHTML = `<i class="fas fa-clock"></i> El proyecto <b>"${proyecto.titulo}"</b> aún está siendo evaluado por el Tribunal. Las votaciones públicas no están habilitadas.`;
@@ -167,7 +167,7 @@ window.cargarProyectoParaVotar = async function() {
                     formEl.style.display = 'none';
                     return;
                 }
-                
+                */
 
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
