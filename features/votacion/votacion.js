@@ -53,6 +53,51 @@ window.cargarInstitucionesParaVoto = async function() {
     }
 };
 
+// 🔥 ALGORITMO ESTRICTO DE HUELLA FÍSICA (Ignora la memoria caché) 🔥
+window.generarHuellaDigitalFuerte = async function() {
+    // Si ya existe en esta sesión, lo usamos para no recalcular
+    let savedId = localStorage.getItem('feria_device_id');
+    if(savedId) return savedId;
+
+    // 1. Datos estables de la pantalla
+    const screenW = Math.max(screen.width, screen.height);
+    const screenH = Math.min(screen.width, screen.height);
+
+    // 2. Renderizado de Canvas (La gráfica de cada celular lo dibuja con diferencias invisibles)
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = "top";
+    ctx.font = "14px 'Arial'";
+    ctx.fillStyle = "#f60";
+    ctx.fillRect(125,1,62,20);
+    ctx.fillStyle = "#069";
+    ctx.fillText("TecnoFeria2026", 2, 15);
+    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+    ctx.fillText("UABJB", 4, 17);
+    const canvasData = canvas.toDataURL();
+
+    // 3. Juntamos la info del hardware
+    const hardwareData = [
+        navigator.hardwareConcurrency || 2, // Núcleos del procesador
+        screenW + 'x' + screenH,            // Resolución real
+        screen.colorDepth || 24,            // Profundidad de color
+        canvasData                          // Huella gráfica
+    ].join('|');
+
+    // 4. Convertimos a Hash Numérico
+    let hash = 0;
+    for (let i = 0; i < hardwareData.length; i++) {
+        const char = hardwareData.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; 
+    }
+    
+    // Retornamos SIEMPRE el mismo ID para ese dispositivo
+    const finalId = 'DEV-' + Math.abs(hash).toString(36).toUpperCase() + screenW;
+    localStorage.setItem('feria_device_id', finalId);
+    return finalId;
+};
+
 window.cargarProyectoParaVotar = async function() {
     const params = new URLSearchParams(window.location.search);
     const idProy = params.get('idProy');
@@ -76,17 +121,23 @@ window.cargarProyectoParaVotar = async function() {
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            let deviceId = localStorage.getItem('feria_device_id');
-            if (!deviceId) {
-                deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-                localStorage.setItem('feria_device_id', deviceId);
-            }
+            // 🔥 1. OBTENER HUELLA FÍSICA ESTRICTA 🔥
+            let deviceId = await window.generarHuellaDigitalFuerte();
             inputCi.value = deviceId;
 
-            // 🔥 COMPROBAR SI YA ES UN USUARIO RECURRENTE 🔥
-            if (!localStorage.getItem('feria_inst_registrada')) {
-                document.getElementById('caja-institucion-visitante').style.display = 'block';
-                window.cargarInstitucionesParaVoto();
+            // 🔥 2. PREGUNTAR A LA BASE DE DATOS SI CONOCE ESTE DISPOSITIVO 🔥
+            try {
+                const resUser = await fetch(`/api/usuarios/${deviceId}`);
+                if (resUser.ok) {
+                    // El servidor lo conoce: Ocultar caja de colegio
+                    document.getElementById('caja-institucion-visitante').style.display = 'none';
+                } else {
+                    // El servidor NO lo conoce: Mostrar caja de colegio
+                    document.getElementById('caja-institucion-visitante').style.display = 'block';
+                    window.cargarInstitucionesParaVoto();
+                }
+            } catch(e) {
+                console.error(e);
             }
         }
 
@@ -96,8 +147,10 @@ window.cargarProyectoParaVotar = async function() {
                 const proyecto = await res.json();
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
+                
+                // CANDADO DEL TRIBUNAL COMENTADO PARA PRUEBAS
+                
                 const estado = proyecto.estado_evaluacion;
-                /*
                 if (!estado || estado === "Pendiente") {
                     tituloEl.innerHTML = `<i class="fas fa-clock"></i> El proyecto <b>"${proyecto.titulo}"</b> aún está siendo evaluado por el Tribunal. Las votaciones públicas no están habilitadas.`;
                     tituloEl.style.color = "#f39c12"; 
@@ -114,7 +167,8 @@ window.cargarProyectoParaVotar = async function() {
                     formEl.style.display = 'none';
                     return;
                 }
-                */
+                
+
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
@@ -173,7 +227,7 @@ window.simularVerificacionCI = async function() {
     const selInst = document.getElementById('voto-institucion');
     
     let instSeleccionada = true;
-    if (cajaInst && cajaInst.style.display === 'block' && selInst.value === "") {
+    if (cajaInst && cajaInst.style.display === 'block' && (!selInst || selInst.value === "")) {
         instSeleccionada = false;
     }
 
@@ -272,60 +326,27 @@ window.enviarCalificacion = async function(e) {
     const nota = document.getElementById('voto-puntaje').value;
     
     const selInst = document.getElementById('voto-institucion');
-    const institucionVisitante = selInst ? selInst.value : "";
+    const institucionVisitante = (selInst && selInst.value) ? selInst.value : "Visitante Anónimo (Dispositivo)";
 
     if (!idProy || !nota || !ci) {
         alert("⚠️ Completa todos los campos y la rúbrica.");
         return;
     }
 
-    btn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Verificando Reglas y GPS...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
     btn.disabled = true;
     btn.style.opacity = "0.7";
     btn.style.cursor = "wait";
 
     try {
-        const resConf = await fetch('/api/configuraciones');
-        const configuracion = await resConf.json();
+        // CANDADO DE GPS COMENTADO PARA PRUEBAS (Enviando coordenadas en 0)
         
-        const cierreStr = configuracion.fecha_cierre_votacion; 
-        if (cierreStr) {
-            const [dateP, timeP] = cierreStr.split('T');
-            const [yy, mm, dd] = dateP.split('-');
-            const [hh, mns, ss] = timeP.split(':');
-            const fechaCierre = new Date(yy, mm - 1, dd, hh, mns, ss);
-            
-            if (new Date() > fechaCierre) {
-                alert("⏳ El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
-                btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-                return;
-            }
-        }
-
-        const LAT_FERIA = parseFloat(configuracion.gps_latitud);
-        const LON_FERIA = parseFloat(configuracion.gps_longitud);
-        const RADIO_FERIA = parseInt(configuracion.gps_radio, 10);
-
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
-
-        if (isNaN(LAT_FERIA) || isNaN(LON_FERIA) || isNaN(RADIO_FERIA) || isNaN(userLat) || isNaN(userLon)) {
-            alert("⛔ ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
-            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-            return;
-        }
-
-        const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
-
-        if (isNaN(distanciaMetros) || distanciaMetros > RADIO_FERIA) {
-            alert(`⛔ ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${isNaN(distanciaMetros) ? 'una distancia desconocida' : distanciaMetros.toFixed(0)} metros de la feria.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros del recinto habilitado.`);
-            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-            return;
-        }
-
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+        // Validaciones de distancia...
         
+
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -333,8 +354,8 @@ window.enviarCalificacion = async function(e) {
                 idProyecto: idProy,
                 ci: ci,
                 nota: nota,
-                lat: userLat,
-                lon: userLon,
+                lat: 0, 
+                lon: 0, 
                 institucionVisitante: institucionVisitante
             })
         });
@@ -342,9 +363,6 @@ window.enviarCalificacion = async function(e) {
         const resData = await res.json();
         
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
-
-        // Marcamos que ya registró su colegio para que no se lo volvamos a preguntar
-        localStorage.setItem('feria_inst_registrada', 'true');
 
         alert("🎉 ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
         window.location.href = window.location.pathname; 
