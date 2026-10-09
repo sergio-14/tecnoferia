@@ -77,16 +77,6 @@ db.connect()
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS latitud DECIMAL(15,8);`); } catch(e){}
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS longitud DECIMAL(15,8);`); } catch(e){}
 
-        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59';`); } catch(e){}
-        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_latitud DECIMAL(15,8) DEFAULT -14.83391721;`); } catch(e){}
-        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_longitud DECIMAL(15,8) DEFAULT -64.89965234;`); } catch(e){}
-        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS gps_radio INTEGER DEFAULT 5000;`); } catch(e){}
-
-        try { await db.query(`CREATE INDEX IF NOT EXISTS idx_proyectos_ci ON proyectos(ci_propietario);`); } catch(e){}
-        try { await db.query(`CREATE INDEX IF NOT EXISTS idx_votos_proy ON votos_publico(id_proyecto);`); } catch(e){}
-        try { await db.query(`CREATE INDEX IF NOT EXISTS idx_votos_ci ON votos_publico(ci_visitante);`); } catch(e){}
-        try { await db.query(`CREATE INDEX IF NOT EXISTS idx_eval_proy ON evaluaciones_tribunal(id_proyecto);`); } catch(e){}
-
         console.log('✅ Base de datos verificada y optimizada.');
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
@@ -451,7 +441,6 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
-// 🔥 VOTACIÓN: AUTO-REGISTRO SILENCIOSO DE INSTITUCIÓN Y HUELLA DIGITAL 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, nota, lat, lon, institucionVisitante } = req.body;
     try {
@@ -462,10 +451,8 @@ app.post('/api/votar', async (req, res) => {
             return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado. Ya no se aceptan nuevos votos." });
         }
 
-        if (lat === null || lat === undefined || lon === null || lon === undefined) {
-            return res.status(400).json({ error: "⛔ Bloqueo de Seguridad: No se detectaron tus coordenadas GPS." });
-        }
-
+        // 🔥 CANDADOS DE GPS Y TRIBUNAL DESACTIVADOS PARA TUS PRUEBAS 🔥
+        
         const feriaLat = parseFloat(conf.gps_latitud);
         const feriaLon = parseFloat(conf.gps_longitud);
         const radioPermitido = parseInt(conf.gps_radio, 10);
@@ -480,17 +467,19 @@ app.post('/api/votar', async (req, res) => {
         if (isNaN(distanciaActual) || distanciaActual > radioPermitido) {
             return res.status(400).json({ error: `⛔ ALERTA DE FRAUDE:\nEstás a ${isNaN(distanciaActual) ? 'una distancia desconocida' : distanciaActual.toFixed(0)} metros de distancia.\nSolo se permite votar dentro de un radio de ${radioPermitido} metros del recinto habilitado.` });
         }
+        
 
         const proyCheck = await db.query('SELECT ci_propietario, estado_evaluacion FROM proyectos WHERE id = $1', [idProyecto]);
         if (proyCheck.rows.length > 0 && proyCheck.rows[0].ci_propietario === ci) {
             return res.status(400).json({ error: "⛔ Fraude Detectado: No puedes calificar tu propio proyecto." });
         }
-        /*
+        
+        /* 
         if (proyCheck.rows.length > 0 && proyCheck.rows[0].estado_evaluacion !== 'Pre-seleccionado') {
             return res.status(400).json({ error: "⛔ Operación Rechazada: Este proyecto no superó la pre-selección y no está habilitado para el público." });
         }
         */
-        // Si es un dispositivo nuevo, lo guardamos en la base de datos con el colegio que seleccionó
+
         if (ci.startsWith('DEV-')) {
             const checkVis = await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci]);
             if (checkVis.rows.length === 0) {
@@ -503,7 +492,7 @@ app.post('/api/votar', async (req, res) => {
         if (dup.rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente." });
         
         const notaValidada = parseInt(nota, 10);
-        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, ci, notaValidada, userLat, userLon]);
+        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, ci, notaValidada, lat, lon]);
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
     } catch (error) { res.status(500).json({ error: "Error en la Base de Datos: " + error.message }); }
 });

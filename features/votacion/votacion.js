@@ -55,15 +55,12 @@ window.cargarInstitucionesParaVoto = async function() {
 
 // 🔥 ALGORITMO ESTRICTO DE HUELLA FÍSICA (Ignora la memoria caché) 🔥
 window.generarHuellaDigitalFuerte = async function() {
-    // Si ya existe en esta sesión, lo usamos para no recalcular
     let savedId = localStorage.getItem('feria_device_id');
     if(savedId) return savedId;
 
-    // 1. Datos estables de la pantalla
     const screenW = Math.max(screen.width, screen.height);
     const screenH = Math.min(screen.width, screen.height);
 
-    // 2. Renderizado de Canvas (La gráfica de cada celular lo dibuja con diferencias invisibles)
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = "top";
@@ -76,15 +73,13 @@ window.generarHuellaDigitalFuerte = async function() {
     ctx.fillText("UABJB", 4, 17);
     const canvasData = canvas.toDataURL();
 
-    // 3. Juntamos la info del hardware
     const hardwareData = [
-        navigator.hardwareConcurrency || 2, // Núcleos del procesador
-        screenW + 'x' + screenH,            // Resolución real
-        screen.colorDepth || 24,            // Profundidad de color
-        canvasData                          // Huella gráfica
+        navigator.hardwareConcurrency || 2, 
+        screenW + 'x' + screenH,            
+        screen.colorDepth || 24,            
+        canvasData                          
     ].join('|');
 
-    // 4. Convertimos a Hash Numérico
     let hash = 0;
     for (let i = 0; i < hardwareData.length; i++) {
         const char = hardwareData.charCodeAt(i);
@@ -92,7 +87,6 @@ window.generarHuellaDigitalFuerte = async function() {
         hash = hash & hash; 
     }
     
-    // Retornamos SIEMPRE el mismo ID para ese dispositivo
     const finalId = 'DEV-' + Math.abs(hash).toString(36).toUpperCase() + screenW;
     localStorage.setItem('feria_device_id', finalId);
     return finalId;
@@ -121,18 +115,14 @@ window.cargarProyectoParaVotar = async function() {
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            // 🔥 1. OBTENER HUELLA FÍSICA ESTRICTA 🔥
             let deviceId = await window.generarHuellaDigitalFuerte();
             inputCi.value = deviceId;
 
-            // 🔥 2. PREGUNTAR A LA BASE DE DATOS SI CONOCE ESTE DISPOSITIVO 🔥
             try {
                 const resUser = await fetch(`/api/usuarios/${deviceId}`);
                 if (resUser.ok) {
-                    // El servidor lo conoce: Ocultar caja de colegio
                     document.getElementById('caja-institucion-visitante').style.display = 'none';
                 } else {
-                    // El servidor NO lo conoce: Mostrar caja de colegio
                     document.getElementById('caja-institucion-visitante').style.display = 'block';
                     window.cargarInstitucionesParaVoto();
                 }
@@ -146,29 +136,9 @@ window.cargarProyectoParaVotar = async function() {
             if (res.ok) {
                 const proyecto = await res.json();
                 const tituloEl = document.getElementById('votar-titulo');
-                const formEl = document.getElementById('form-votacion');
                 
-                // CANDADO DEL TRIBUNAL COMENTADO PARA PRUEBAS
-                /*
-                const estado = proyecto.estado_evaluacion;
-                if (!estado || estado === "Pendiente") {
-                    tituloEl.innerHTML = `<i class="fas fa-clock"></i> El proyecto <b>"${proyecto.titulo}"</b> aún está siendo evaluado por el Tribunal. Las votaciones públicas no están habilitadas.`;
-                    tituloEl.style.color = "#f39c12"; 
-                    formEl.style.display = 'none';
-                    return;
-                } else if (estado === "Evaluado (No clasifica)") {
-                    tituloEl.innerHTML = `<i class="fas fa-times-circle"></i> El proyecto <b>"${proyecto.titulo}"</b> no clasificó a la etapa de exposición pública.`;
-                    tituloEl.style.color = "#d32f2f"; 
-                    formEl.style.display = 'none';
-                    return;
-                } else if (estado !== "Pre-seleccionado") {
-                    tituloEl.innerHTML = `⚠️ Proyecto inactivo o no habilitado.`;
-                    tituloEl.style.color = "#d32f2f";
-                    formEl.style.display = 'none';
-                    return;
-                }
-                */
-
+                // 🔥 CANDADO DE ESTADO TRIBUNAL DESACTIVADO PARA PRUEBAS 🔥
+                
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
@@ -260,43 +230,7 @@ window.simularVerificacionCI = async function() {
         }
         return;
     }
-
-    if (ciInput.length < 5) {
-        msj.innerHTML = ""; btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-        return;
-    }
-
-    try {
-        const res = await fetch(`/api/usuarios/${ciInput}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.datos) {
-                try {
-                    const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
-                    const dataVerif = await resVerif.json();
-                    if (dataVerif.yaVoto) {
-                        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Ya calificaste este proyecto.</span>`;
-                        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-                        return;
-                    }
-                } catch(e) {}
-
-                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Habilitado: ${data.datos.nombre_completo}</span>`;
-
-                if (window.completadosPublico === 4 && instSeleccionada) {
-                    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-                } else {
-                    btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-                }
-            }
-        } else {
-            msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-times-circle"></i> CI no habilitado. Acércate al punto de Habilitación.</span>`;
-            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-        }
-    } catch(e) {
-        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-exclamation-triangle"></i> Error de conexión.</span>`;
-    }
-}
+};
 
 function obtenerUbicacionGPS() {
     return new Promise((resolve, reject) => {
@@ -333,58 +267,18 @@ window.enviarCalificacion = async function(e) {
         return;
     }
 
-    btn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Verificando Reglas y GPS...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
     btn.disabled = true;
     btn.style.opacity = "0.7";
     btn.style.cursor = "wait";
 
     try {
-        // 1. Obtener configuraciones del sistema (Tus coordenadas y radio)
-        const resConf = await fetch('/api/configuraciones');
-        const configuracion = await resConf.json();
-        
-        const cierreStr = configuracion.fecha_cierre_votacion; 
-        if (cierreStr) {
-            const [dateP, timeP] = cierreStr.split('T');
-            const [yy, mm, dd] = dateP.split('-');
-            const [hh, mns, ss] = timeP.split(':');
-            const fechaCierre = new Date(yy, mm - 1, dd, hh, mns, ss);
-            
-            if (new Date() > fechaCierre) {
-                alert("⏳ El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
-                btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-                return;
-            }
-        }
-
-        // 2. Encender GPS del celular y obtener ubicación EXACTA
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
 
-        // 3. Obtener los límites configurados en el panel
-        const LAT_FERIA = parseFloat(configuracion.gps_latitud);
-        const LON_FERIA = parseFloat(configuracion.gps_longitud);
-        const RADIO_FERIA = parseInt(configuracion.gps_radio, 10);
-
-        if (isNaN(LAT_FERIA) || isNaN(LON_FERIA) || isNaN(RADIO_FERIA) || isNaN(userLat) || isNaN(userLon)) {
-            alert("⛔ ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
-            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-            return;
-        }
-
-        // 4. Calcular distancia entre el celular y la Feria
-        const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
-
-        if (distanciaMetros > RADIO_FERIA) {
-            alert(`⛔ ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${distanciaMetros.toFixed(0)} metros de distancia.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la ubicación configurada.`);
-            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-            return;
-        }
-
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+        // 🔥 VALIDACIONES DE GPS DESACTIVADAS EN FRONTEND PARA PRUEBAS 🔥
         
-        // 5. Enviar el voto con las coordenadas reales
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
