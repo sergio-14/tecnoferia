@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- 🔥 VERSIÓN V43: REGISTRO ANÓNIMO Y SELECCIÓN DE COLEGIO 🔥 -->
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V43">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V43">
+    <!-- 🔥 VERSIÓN V46: MODO VISITANTE PÚBLICO 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V46">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V46">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -63,6 +63,11 @@
                     
                     <button type="button" onclick="window.abrirVisorDocs('https://docs.google.com/document/d/1jL_TX4DhONjvgenKZuW3TOwdIgZJkg7x/edit')" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 10px; background-color: #005f73;">
                         <i class="fas fa-file-alt" style="margin-right: 8px;"></i> Convocatoria TecnoFeria
+                    </button>
+                    
+                    <!-- 🔥 NUEVO: BOTÓN PARA ENTRAR COMO PÚBLICO 🔥 -->
+                    <button type="button" onclick="window.ingresarComoPublico()" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 10px; background-color: #28a745;">
+                        <i class="fas fa-chart-pie" style="margin-right: 8px;"></i> Ingresar como Público / Resultados
                     </button>
 
                 </form>
@@ -415,7 +420,6 @@
                         <input type="hidden" id="voto-idProy">
                         <input type="hidden" id="voto-cat">
                         
-                        <!-- CASILLA OCULTA (HUELLA DIGITAL) -->
                         <div id="caja-ci-oculta" style="text-align: left; margin-bottom: 25px; display: none;">
                             <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Carnet de Identidad (CI)</label>
                             <div style="position: relative;">
@@ -425,7 +429,6 @@
                             <div id="mensaje-validacion-ci" style="font-size: 0.85rem; margin-top: 8px; font-weight: bold; min-height: 20px;"></div>
                         </div>
 
-                        <!-- 🔥 NUEVO: SELECCIÓN DE COLEGIO PARA VISITANTES ANÓNIMOS 🔥 -->
                         <div id="caja-institucion-visitante" style="text-align: left; margin-bottom: 25px; display: none;">
                             <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">¿De qué Colegio o Institución nos visitas?</label>
                             <div style="position: relative;">
@@ -467,7 +470,8 @@
                         
                         <button type="submit" id="btnEnviarVoto" disabled style="width: 100%; padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: not-allowed; margin-bottom: 15px; opacity: 0.5; transition: 0.3s;">Confirmar Voto</button>
                         
-                        <button type="button" onclick="localStorage.clear(); window.location.href = window.location.pathname;" style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-arrow-left"></i> Cancelar y Salir</button>
+                        <!-- 🔥 BOTÓN MODIFICADO PARA NO BORRAR DATOS 🔥 -->
+                        <button type="button" onclick="window.ingresarComoPublico()" style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.1); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-home"></i> Ir al Inicio / Resultados</button>
                     </form>
                 </div>
             </div>
@@ -520,7 +524,7 @@
                         </div>
                         
                         <button type="submit" id="btnHabilitar" style="width: 100%; padding: 14px; background: var(--rojo-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-bottom: 15px; transition: 0.3s;">Habilitarme para Votar</button>
-                        <button type="button" onclick="localStorage.clear(); window.location.href = window.location.pathname;" style="width: 100%; padding: 12px; background: white; color: #555; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-arrow-left"></i> Volver al Inicio</button>
+                        <button type="button" onclick="window.location.href = window.location.pathname;" style="width: 100%; padding: 12px; background: white; color: #555; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: 0.3s; font-weight: bold;"><i class="fas fa-arrow-left"></i> Volver al Inicio</button>
                     </form>
                 </div>
             </div>
@@ -1056,18 +1060,18 @@
             }
         })();
     </script>
-    <script src="core/utils.js?v=FERIA_V43"></script>
-    <script src="core/router.js?v=FERIA_V43"></script>
-    <script src="features/auth/auth.js?v=FERIA_V43"></script>
-    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V43"></script>
-    <script src="features/admin/admin.js?v=FERIA_V43"></script>
-    <script src="features/votacion/votacion.js?v=FERIA_V50"></script>
-    <script src="features/habilitacion/habilitacion.js?v=FERIA_V43"></script>
-    <script src="features/registro/registro.js?v=FERIA_V43"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V43"></script>
-    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V43"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V43"></script>
-    <script src="features/resultados/resultados.js?v=FERIA_V43"></script>
-    <script src="features/informes/informes.js?v=FERIA_V43"></script>
+    <script src="core/utils.js?v=FERIA_V46"></script>
+    <script src="core/router.js?v=FERIA_V46"></script>
+    <script src="features/auth/auth.js?v=FERIA_V46"></script>
+    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V46"></script>
+    <script src="features/admin/admin.js?v=FERIA_V46"></script>
+    <script src="features/votacion/votacion.js?v=FERIA_V51"></script>
+    <script src="features/habilitacion/habilitacion.js?v=FERIA_V46"></script>
+    <script src="features/registro/registro.js?v=FERIA_V46"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V46"></script>
+    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V46"></script> 
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V46"></script>
+    <script src="features/resultados/resultados.js?v=FERIA_V46"></script>
+    <script src="features/informes/informes.js?v=FERIA_V46"></script>
 </body>
 </html>

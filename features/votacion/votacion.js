@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación con Huella Fuerte y Prevención Visual de Duplicados
+// FUNCIÓN: Lógica de Votación y Modo Visitante / Público
 // =========================================================================
 
 window.calificacionActual = 0; 
@@ -19,6 +19,44 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; 
 }
+
+// 🔥 NUEVO: FUNCIÓN PARA ENTRAR AL SISTEMA COMO PÚBLICO 🔥
+window.ingresarComoPublico = async function() {
+    // 1. Ocultar pantalla de votación y login si están abiertas
+    const panelVoto = document.getElementById('votar-proyecto');
+    if (panelVoto) panelVoto.style.display = 'none';
+
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) loginScreen.style.display = 'none';
+
+    // 2. Restaurar el menú principal de navegación
+    document.body.classList.remove('login-active');
+    document.querySelectorAll('.navbar, header, #main-header').forEach(b => {
+        b.style.setProperty('display', 'block', 'important');
+    });
+
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+        mainContent.style.display = 'block';
+    }
+
+    // 3. Ocultar los menús que son exclusivos de Expositores y Administradores
+    const menusPrivados = ['nav-mi-proyecto', 'nav-registro', 'nav-evaluacion', 'nav-informes'];
+    menusPrivados.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
+
+    // 4. Registrar la sesión temporal en el navegador para evitar errores en otras pantallas
+    localStorage.setItem('usuario_rol', 'VISITANTE');
+    localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
+
+    // 5. Navegar a la pantalla de Inicio
+    if (typeof navigate === 'function') {
+        const btnInicio = document.querySelector('#nav-links-menu li a');
+        navigate('inicio', btnInicio);
+    }
+};
 
 window.cargarInstitucionesParaVoto = async function() {
     try {
@@ -127,9 +165,7 @@ window.cargarProyectoParaVotar = async function() {
                     document.getElementById('caja-institucion-visitante').style.display = 'block';
                     window.cargarInstitucionesParaVoto();
                 }
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) { console.error(e); }
         }
 
         try {
@@ -139,14 +175,13 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
                 
-                // 🔥 VERIFICACIÓN INMEDIATA: SI YA VOTÓ, OCULTAMOS TODO Y MOSTRAMOS MENSAJE 🔥
                 if (deviceId) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
                         const dataVerif = await resVerif.json();
                         
                         if (dataVerif.yaVoto) {
-                            formEl.style.display = 'none'; // Oculta el formulario de estrellas
+                            formEl.style.display = 'none'; 
                             tituloEl.style.border = 'none';
                             tituloEl.style.background = 'transparent';
                             tituloEl.innerHTML = `
@@ -160,21 +195,18 @@ window.cargarProyectoParaVotar = async function() {
                                     <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 30px;">
                                         <i class="fas fa-shield-alt"></i> Por seguridad, el sistema solo permite un (1) voto por dispositivo para cada stand.
                                     </p>
-                                    <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
+                                    <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
                                         <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
+                                    </button>
+                                    <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
+                                        <i class="fas fa-chart-pie"></i> Ver Resultados y Feria
                                     </button>
                                 </div>
                             `;
-                            return; // Cortar ejecución aquí para que no cargue lo demás
+                            return; 
                         }
                     } catch(e) { console.error("Error al verificar duplicado", e); }
                 }
-
-                // CANDADO DEL TRIBUNAL COMENTADO PARA TUS PRUEBAS
-                /*
-                const estado = proyecto.estado_evaluacion;
-                if (!estado || estado === "Pendiente") { ... }
-                */
 
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
@@ -314,7 +346,7 @@ window.enviarCalificacion = async function(e) {
             }
         }
 
-        // 🔥 GPS ACTIVADO PARA TUS PRUEBAS 🔥
+        // GPS ACTIVADO
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
@@ -359,7 +391,9 @@ window.enviarCalificacion = async function(e) {
         localStorage.setItem('feria_inst_registrada', 'true');
 
         alert("🎉 ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
-        window.location.href = window.location.pathname; 
+        
+        // 🔥 EN LUGAR DE MANDARLO AL LOGIN, LO MANDAMOS A LA FERIA 🔥
+        window.ingresarComoPublico(); 
 
     } catch (error) {
         alert("❌ " + error.message);
