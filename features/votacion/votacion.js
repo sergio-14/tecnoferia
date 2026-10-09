@@ -333,20 +333,58 @@ window.enviarCalificacion = async function(e) {
         return;
     }
 
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+    btn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Verificando Reglas y GPS...';
     btn.disabled = true;
     btn.style.opacity = "0.7";
     btn.style.cursor = "wait";
 
     try {
-        // CANDADO DE GPS COMENTADO PARA PRUEBAS (Enviando coordenadas en 0)
+        // 1. Obtener configuraciones del sistema (Tus coordenadas y radio)
+        const resConf = await fetch('/api/configuraciones');
+        const configuracion = await resConf.json();
         
+        const cierreStr = configuracion.fecha_cierre_votacion; 
+        if (cierreStr) {
+            const [dateP, timeP] = cierreStr.split('T');
+            const [yy, mm, dd] = dateP.split('-');
+            const [hh, mns, ss] = timeP.split(':');
+            const fechaCierre = new Date(yy, mm - 1, dd, hh, mns, ss);
+            
+            if (new Date() > fechaCierre) {
+                alert("⏳ El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
+                btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+                return;
+            }
+        }
+
+        // 2. Encender GPS del celular y obtener ubicación EXACTA
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
-        // Validaciones de distancia...
-        
 
+        // 3. Obtener los límites configurados en el panel
+        const LAT_FERIA = parseFloat(configuracion.gps_latitud);
+        const LON_FERIA = parseFloat(configuracion.gps_longitud);
+        const RADIO_FERIA = parseInt(configuracion.gps_radio, 10);
+
+        if (isNaN(LAT_FERIA) || isNaN(LON_FERIA) || isNaN(RADIO_FERIA) || isNaN(userLat) || isNaN(userLon)) {
+            alert("⛔ ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+            return;
+        }
+
+        // 4. Calcular distancia entre el celular y la Feria
+        const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
+
+        if (distanciaMetros > RADIO_FERIA) {
+            alert(`⛔ ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${distanciaMetros.toFixed(0)} metros de distancia.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la ubicación configurada.`);
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+            return;
+        }
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
+        
+        // 5. Enviar el voto con las coordenadas reales
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -354,8 +392,8 @@ window.enviarCalificacion = async function(e) {
                 idProyecto: idProy,
                 ci: ci,
                 nota: nota,
-                lat: 0, 
-                lon: 0, 
+                lat: userLat,
+                lon: userLon,
                 institucionVisitante: institucionVisitante
             })
         });
@@ -363,6 +401,8 @@ window.enviarCalificacion = async function(e) {
         const resData = await res.json();
         
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
+
+        localStorage.setItem('feria_inst_registrada', 'true');
 
         alert("🎉 ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
         window.location.href = window.location.pathname; 
