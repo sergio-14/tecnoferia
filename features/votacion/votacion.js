@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación y Modo Visitante / Público
+// FUNCIÓN: Lógica de Votación y Modo Visitante / Público (Persistencia Reforzada)
 // =========================================================================
 
 window.calificacionActual = 0; 
@@ -20,16 +20,14 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     return R * c; 
 }
 
-// 🔥 NUEVO: FUNCIÓN PARA ENTRAR AL SISTEMA COMO PÚBLICO 🔥
+// 🔥 FUNCIÓN PARA ENTRAR AL SISTEMA COMO PÚBLICO 🔥
 window.ingresarComoPublico = async function() {
-    // 1. Ocultar pantalla de votación y login si están abiertas
     const panelVoto = document.getElementById('votar-proyecto');
     if (panelVoto) panelVoto.style.display = 'none';
 
     const loginScreen = document.getElementById('login-screen');
     if (loginScreen) loginScreen.style.display = 'none';
 
-    // 2. Restaurar el menú principal de navegación
     document.body.classList.remove('login-active');
     document.querySelectorAll('.navbar, header, #main-header').forEach(b => {
         b.style.setProperty('display', 'block', 'important');
@@ -40,18 +38,15 @@ window.ingresarComoPublico = async function() {
         mainContent.style.display = 'block';
     }
 
-    // 3. Ocultar los menús que son exclusivos de Expositores y Administradores
     const menusPrivados = ['nav-mi-proyecto', 'nav-registro', 'nav-evaluacion', 'nav-informes'];
     menusPrivados.forEach(id => {
         const el = document.getElementById(id);
         if(el) el.style.display = 'none';
     });
 
-    // 4. Registrar la sesión temporal en el navegador para evitar errores en otras pantallas
     localStorage.setItem('usuario_rol', 'VISITANTE');
     localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
 
-    // 5. Navegar a la pantalla de Inicio
     if (typeof navigate === 'function') {
         const btnInicio = document.querySelector('#nav-links-menu li a');
         navigate('inicio', btnInicio);
@@ -91,41 +86,31 @@ window.cargarInstitucionesParaVoto = async function() {
     }
 };
 
-window.generarHuellaDigitalFuerte = async function() {
-    let savedId = localStorage.getItem('feria_device_id');
-    if(savedId) return savedId;
-
-    const screenW = Math.max(screen.width, screen.height);
-    const screenH = Math.min(screen.width, screen.height);
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.textBaseline = "top";
-    ctx.font = "14px 'Arial'";
-    ctx.fillStyle = "#f60";
-    ctx.fillRect(125,1,62,20);
-    ctx.fillStyle = "#069";
-    ctx.fillText("TecnoFeria2026", 2, 15);
-    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
-    ctx.fillText("UABJB", 4, 17);
-    const canvasData = canvas.toDataURL();
-
-    const hardwareData = [
-        navigator.hardwareConcurrency || 2, 
-        screenW + 'x' + screenH,            
-        screen.colorDepth || 24,            
-        canvasData                          
-    ].join('|');
-
-    let hash = 0;
-    for (let i = 0; i < hardwareData.length; i++) {
-        const char = hardwareData.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; 
+// 🔥 GENERADOR SÚPER-PERSISTENTE (Evita colisiones y resiste borrado de caché temporal) 🔥
+window.generarIdFuerte = function() {
+    // 1. Buscamos en todas las capas de memoria del celular
+    let id = localStorage.getItem('feria_device_id') || sessionStorage.getItem('feria_device_id');
+    if (!id) {
+        let match = document.cookie.match(new RegExp('(^| )feria_device_id=([^;]+)'));
+        if (match) id = match[2];
     }
-    
-    const finalId = 'DEV-' + Math.abs(hash).toString(36).toUpperCase() + screenW;
+
+    // Si encontramos el ID guardado, lo restauramos en todas partes
+    if (id) {
+        localStorage.setItem('feria_device_id', id);
+        sessionStorage.setItem('feria_device_id', id);
+        document.cookie = "feria_device_id=" + id + "; max-age=31536000; path=/";
+        return id;
+    }
+
+    // 2. Si es nuevo, generamos un ID único aleatorio (Soluciona el problema de celulares idénticos)
+    const randomHash = Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    const finalId = 'DEV-' + randomHash.toUpperCase();
+
+    // 3. Lo cimentamos en las 3 memorias
     localStorage.setItem('feria_device_id', finalId);
+    sessionStorage.setItem('feria_device_id', finalId);
+    document.cookie = "feria_device_id=" + finalId + "; max-age=31536000; path=/";
     return finalId;
 };
 
@@ -154,9 +139,11 @@ window.cargarProyectoParaVotar = async function() {
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            deviceId = await window.generarHuellaDigitalFuerte();
+            // Usamos el nuevo generador fuerte
+            deviceId = window.generarIdFuerte();
             inputCi.value = deviceId;
 
+            // Verificamos si la Base de Datos ya conoce este celular
             try {
                 const resUser = await fetch(`/api/usuarios/${deviceId}`);
                 if (resUser.ok) {
@@ -175,6 +162,7 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
                 
+                // 🔥 PROTECCIÓN VISUAL INMEDIATA CONTRA DOBLE VOTO 🔥
                 if (deviceId) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
@@ -187,19 +175,19 @@ window.cargarProyectoParaVotar = async function() {
                             tituloEl.innerHTML = `
                                 <div style="text-align: center; padding: 20px 10px;">
                                     <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
-                                    <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Voto ya registrado!</h3>
+                                    <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Voto Registrado!</h3>
                                     <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
                                         Tu dispositivo ya emitió un voto válido para la innovación:<br>
                                         <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
                                     </p>
                                     <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 30px;">
-                                        <i class="fas fa-shield-alt"></i> Por seguridad, el sistema solo permite un (1) voto por dispositivo para cada stand.
+                                        <i class="fas fa-shield-alt"></i> Por reglas de la feria, el sistema solo permite un (1) voto por dispositivo para cada stand.
                                     </p>
                                     <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
                                         <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
                                     </button>
                                     <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
-                                        <i class="fas fa-chart-pie"></i> Ver Resultados y Feria
+                                        <i class="fas fa-chart-pie"></i> Ver Resultados en Vivo
                                     </button>
                                 </div>
                             `;
@@ -266,13 +254,27 @@ window.simularVerificacionCI = async function() {
     const selInst = document.getElementById('voto-institucion');
     
     let instSeleccionada = true;
-    if (cajaInst && cajaInst.style.display === 'block' && (!selInst || selInst.value === "")) {
+    if (cajaInst && cajaInst.style.display !== 'none' && (!selInst || selInst.value === "")) {
         instSeleccionada = false;
     }
 
     msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Conectando dispositivo...</span>';
 
     if (ciInput.startsWith('DEV-')) {
+        // Validación secundaria en caso de que logren evadir la pantalla de bloqueo
+        try {
+            const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
+            const dataVerif = await resVerif.json();
+            
+            if (dataVerif.yaVoto) {
+                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Este celular ya votó por este proyecto.</span>`;
+                btn.disabled = true;
+                btn.style.opacity = "0.5";
+                btn.style.cursor = "not-allowed";
+                return;
+            }
+        } catch(e) {}
+
         msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Conectado Correctamente</span>`;
         
         if (window.completadosPublico === 4 && instSeleccionada) {
@@ -315,8 +317,14 @@ window.enviarCalificacion = async function(e) {
     const ci = document.getElementById('voto-ci').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
     
+    const cajaInst = document.getElementById('caja-institucion-visitante');
     const selInst = document.getElementById('voto-institucion');
-    const institucionVisitante = (selInst && selInst.value) ? selInst.value : "Visitante Anónimo (Dispositivo)";
+    let institucionVisitante = "Visitante Anónimo (Dispositivo)";
+    
+    // Solo toma el valor del select si la caja está visible en la pantalla
+    if (cajaInst && cajaInst.style.display !== 'none' && selInst && selInst.value) {
+        institucionVisitante = selInst.value;
+    }
 
     if (!idProy || !nota || !ci) {
         alert("⚠️ Completa todos los campos y la rúbrica.");
@@ -388,11 +396,7 @@ window.enviarCalificacion = async function(e) {
         
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
 
-        localStorage.setItem('feria_inst_registrada', 'true');
-
         alert("🎉 ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
-        
-        // 🔥 EN LUGAR DE MANDARLO AL LOGIN, LO MANDAMOS A LA FERIA 🔥
         window.ingresarComoPublico(); 
 
     } catch (error) {
