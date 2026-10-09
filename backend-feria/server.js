@@ -91,18 +91,13 @@ db.connect()
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
 
-// 🔥 RUTAS NUEVAS PARA GESTIÓN GLOBAL DE USUARIOS 🔥
 app.get('/api/usuarios_admin', async (req, res) => {
     try {
         const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
         const tribunales = await db.query('SELECT usuario_tribunal as id, nombre_completo, especialidad as institucion, celular, correo FROM tribunales ORDER BY nombre_completo ASC');
         const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
         
-        res.json({
-            expositores: expositores.rows,
-            tribunales: tribunales.rows,
-            visitantes: visitantes.rows
-        });
+        res.json({ expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows });
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
 });
 
@@ -254,9 +249,7 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
             if (visitante.rows.length > 0) { rolEncontrado = 'VISITANTE'; datosEncontrados = visitante.rows[0]; }
         }
 
-        if (!rolEncontrado) {
-            return res.status(404).json({ error: "Usuario no encontrado." });
-        }
+        if (!rolEncontrado) { return res.status(404).json({ error: "Usuario no encontrado." }); }
 
         res.json({ rol: rolEncontrado, datos: datosEncontrados });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
@@ -292,10 +285,7 @@ app.post('/api/restablecer_password_directo', async (req, res) => {
         if (tabla === 'tribunales') await db.query('UPDATE tribunales SET contrasena = $1 WHERE usuario_tribunal = $2', [hash, ci]);
 
         res.json({ mensaje: "Tu contraseña ha sido actualizada correctamente." });
-
-    } catch (error) {
-        res.status(500).json({ error: "Error interno al intentar cambiar la contraseña." });
-    }
+    } catch (error) { res.status(500).json({ error: "Error interno al intentar cambiar la contraseña." }); }
 });
 
 app.post('/api/administradores', async (req, res) => {
@@ -461,8 +451,9 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
+// 🔥 VOTACIÓN: AUTO-REGISTRO SILENCIOSO DE INSTITUCIÓN Y HUELLA DIGITAL 🔥
 app.post('/api/votar', async (req, res) => {
-    const { idProyecto, ci, nota, lat, lon } = req.body;
+    const { idProyecto, ci, nota, lat, lon, institucionVisitante } = req.body;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`);
         const conf = checkTime.rows[0];
@@ -486,7 +477,6 @@ app.post('/api/votar', async (req, res) => {
         }
 
         const distanciaActual = calcularDistanciaMetros(feriaLat, feriaLon, userLat, userLon);
-        
         if (isNaN(distanciaActual) || distanciaActual > radioPermitido) {
             return res.status(400).json({ error: `⛔ ALERTA DE FRAUDE:\nEstás a ${isNaN(distanciaActual) ? 'una distancia desconocida' : distanciaActual.toFixed(0)} metros de distancia.\nSolo se permite votar dentro de un radio de ${radioPermitido} metros del recinto habilitado.` });
         }
@@ -497,6 +487,15 @@ app.post('/api/votar', async (req, res) => {
         }
         if (proyCheck.rows.length > 0 && proyCheck.rows[0].estado_evaluacion !== 'Pre-seleccionado') {
             return res.status(400).json({ error: "⛔ Operación Rechazada: Este proyecto no superó la pre-selección y no está habilitado para el público." });
+        }
+
+        // Si es un dispositivo nuevo, lo guardamos en la base de datos con el colegio que seleccionó
+        if (ci.startsWith('DEV-')) {
+            const checkVis = await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci]);
+            if (checkVis.rows.length === 0) {
+                const institucionFinal = institucionVisitante || 'Visitante Anónimo (Dispositivo)';
+                await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, 'Visitante (Móvil)', $2, 'S/N')`, [ci, institucionFinal]);
+            }
         }
 
         const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProyecto]);

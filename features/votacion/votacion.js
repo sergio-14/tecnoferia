@@ -1,9 +1,10 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de la pantalla pública de votación por QR con GPS Anti-Fraude
+// FUNCIÓN: Lógica de la pantalla pública de votación por QR con Huella Digital y Selección de Institución
 // =========================================================================
 
 window.calificacionActual = 0; 
+window.completadosPublico = 0;
 
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const R = 6371e3; 
@@ -18,6 +19,39 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; 
 }
+
+window.cargarInstitucionesParaVoto = async function() {
+    try {
+        const res = await fetch('/api/instituciones');
+        const instituciones = await res.json();
+        const selVoto = document.getElementById('voto-institucion');
+
+        if (!selVoto) return;
+
+        const grupos = {};
+        instituciones.forEach(inst => {
+            if (!grupos[inst.tipo]) grupos[inst.tipo] = [];
+            grupos[inst.tipo].push(inst);
+        });
+
+        let htmlOpciones = '<option value="" disabled selected>Seleccione su colegio...</option>';
+        for (const [tipo, lista] of Object.entries(grupos)) {
+            htmlOpciones += `<optgroup label="${tipo}" style="background: #fff; color: #000;">`;
+            lista.forEach(inst => {
+                htmlOpciones += `<option value="${inst.nombre}" style="background: #fff; color: #000;">${inst.nombre}</option>`;
+            });
+            htmlOpciones += `</optgroup>`;
+        }
+        htmlOpciones += `
+            <optgroup label="Otros" style="background: #fff; color: #000;">
+                <option value="Visitante Particular / Otro" style="background: #fff; color: #000;">Visitante Particular / Otro</option>
+            </optgroup>
+        `;
+        selVoto.innerHTML = htmlOpciones;
+    } catch (e) {
+        console.error("Error al cargar colegios", e);
+    }
+};
 
 window.cargarProyectoParaVotar = async function() {
     const params = new URLSearchParams(window.location.search);
@@ -37,6 +71,24 @@ window.cargarProyectoParaVotar = async function() {
         }
         
         document.getElementById('votar-proyecto').style.display = 'block';
+
+        const inputCi = document.getElementById('voto-ci');
+        if (inputCi) {
+            document.getElementById('caja-ci-oculta').style.display = 'none';
+
+            let deviceId = localStorage.getItem('feria_device_id');
+            if (!deviceId) {
+                deviceId = 'DEV-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+                localStorage.setItem('feria_device_id', deviceId);
+            }
+            inputCi.value = deviceId;
+
+            // 🔥 COMPROBAR SI YA ES UN USUARIO RECURRENTE 🔥
+            if (!localStorage.getItem('feria_inst_registrada')) {
+                document.getElementById('caja-institucion-visitante').style.display = 'block';
+                window.cargarInstitucionesParaVoto();
+            }
+        }
 
         try {
             const res = await fetch(`/api/proyectos_qr/${idProy}`);
@@ -66,6 +118,9 @@ window.cargarProyectoParaVotar = async function() {
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
+
+                setTimeout(() => { window.simularVerificacionCI(); }, 300);
+
             } else {
                 document.getElementById('votar-titulo').innerText = "Proyecto no encontrado en la Base de Datos.";
                 document.getElementById('votar-titulo').style.color = "#d32f2f";
@@ -77,61 +132,112 @@ window.cargarProyectoParaVotar = async function() {
     }
 };
 
+window.sumarPublico = function(elemento) {
+    if (elemento) {
+        let val = elemento.value.replace(/[^0-9]/g, '');
+        val = val.replace(/^0+/, '');
+        if (val !== "") {
+            val = parseInt(val, 10);
+            let max = parseInt(elemento.getAttribute('max'), 10);
+            if (val > max) val = max;
+        }
+        elemento.value = val;
+    }
+
+    const inputs = document.querySelectorAll('.pub-nota');
+    let total = 0; let completados = 0;
+    
+    inputs.forEach(input => {
+        if (input.value !== "") {
+            total += parseInt(input.value, 10);
+            completados++;
+        }
+    });
+
+    const votoPuntaje = document.getElementById('voto-puntaje');
+    if(votoPuntaje) votoPuntaje.value = total;
+
+    window.calificacionActual = total; 
+    window.completadosPublico = completados;
+    
+    window.simularVerificacionCI();
+};
+
 window.simularVerificacionCI = async function() {
     const ciInput = document.getElementById('voto-ci').value.trim();
     const idProy = document.getElementById('voto-idProy').value;
     const msj = document.getElementById('mensaje-validacion-ci');
     const btn = document.getElementById('btnEnviarVoto');
 
-    if (ciInput.length < 5) {
-        msj.innerHTML = ""; 
-        btn.disabled = true; 
-        btn.style.opacity = "0.5"; 
-        btn.style.cursor = "not-allowed";
+    const cajaInst = document.getElementById('caja-institucion-visitante');
+    const selInst = document.getElementById('voto-institucion');
+    
+    let instSeleccionada = true;
+    if (cajaInst && cajaInst.style.display === 'block' && selInst.value === "") {
+        instSeleccionada = false;
+    }
+
+    msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Conectando dispositivo...</span>';
+
+    if (ciInput.startsWith('DEV-')) {
+        try {
+            const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
+            const dataVerif = await resVerif.json();
+            
+            if (dataVerif.yaVoto) {
+                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Este dispositivo ya emitió un voto para este proyecto.</span>`;
+                btn.disabled = true;
+                btn.style.opacity = "0.5";
+                btn.style.cursor = "not-allowed";
+                return;
+            }
+        } catch(e) {}
+
+        msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Conectado Correctamente</span>`;
+        
+        if (window.completadosPublico === 4 && instSeleccionada) {
+            btn.disabled = false;
+            btn.style.opacity = "1";
+            btn.style.cursor = "pointer";
+        } else {
+            btn.disabled = true;
+            btn.style.opacity = "0.5";
+            btn.style.cursor = "not-allowed";
+        }
         return;
     }
 
-    msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Buscando visitante...</span>';
+    if (ciInput.length < 5) {
+        msj.innerHTML = ""; btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+        return;
+    }
 
     try {
         const res = await fetch(`/api/usuarios/${ciInput}`);
         if (res.ok) {
             const data = await res.json();
             if (data && data.datos) {
-                
                 try {
                     const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
                     const dataVerif = await resVerif.json();
-                    
                     if (dataVerif.yaVoto) {
-                        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Ya calificaste este proyecto. No puedes votar dos veces.</span>`;
-                        btn.disabled = true;
-                        btn.style.opacity = "0.5";
-                        btn.style.cursor = "not-allowed";
+                        msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Ya calificaste este proyecto.</span>`;
+                        btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
                         return;
                     }
                 } catch(e) {}
 
                 msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Habilitado: ${data.datos.nombre_completo}</span>`;
-                
-                let incompletos = false;
-                document.querySelectorAll('.pub-nota').forEach(inp => { if(inp.value === "") incompletos = true; });
 
-                if (window.calificacionActual > 0 && !incompletos) {
-                    btn.disabled = false;
-                    btn.style.opacity = "1";
-                    btn.style.cursor = "pointer";
+                if (window.completadosPublico === 4 && instSeleccionada) {
+                    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
                 } else {
-                    btn.disabled = true;
-                    btn.style.opacity = "0.5";
-                    btn.style.cursor = "not-allowed";
+                    btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
                 }
             }
         } else {
             msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-times-circle"></i> CI no habilitado. Acércate al punto de Habilitación.</span>`;
-            btn.disabled = true;
-            btn.style.opacity = "0.5";
-            btn.style.cursor = "not-allowed";
+            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
         }
     } catch(e) {
         msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-exclamation-triangle"></i> Error de conexión.</span>`;
@@ -164,6 +270,9 @@ window.enviarCalificacion = async function(e) {
     const idProy = document.getElementById('voto-idProy').value;
     const ci = document.getElementById('voto-ci').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
+    
+    const selInst = document.getElementById('voto-institucion');
+    const institucionVisitante = selInst ? selInst.value : "";
 
     if (!idProy || !nota || !ci) {
         alert("⚠️ Completa todos los campos y la rúbrica.");
@@ -179,7 +288,6 @@ window.enviarCalificacion = async function(e) {
         const resConf = await fetch('/api/configuraciones');
         const configuracion = await resConf.json();
         
-        //  FIX FRONTEND: Armando la fecha manualmente para obligar al navegador a no equivocarse 🔥
         const cierreStr = configuracion.fecha_cierre_votacion; 
         if (cierreStr) {
             const [dateP, timeP] = cierreStr.split('T');
@@ -188,11 +296,8 @@ window.enviarCalificacion = async function(e) {
             const fechaCierre = new Date(yy, mm - 1, dd, hh, mns, ss);
             
             if (new Date() > fechaCierre) {
-                alert(" El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
-                btn.innerHTML = 'Confirmar Voto';
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                btn.style.cursor = "pointer";
+                alert("⏳ El periodo de votación del público ha finalizado.\n\nDirígete a la pantalla de resultados para ver los promedios.");
+                btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
                 return;
             }
         }
@@ -206,22 +311,16 @@ window.enviarCalificacion = async function(e) {
         const userLon = parseFloat(position.coords.longitude);
 
         if (isNaN(LAT_FERIA) || isNaN(LON_FERIA) || isNaN(RADIO_FERIA) || isNaN(userLat) || isNaN(userLon)) {
-            alert(" ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
-            btn.innerHTML = 'Confirmar Voto';
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            btn.style.cursor = "pointer";
+            alert("⛔ ALERTA DE SEGURIDAD: Su dispositivo devolvió coordenadas corruptas o el GPS está bloqueado.");
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
             return;
         }
 
         const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
 
         if (isNaN(distanciaMetros) || distanciaMetros > RADIO_FERIA) {
-            alert(` ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${isNaN(distanciaMetros) ? 'una distancia desconocida' : distanciaMetros.toFixed(0)} metros de la feria.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros del recinto habilitado.`);
-            btn.innerHTML = 'Confirmar Voto';
-            btn.disabled = false;
-            btn.style.opacity = "1";
-            btn.style.cursor = "pointer";
+            alert(`⛔ ALERTA DE FRAUDE: ESTÁS DEMASIADO LEJOS\n\nEl sistema detecta que estás a ${isNaN(distanciaMetros) ? 'una distancia desconocida' : distanciaMetros.toFixed(0)} metros de la feria.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros del recinto habilitado.`);
+            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
             return;
         }
 
@@ -235,7 +334,8 @@ window.enviarCalificacion = async function(e) {
                 ci: ci,
                 nota: nota,
                 lat: userLat,
-                lon: userLon
+                lon: userLon,
+                institucionVisitante: institucionVisitante
             })
         });
         
@@ -243,8 +343,10 @@ window.enviarCalificacion = async function(e) {
         
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
 
-        alert(" ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
-        localStorage.clear();
+        // Marcamos que ya registró su colegio para que no se lo volvamos a preguntar
+        localStorage.setItem('feria_inst_registrada', 'true');
+
+        alert("🎉 ¡Voto registrado con éxito! Gracias por participar en la TecnoFeria.");
         window.location.href = window.location.pathname; 
 
     } catch (error) {
