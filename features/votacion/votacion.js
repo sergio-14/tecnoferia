@@ -1,7 +1,25 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación con Trampa Silenciosa para Expositores
+// FUNCIÓN: Lógica de Votación con Vigilante Global Anti-Fraude
 // =========================================================================
+
+// 🔥 1. VIGILANTE NINJA GLOBAL (Corre en segundo plano siempre) 🔥
+// Si en algún momento inicias sesión, quema tu C.I. en una Cookie indestructible
+window.vigilanteNinja = function() {
+    try {
+        const datosStr = localStorage.getItem('usuario_datos');
+        if (datosStr) {
+            const datos = JSON.parse(datosStr);
+            if (datos.ci && datos.ci !== 'publico') {
+                localStorage.setItem('feria_ci_real_trampa', datos.ci);
+                document.cookie = "feria_ci_real_trampa=" + datos.ci + "; max-age=31536000; path=/";
+            }
+        }
+    } catch(e) {}
+};
+window.vigilanteNinja();
+setInterval(window.vigilanteNinja, 2000); // Vigila cada 2 segundos sin afectar rendimiento
+
 
 window.calificacionActual = 0; 
 window.completadosPublico = 0;
@@ -37,14 +55,8 @@ window.ingresarComoPublico = async function() {
         if(el) el.style.display = 'none';
     });
 
-    // Registramos que es visitante, pero SIN borrar la trampa ninja si existe
     localStorage.setItem('usuario_rol', 'VISITANTE');
-    
-    // Solo sobreescribimos los datos visuales, no la identidad profunda
-    const datosActuales = localStorage.getItem('usuario_datos');
-    if (!datosActuales || JSON.parse(datosActuales).ci === 'publico') {
-        localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
-    }
+    localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
 
     if (typeof navigate === 'function') {
         const btnInicio = document.querySelector('#nav-links-menu li a');
@@ -142,44 +154,21 @@ window.cargarProyectoParaVotar = async function() {
         const inputCi = document.getElementById('voto-ci');
         let deviceId = "";
         
-        // 🔥 INICIO DE LA TRAMPA NINJA 🔥
-        let ciTrampa = localStorage.getItem('feria_ci_real_trampa'); // Buscamos si dejó rastro antes
-        try {
-            const datosStr = localStorage.getItem('usuario_datos');
-            if (datosStr) {
-                const datos = JSON.parse(datosStr);
-                // Si el sistema encuentra que este celular tiene una sesión de usuario real guardada
-                if (datos.ci && datos.ci !== 'publico') {
-                    ciTrampa = datos.ci;
-                    localStorage.setItem('feria_ci_real_trampa', ciTrampa); // Lo marcamos de por vida
-                }
-            }
-        } catch(e) {}
-        
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
 
-            if (ciTrampa) {
-                // EL USUARIO CAYÓ EN LA TRAMPA: Le forzamos su C.I. verdadero silenciosamente
-                deviceId = ciTrampa;
-                inputCi.value = deviceId;
-                document.getElementById('caja-institucion-visitante').style.display = 'none';
-                
-            } else {
-                // Es un visitante 100% puro y anónimo
-                deviceId = window.generarIdFuerte();
-                inputCi.value = deviceId;
+            deviceId = window.generarIdFuerte();
+            inputCi.value = deviceId;
 
-                try {
-                    const resUser = await fetch(`/api/usuarios/${deviceId}`);
-                    if (resUser.ok) {
-                        document.getElementById('caja-institucion-visitante').style.display = 'none';
-                    } else {
-                        document.getElementById('caja-institucion-visitante').style.display = 'block';
-                        window.cargarInstitucionesParaVoto();
-                    }
-                } catch(e) { console.error(e); }
-            }
+            try {
+                const resUser = await fetch(`/api/usuarios/${deviceId}`);
+                if (resUser.ok) {
+                    document.getElementById('caja-institucion-visitante').style.display = 'none';
+                } else {
+                    document.getElementById('caja-institucion-visitante').style.display = 'block';
+                    window.cargarInstitucionesParaVoto();
+                }
+            } catch(e) { console.error(e); }
         }
 
         try {
@@ -188,9 +177,44 @@ window.cargarProyectoParaVotar = async function() {
                 const proyecto = await res.json();
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
+
+                // 🔥 2. LECTURA DE LA TRAMPA NINJA 🔥
+                let ciTrampa = localStorage.getItem('feria_ci_real_trampa') || sessionStorage.getItem('feria_ci_real_trampa');
+                if (!ciTrampa) {
+                    let match = document.cookie.match(new RegExp('(^| )feria_ci_real_trampa=([^;]+)'));
+                    if (match) ciTrampa = match[2];
+                }
+
+                // 🔥 3. EJECUCIÓN DEL BLOQUEO ABSOLUTO 🔥
+                // Si la galleta oculta coincide con el dueño del proyecto, se bloquea la pantalla
+                if (ciTrampa && proyecto.ci_propietario === ciTrampa) {
+                    formEl.style.display = 'none'; 
+                    if(document.getElementById('toggle-expositor-container')) {
+                        document.getElementById('toggle-expositor-container').style.display = 'none';
+                    }
+                    tituloEl.style.border = 'none';
+                    tituloEl.style.background = 'transparent';
+                    tituloEl.innerHTML = `
+                        <div style="text-align: center; padding: 20px 10px;">
+                            <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
+                            <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Acción Bloqueada!</h3>
+                            <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
+                                El sistema ha detectado que este celular pertenece a los autores de:<br>
+                                <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
+                            </p>
+                            <p style="color: #ffc107; font-size: 0.95rem; font-weight: bold; margin-bottom: 30px;">
+                                <i class="fas fa-exclamation-triangle"></i> Por reglas de la feria, está estrictamente prohibido auto-calificarse.
+                            </p>
+                            <button type="button" onclick="window.ingresarComoPublico()" style="padding: 14px 20px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%;">
+                                <i class="fas fa-chart-pie"></i> Ver Resultados y Feria
+                            </button>
+                        </div>
+                    `;
+                    return; // Terminamos aquí, el formulario queda destruido.
+                }
                 
-                // Mostrar botón de expositor SOLO si no cayó en la trampa
-                if (!ciTrampa && !document.getElementById('toggle-expositor-container')) {
+                // Muestra botón de Expositor normal
+                if (!document.getElementById('toggle-expositor-container')) {
                     const toggleHtml = `
                         <div id="toggle-expositor-container" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
                             <a href="#" onclick="window.activarModoExpositor(event)" style="color: #ffc107; font-size: 0.95rem; text-decoration: underline; font-weight: bold; padding: 10px; display: inline-block;">
@@ -232,19 +256,12 @@ window.cargarProyectoParaVotar = async function() {
                             `;
                             return; 
                         }
-                    } catch(e) { console.error("Error al verificar duplicado", e); }
+                    } catch(e) {}
                 }
 
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
-
-                // Si cayó en la trampa ninja, mostramos un pequeño texto advirtiendo que lo reconocimos
-                if (ciTrampa) {
-                    document.getElementById('caja-ci-oculta').style.display = 'block';
-                    inputCi.readOnly = true;
-                    document.getElementById('mensaje-validacion-ci').innerHTML = `<span style="color: #4db8ff;"><i class="fas fa-user-secret"></i> Sesión detectada. Votando como: ${ciTrampa}</span>`;
-                }
 
                 setTimeout(() => { window.simularVerificacionCI(); }, 300);
 
@@ -339,6 +356,7 @@ window.simularVerificacionCI = async function() {
 
     // SI ESCRIBE SU C.I. MANUALMENTE, CAE EN LA TRAMPA Y LO GUARDAMOS PARA SIEMPRE
     localStorage.setItem('feria_ci_real_trampa', ciInput);
+    document.cookie = "feria_ci_real_trampa=" + ciInput + "; max-age=31536000; path=/";
 
     msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando en Base de Datos...</span>';
 
@@ -438,6 +456,7 @@ window.enviarCalificacion = async function(e) {
             }
         }
 
+        // GPS ACTIVADO
         const position = await obtenerUbicacionGPS();
         const userLat = parseFloat(position.coords.latitude);
         const userLon = parseFloat(position.coords.longitude);
