@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- 🔥 VERSIÓN V46: MODO VISITANTE PÚBLICO 🔥 -->
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V46">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V46">
+    <!-- 🔥 VERSIÓN V58: CAJAS DINÁMICAS DE INTEGRANTES EN PROYECTO 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V58">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V58">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -65,7 +65,7 @@
                         <i class="fas fa-file-alt" style="margin-right: 8px;"></i> Convocatoria TecnoFeria
                     </button>
                     
-                    <!-- 🔥 NUEVO: BOTÓN PARA ENTRAR COMO PÚBLICO 🔥 -->
+                    <!-- 🔥 BOTÓN PARA ENTRAR COMO PÚBLICO 🔥 -->
                     <button type="button" onclick="window.ingresarComoPublico()" class="btn-modern-login animate-fade-up delay-700" style="margin-top: 10px; background-color: #28a745;">
                         <i class="fas fa-chart-pie" style="margin-right: 8px;"></i> Ingresar como Público / Resultados
                     </button>
@@ -127,7 +127,7 @@
                             </div>
                         </div>
 
-                        <!-- 🔥 NUEVO: SECCIÓN DE INTEGRANTES EXTRA 🔥 -->
+                        <!-- 🔥 SECCIÓN DE INTEGRANTES EXTRA 🔥 -->
                         <h4 style="color: #28a745; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; margin-top: 20px; font-size: 1.1rem;"><i class="fas fa-users"></i> Compañeros de Proyecto</h4>
                         <p style="font-size: 0.8rem; color: #6c757d; margin-bottom: 15px; line-height: 1.4;">Si tienes compañeros en tu proyecto, agrégalos aquí. No es necesario que ellos se registren por separado.</p>
                         
@@ -394,10 +394,21 @@
                                         <option value="emprendimientos">Emprendimientos Tecnológicos (Estudiantes o Titulados C.I.S, U.A.B.J.B)</option>
                                     </select>
                                 </div>
-                                <div class="form-group">
-                                    <label>Nombres de los Expositores (De 1 a 9 integrantes)</label>
-                                    <textarea id="proyIntegrantes" placeholder="Ej.Est.Aslhey Soto, Ing. María Gómez, Univ. Juan Pérez..." rows="3" required></textarea>
+
+                                <!-- 🔥 NUEVO: CAJAS DINÁMICAS DE INTEGRANTES 🔥 -->
+                                <div class="form-group" style="margin-bottom: 20px;">
+                                    <label>Compañeros de Proyecto (De 1 a 8 compañeros extra)</label>
+                                    <p style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 10px;">Tu registro como líder ya está asegurado. Añade o verifica a tus compañeros aquí:</p>
+                                    
+                                    <div id="contenedor-integrantes-proyecto">
+                                        <!-- Aquí aparecerán mágicamente los casilleros desde el JS -->
+                                    </div>
+                                    
+                                    <button type="button" id="btn-add-integrante-proy" onclick="window.agregarCasillaIntegranteProyecto()" style="background: transparent; border: 2px dashed #4db8ff; color: #4db8ff; width: 100%; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='rgba(77, 184, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                                        <i class="fas fa-user-plus"></i> Añadir un integrante al documento
+                                    </button>
                                 </div>
+
                                 <div class="form-group">
                                     <label>Eje Temático (Líneas de Investigación Oficiales)</label>
                                     <select id="proyEje" required>
@@ -1075,18 +1086,18 @@
             }
         })();
     </script>
-    <script src="core/utils.js?v=FERIA_V46"></script>
-    <script src="core/router.js?v=FERIA_V46"></script>
-    <script src="features/auth/auth.js?v=FERIA_V46"></script>
-    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V46"></script>
-    <script src="features/admin/admin.js?v=FERIA_V46"></script>
-    <script src="features/votacion/votacion.js?v=FERIA_V57"></script>
-    <script src="features/habilitacion/habilitacion.js?v=FERIA_V46"></script>
-    <script src="features/registro/registro.js?v=FERIA_V46"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V47"></script>
-    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V46"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V46"></script>
-    <script src="features/resultados/resultados.js?v=FERIA_V46"></script>
-    <script src="features/informes/informes.js?v=FERIA_V46"></script>
+    <script src="core/utils.js?v=FERIA_V58"></script>
+    <script src="core/router.js?v=FERIA_V58"></script>
+    <script src="features/auth/auth.js?v=FERIA_V58"></script>
+    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V58"></script>
+    <script src="features/admin/admin.js?v=FERIA_V58"></script>
+    <script src="features/votacion/votacion.js?v=FERIA_V58"></script>
+    <script src="features/habilitacion/habilitacion.js?v=FERIA_V58"></script>
+    <script src="features/registro/registro.js?v=FERIA_V58"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V58"></script>
+    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V58"></script> 
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V58"></script>
+    <script src="features/resultados/resultados.js?v=FERIA_V58"></script>
+    <script src="features/informes/informes.js?v=FERIA_V58"></script>
 </body>
 </html>

@@ -1,6 +1,59 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
+// FUNCIÓN: Gestión de Proyectos con Cajas Dinámicas Inteligentes
 // =========================================================================
+
+window.contadorIntegrantesProyecto = 0;
+
+// 🔥 Función para crear los casilleros dinámicos 🔥
+window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '') {
+    if (window.contadorIntegrantesProyecto >= 8) {
+        alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
+        return;
+    }
+    
+    window.contadorIntegrantesProyecto++;
+    const idUnico = `proy-int-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    
+    const contenedor = document.getElementById('contenedor-integrantes-proyecto');
+    if (!contenedor) return;
+
+    const div = document.createElement('div');
+    div.id = idUnico;
+    div.style.cssText = "background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative;";
+    
+    div.innerHTML = `
+        <h5 style="margin-top: 0; color: #4db8ff; margin-bottom: 10px; font-size: 0.95rem;">Compañero #${window.contadorIntegrantesProyecto}</h5>
+        <button type="button" class="btn-quitar-int" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-times"></i> Quitar</button>
+        
+        <div class="input-group" style="margin-bottom: 10px;">
+            <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
+            <input type="text" class="input-proy-int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="input-group" style="margin-bottom: 0;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
+                <input type="text" class="input-proy-int-ci" placeholder="Ej. 1234567" value="${ci}" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
+            </div>
+            <div class="input-group" style="margin-bottom: 0;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
+                <input type="tel" class="input-proy-int-cel" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
+            </div>
+        </div>
+    `;
+    contenedor.appendChild(div);
+};
+
+// Función para bloquear o desbloquear las cajas si el proyecto ya fue calificado
+window.habilitarCasillasIntegrantes = function(habilitar) {
+    const contenedor = document.getElementById('contenedor-integrantes-proyecto');
+    if (contenedor) {
+        const nodos = contenedor.querySelectorAll('input, button');
+        nodos.forEach(n => n.disabled = !habilitar);
+    }
+    const btnAdd = document.getElementById('btn-add-integrante-proy');
+    if (btnAdd) btnAdd.style.display = habilitar ? 'block' : 'none';
+};
 
 window.verificarFechaLimite = async function() {
     try {
@@ -47,11 +100,16 @@ window.buscarProyectoUsuario = async function(ci) {
 window.cargarDatosProyecto = async function() {
     const ciLocal = localStorage.getItem("feria_ci");
     const rolActual = localStorage.getItem("feria_rol");
-    const correoLider = localStorage.getItem('feria_correo'); // Obtenemos el correo del líder guardado
+    const correoLider = localStorage.getItem('feria_correo'); 
     
     if (!ciLocal) return;
 
     try {
+        // Limpiamos los casilleros dinámicos en cada recarga
+        window.contadorIntegrantesProyecto = 0;
+        const contInt = document.getElementById('contenedor-integrantes-proyecto');
+        if (contInt) contInt.innerHTML = '';
+
         const tarjetaBlanca = document.querySelector('#mi-proyecto .form-card');
         if (tarjetaBlanca) tarjetaBlanca.style.display = 'none';
 
@@ -131,7 +189,7 @@ window.cargarDatosProyecto = async function() {
             
             const urlPDF = proyectoExistente.data.enlacePDF;
             const estadoActual = proyectoExistente.data.estadoEvaluacion || "Pendiente";
-            window.enlacePdfExistente = urlPDF; // Aseguramos que guarde el PDF en memoria por si edita
+            window.enlacePdfExistente = urlPDF; 
             
             let tituloCartel = "¡Proyecto en Evaluación!"; let iconoCartel = "fas fa-check-circle"; let colorPrimario = "#2ecc71";
             let colorFondo = "rgba(0, 0, 0, 0.25)"; let colorBorde = "rgba(46, 204, 113, 0.4)"; let mensajeEstado = "Usted ya subió un proyecto para ser evaluado en la feria.";
@@ -174,6 +232,16 @@ window.cargarDatosProyecto = async function() {
                 }
             }
 
+            // Para mostrar bonito el listado de integrantes en el panel informativo
+            let listaNombresFront = "";
+            const integrs = proyectoExistente.data.integrantes;
+            if (integrs && integrs.includes('|')) {
+                const arr = integrs.split('|');
+                listaNombresFront = arr.map(i => i.split('-')[0].trim()).join(', ');
+            } else {
+                listaNombresFront = integrs || "Sin compañeros";
+            }
+
             if (divEstado) {
                 divEstado.innerHTML = `
                     <div style="text-align: center; padding: 40px 25px; background: ${colorFondo}; border-radius: 12px; border: 2px dashed ${colorBorde}; margin-bottom: 20px;">
@@ -184,7 +252,7 @@ window.cargarDatosProyecto = async function() {
                         <div style="text-align: left; background: rgba(0, 0, 0, 0.3); padding: 22px; border-radius: 8px; margin-bottom: 25px; color: #ffffff;">
                             <p style="margin-bottom: 10px;"><b>📌 Título:</b> ${proyectoExistente.data.tituloProyecto}</p>
                             <p style="margin-bottom: 10px;"><b>📁 Categoría:</b> ${proyectoExistente.data.tipoExpositor}</p>
-                            <p style="margin-bottom: 10px;"><b>👥 Integrantes:</b> ${proyectoExistente.data.integrantes}</p>
+                            <p style="margin-bottom: 10px;"><b>👥 Compañeros:</b> ${listaNombresFront}</p>
                             <p style="margin-bottom: 0;"><b>🎯 Eje Temático:</b> ${proyectoExistente.data.ejeTematico}</p>
                         </div>
                         <button type="button" onclick="window.abrirVisorPDF('${urlPDF}')" style="padding: 12px 20px; background: #0056b3; color: white; border-radius: 6px; cursor: pointer; border:none; font-weight:bold;">Ver PDF Actual</button>
@@ -202,17 +270,36 @@ window.cargarDatosProyecto = async function() {
                         if (tarjetaBlanca) tarjetaBlanca.style.display = 'block';
                         
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
-                        document.getElementById('proyTipo').value = categoriaObligatoria;
-                        document.getElementById('proyTipo').disabled = true;
-                        
-                        document.getElementById('proyIntegrantes').value = proyectoExistente.data.integrantes;
-                        document.getElementById('proyIntegrantes').disabled = false; 
-                        
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
+
+                        // 🔥 RE-CONSTRUIR LOS CASILLEROS SI VA A EDITAR 🔥
+                        if (integrs) {
+                            if (integrs.includes('|')) {
+                                const partes = integrs.split('|');
+                                partes.forEach(p => {
+                                    if(!p.trim()) return;
+                                    let nombre = '', ciStr = '', cel = '';
+                                    const sub = p.split('-');
+                                    if(sub[0]) nombre = sub[0].trim();
+                                    if(sub[1]) ciStr = sub[1].replace('CI:', '').trim();
+                                    if(sub[2]) cel = sub[2].replace('Cel:', '').trim();
+                                    window.agregarCasillaIntegranteProyecto(nombre, ciStr, cel !== 'S/N' ? cel : '');
+                                });
+                            } else {
+                                // Soporte para proyectos antiguos guardados con comas
+                                const partes = integrs.split(',');
+                                partes.forEach(p => {
+                                    if(p.trim()) window.agregarCasillaIntegranteProyecto(p.trim(), '', '');
+                                });
+                            }
+                        }
 
                         if (estadoActual === "Pre-seleccionado") {
                             document.getElementById('proyTitulo').disabled = true;
                             document.getElementById('proyEje').disabled = true;
+                            window.habilitarCasillasIntegrantes(false);
+                        } else {
+                            window.habilitarCasillasIntegrantes(true);
                         }
 
                         if(btnSubir) btnSubir.innerHTML = estadoActual === "Evaluado (No clasifica)" ? 'Re-enviar a Evaluación' : 'Actualizar Proyecto';
@@ -231,14 +318,10 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyTitulo').value = "";
                             document.getElementById('proyTitulo').disabled = false;
                             
-                            document.getElementById('proyTipo').value = categoriaObligatoria;
-                            document.getElementById('proyTipo').disabled = true;
-                            
-                            // Mantenemos a los integrantes en caso de ser los mismos, pero dejamos editar
-                            document.getElementById('proyIntegrantes').disabled = false;
-                            
                             document.getElementById('proyEje').value = "";
                             document.getElementById('proyEje').disabled = false;
+
+                            window.habilitarCasillasIntegrantes(true);
 
                             if(btnSubir) btnSubir.innerHTML = 'Enviar Nuevo Proyecto';
                             if(archivoInput) archivoInput.setAttribute('required', 'true');
@@ -264,22 +347,19 @@ window.cargarDatosProyecto = async function() {
                 }
                 if (archivoInput) archivoInput.setAttribute('required', 'true');
 
-                // 🔥 MAGIA DE AUTO-COMPLETADO DE INTEGRANTES 🔥
-                const inputIntegrantes = document.getElementById('proyIntegrantes');
-                if (correoLider && inputIntegrantes && inputIntegrantes.value === '') {
+                // 🔥 MAGIA DE AUTO-COMPLETADO CON CASILLEROS 🔥
+                if (correoLider && window.contadorIntegrantesProyecto === 0) {
                     try {
                         const resUsuarios = await fetch('/api/usuarios_admin');
                         if (resUsuarios.ok) {
                             const dataUsuarios = await resUsuarios.json();
-                            // Buscamos a todos los expositores (Líder + Compañeros) que compartan el correo
-                            const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider);
+                            // Buscamos a los compañeros (ignoramos al líder porque ya es el dueño)
+                            const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
+                            
                             if (miGrupo.length > 0) {
-                                // Juntamos los nombres separados por coma
-                                const nombresJuntos = miGrupo.map(exp => exp.nombre_completo).join(', ');
-                                inputIntegrantes.value = nombresJuntos;
-                                // Efecto de resplandor sutil para avisar que se autocompletó
-                                inputIntegrantes.style.boxShadow = "0 0 15px rgba(40, 167, 69, 0.5)";
-                                setTimeout(() => { inputIntegrantes.style.boxShadow = ""; }, 2000);
+                                miGrupo.forEach(exp => {
+                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular || '');
+                                });
                             }
                         }
                     } catch(e) { console.error(e); }
@@ -307,17 +387,31 @@ window.subirProyectoFeria = async function(e) {
     const inputTitulo = document.getElementById('proyTitulo');
     const inputTipo = document.getElementById('proyTipo');
     const inputEje = document.getElementById('proyEje');
-    const inputIntegrantes = document.getElementById('proyIntegrantes');
     
-    // Habilitar temporalmente para que JS pueda leer sus valores correctamente si estaban bloqueados
     const estabaTituloBloqueado = inputTitulo.disabled;
     const estabaTipoBloqueado = inputTipo.disabled;
     const estabaEjeBloqueado = inputEje.disabled;
-    const estabanIntegrantesBloqueados = inputIntegrantes.disabled;
     
-    inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false; inputIntegrantes.disabled = false;
+    inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
 
     try {
+        // 🔥 EMPAQUETAMOS LOS DATOS DE LOS CASILLEROS DINÁMICOS 🔥
+        let arrIntegrantes = [];
+        const noms = document.querySelectorAll('.input-proy-int-nombre');
+        const cis = document.querySelectorAll('.input-proy-int-ci');
+        const cels = document.querySelectorAll('.input-proy-int-cel');
+        
+        for(let i=0; i<noms.length; i++) {
+            let n = noms[i].value.trim();
+            let c = cis[i].value.trim();
+            let cel = cels[i].value.trim() || 'S/N';
+            if(n && c) {
+                // Formato limpio para la base de datos: Nombre - CI: xxx - Cel: xxx | Nombre2 - CI: yyy
+                arrIntegrantes.push(`${n} - CI: ${c} - Cel: ${cel}`);
+            }
+        }
+        const finalIntegrantesStr = arrIntegrantes.join(' | ');
+
         const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
         const archivoInput = document.getElementById('proyArchivo');
         
@@ -325,7 +419,7 @@ window.subirProyectoFeria = async function(e) {
         formData.append('ciPropietario', ciLocal);
         formData.append('titulo', inputTitulo.value);
         formData.append('categoria', inputTipo.value);
-        formData.append('integrantes', inputIntegrantes.value); // Aquí enviamos los integrantes
+        formData.append('integrantes', finalIntegrantesStr); 
         formData.append('ejeTematico', inputEje.value);
 
         if (window.esNuevoIntentoProyecto) {
@@ -354,8 +448,6 @@ window.subirProyectoFeria = async function(e) {
         inputTitulo.disabled = estabaTituloBloqueado;
         inputTipo.disabled = estabaTipoBloqueado;
         inputEje.disabled = estabaEjeBloqueado;
-        inputIntegrantes.disabled = estabanIntegrantesBloqueados;
-        
         if(btn) { btn.innerHTML = textoOriginal; btn.disabled = false; }
     }
 };
