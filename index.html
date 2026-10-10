@@ -79,8 +79,11 @@
                 
                 <form onsubmit="handleRegister(event)" class="modern-form animate-fade-up delay-300">
                     <div style="max-height: 48vh; overflow-y: auto; padding-right: 10px; margin-bottom: 15px;">
+                        
+                        <h4 style="color: var(--azul-uab); border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-user-tie"></i> Datos del Líder del Proyecto</h4>
+
                         <div class="input-group">
-                            <label>Nombre Completo</label>
+                            <label>Nombre Completo (Líder)</label>
                             <div class="glass-input-wrapper">
                                 <i class="fas fa-user input-icon"></i>
                                 <input type="text" id="regName" placeholder="Ej. Juan Pérez" required>
@@ -116,13 +119,25 @@
                                 <input type="tel" id="regPhone" placeholder="Ej. 71234567" required>
                             </div>
                         </div>
-                        <div class="input-group" style="margin-bottom: 5px;">
+                        <div class="input-group" style="margin-bottom: 20px;">
                             <label>Crear Contraseña</label>
                             <div class="glass-input-wrapper">
                                 <i class="fas fa-lock input-icon"></i>
                                 <input type="password" id="regPass" placeholder="••••••••" required>
                             </div>
                         </div>
+
+                        <!-- 🔥 NUEVO: SECCIÓN DE INTEGRANTES EXTRA 🔥 -->
+                        <h4 style="color: #28a745; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 15px; margin-top: 20px; font-size: 1.1rem;"><i class="fas fa-users"></i> Compañeros de Proyecto</h4>
+                        <p style="font-size: 0.8rem; color: #6c757d; margin-bottom: 15px; line-height: 1.4;">Si tienes compañeros en tu proyecto, agrégalos aquí. No es necesario que ellos se registren por separado.</p>
+                        
+                        <div id="contenedor-integrantes-extra">
+                            <!-- Aquí se inyectarán las casillas de los integrantes -->
+                        </div>
+
+                        <button type="button" onclick="window.agregarCasillaIntegrante()" style="background: transparent; border: 2px dashed #4db8ff; color: #4db8ff; width: 100%; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 15px; transition: 0.3s;" onmouseover="this.style.background='rgba(77, 184, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                            <i class="fas fa-user-plus"></i> Añadir un compañero al grupo
+                        </button>
                     </div>
                     
                     <div style="margin-bottom: 15px; text-align: left; font-size: 0.8rem; color: #cbd5e1;">
@@ -132,7 +147,7 @@
                         </label>
                     </div>
 
-                    <button type="submit" class="btn-modern-login">Crear Cuenta y Entrar</button>
+                    <button type="submit" class="btn-modern-login">Guardar Registro del Grupo</button>
                 </form>
                 
                 <div class="auth-toggle modern-auth-toggle animate-fade-up delay-400">
@@ -1068,7 +1083,7 @@
     <script src="features/votacion/votacion.js?v=FERIA_V57"></script>
     <script src="features/habilitacion/habilitacion.js?v=FERIA_V46"></script>
     <script src="features/registro/registro.js?v=FERIA_V46"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V46"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V47"></script>
     <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V46"></script> 
     <script src="features/evaluacion/evaluacion.js?v=FERIA_V46"></script>
     <script src="features/resultados/resultados.js?v=FERIA_V46"></script>

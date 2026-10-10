@@ -32,6 +32,9 @@ body, .module-section {
 
 .form-group label {
     color: #e0e0e0 !important;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
 }
 
 /* 5. Inputs y Selectores convertidos en bloques de cristal */
@@ -41,6 +44,21 @@ body, .module-section {
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     color: #ffffff !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    outline: none !important;
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+/* FIX PARA EL TEXTAREA (Caja de Integrantes) */
+.form-group textarea {
+    min-height: 80px;
+    resize: vertical; /* Permite estirarlo hacia abajo si hay muchos nombres */
+    line-height: 1.5;
 }
 
 /* 6. Efecto de "resplandor" al hacer clic en las cajas para escribir */
@@ -48,15 +66,16 @@ body, .module-section {
 .form-group select:focus, 
 .form-group textarea:focus {
     background: rgba(255, 255, 255, 0.12) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(77, 184, 255, 0.6) !important; /* Resplandor celeste suave */
+    box-shadow: 0 0 12px rgba(77, 184, 255, 0.2) !important;
     color: #ffffff !important;
 }
 
 /* 7. Color de las letras de sugerencia (Placeholder) en tono gris claro */
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-    color: rgba(255, 255, 255, 0.5) !important;
+    color: rgba(255, 255, 255, 0.4) !important;
+    font-style: italic;
 }
 
 /* 8. Rediseño del recordatorio azul (Alerta) estilo cristal */
@@ -81,7 +100,7 @@ body, .module-section {
     color: #e0e0e0 !important;
 }
 
-/*  PARCHE ANTI-PARPADEO DEFINITIVO: Sin !important para que el JS pueda encenderlo */
+/* PARCHE ANTI-PARPADEO DEFINITIVO */
 #mi-proyecto .form-card {
     display: none;
 }

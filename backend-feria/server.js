@@ -310,13 +310,31 @@ app.post('/api/administradores', async (req, res) => {
 });
 
 app.post('/api/expositores', async (req, res) => {
-    const { ci, nombreCompleto, institucion, correo, celular, password } = req.body;
+    // AHORA RECIBIMOS EL ARRAY DE INTEGRANTES EXTRA
+    const { ci, nombreCompleto, institucion, correo, celular, password, integrantesExtra } = req.body;
     try {
-        const salt = await bcrypt.genSalt(10); const hash = await bcrypt.hash(password, salt);
-        const query = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
-        await db.query(query, [ci, nombreCompleto, institucion, correo, celular, hash]);
-        res.status(201).json({ mensaje: "Expositor guardado exitosamente." });
-    } catch (error) { res.status(500).json({ error: "Error al guardar expositor." }); }
+        const salt = await bcrypt.genSalt(10); 
+        const hash = await bcrypt.hash(password, salt);
+        
+        // 1. Guardar al Líder del Grupo
+        const queryLider = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
+        await db.query(queryLider, [ci, nombreCompleto, institucion, correo, celular, hash]);
+
+        // 2. Guardar a los Integrantes Extra (Si existen)
+        if (integrantesExtra && Array.isArray(integrantesExtra) && integrantesExtra.length > 0) {
+            for (const integrante of integrantesExtra) {
+                // Guardamos a los integrantes también como expositores en la base de datos
+                // Como no tienen contraseña ni correo, usamos el del líder por defecto, o nulos.
+                const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO NOTHING`;
+                await db.query(queryIntegrante, [integrante.ci, integrante.nombre, institucion, correo, integrante.celular || 'S/N', hash]);
+            }
+        }
+
+        res.status(201).json({ mensaje: "Expositor e integrantes guardados exitosamente." });
+    } catch (error) { 
+        console.error(error);
+        res.status(500).json({ error: "Error al guardar el expositor o sus integrantes." }); 
+    }
 });
 
 app.post('/api/tribunales', async (req, res) => {

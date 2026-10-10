@@ -21,7 +21,7 @@ window.validarPDF = function(input) {
             input.value = ""; return false;
         }
         if (archivo.size < 30 * 1024) { alert(`🛑 ARCHIVO DEMASIADO LIGERO\n\nEl documento parece estar vacío o dañado.`); input.value = ""; return false; }
-        if (archivo.size > 300 * 1024 * 1024) { alert(`🛑 ARCHIVO DEMASIADO PESADO\n\nEl límite máximo es de 15 MB.`); input.value = ""; return false; }
+        if (archivo.size > 25 * 1024 * 1024) { alert(`🛑 ARCHIVO DEMASIADO PESADO\n\nEl límite máximo es de 25 MB.`); input.value = ""; return false; }
         return true;
     }
     return false;
@@ -47,6 +47,8 @@ window.buscarProyectoUsuario = async function(ci) {
 window.cargarDatosProyecto = async function() {
     const ciLocal = localStorage.getItem("feria_ci");
     const rolActual = localStorage.getItem("feria_rol");
+    const correoLider = localStorage.getItem('feria_correo'); // Obtenemos el correo del líder guardado
+    
     if (!ciLocal) return;
 
     try {
@@ -129,6 +131,7 @@ window.cargarDatosProyecto = async function() {
             
             const urlPDF = proyectoExistente.data.enlacePDF;
             const estadoActual = proyectoExistente.data.estadoEvaluacion || "Pendiente";
+            window.enlacePdfExistente = urlPDF; // Aseguramos que guarde el PDF en memoria por si edita
             
             let tituloCartel = "¡Proyecto en Evaluación!"; let iconoCartel = "fas fa-check-circle"; let colorPrimario = "#2ecc71";
             let colorFondo = "rgba(0, 0, 0, 0.25)"; let colorBorde = "rgba(46, 204, 113, 0.4)"; let mensajeEstado = "Usted ya subió un proyecto para ser evaluado en la feria.";
@@ -203,13 +206,11 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTipo').disabled = true;
                         
                         document.getElementById('proyIntegrantes').value = proyectoExistente.data.integrantes;
-                        // Aseguramos que la casilla de integrantes SIEMPRE esté habilitada para editarse
                         document.getElementById('proyIntegrantes').disabled = false; 
                         
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
                         if (estadoActual === "Pre-seleccionado") {
-                            // Solo bloqueamos Título y Eje
                             document.getElementById('proyTitulo').disabled = true;
                             document.getElementById('proyEje').disabled = true;
                         }
@@ -233,7 +234,7 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyTipo').value = categoriaObligatoria;
                             document.getElementById('proyTipo').disabled = true;
                             
-                            document.getElementById('proyIntegrantes').value = "";
+                            // Mantenemos a los integrantes en caso de ser los mismos, pero dejamos editar
                             document.getElementById('proyIntegrantes').disabled = false;
                             
                             document.getElementById('proyEje').value = "";
@@ -262,6 +263,27 @@ window.cargarDatosProyecto = async function() {
                     }
                 }
                 if (archivoInput) archivoInput.setAttribute('required', 'true');
+
+                // 🔥 MAGIA DE AUTO-COMPLETADO DE INTEGRANTES 🔥
+                const inputIntegrantes = document.getElementById('proyIntegrantes');
+                if (correoLider && inputIntegrantes && inputIntegrantes.value === '') {
+                    try {
+                        const resUsuarios = await fetch('/api/usuarios_admin');
+                        if (resUsuarios.ok) {
+                            const dataUsuarios = await resUsuarios.json();
+                            // Buscamos a todos los expositores (Líder + Compañeros) que compartan el correo
+                            const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider);
+                            if (miGrupo.length > 0) {
+                                // Juntamos los nombres separados por coma
+                                const nombresJuntos = miGrupo.map(exp => exp.nombre_completo).join(', ');
+                                inputIntegrantes.value = nombresJuntos;
+                                // Efecto de resplandor sutil para avisar que se autocompletó
+                                inputIntegrantes.style.boxShadow = "0 0 15px rgba(40, 167, 69, 0.5)";
+                                setTimeout(() => { inputIntegrantes.style.boxShadow = ""; }, 2000);
+                            }
+                        }
+                    } catch(e) { console.error(e); }
+                }
             }
         }
     } catch (error) { console.error("Error al cargar datos:", error); }
@@ -282,17 +304,18 @@ window.subirProyectoFeria = async function(e) {
     btn.innerHTML = 'Subiendo al Servidor...';
     btn.disabled = true;
 
-    //  FIX: Como el título y el eje pueden estar deshabilitados, debemos extraer sus valores sin importar su estado
     const inputTitulo = document.getElementById('proyTitulo');
     const inputTipo = document.getElementById('proyTipo');
     const inputEje = document.getElementById('proyEje');
+    const inputIntegrantes = document.getElementById('proyIntegrantes');
     
     // Habilitar temporalmente para que JS pueda leer sus valores correctamente si estaban bloqueados
     const estabaTituloBloqueado = inputTitulo.disabled;
     const estabaTipoBloqueado = inputTipo.disabled;
     const estabaEjeBloqueado = inputEje.disabled;
+    const estabanIntegrantesBloqueados = inputIntegrantes.disabled;
     
-    inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
+    inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false; inputIntegrantes.disabled = false;
 
     try {
         const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
@@ -302,13 +325,13 @@ window.subirProyectoFeria = async function(e) {
         formData.append('ciPropietario', ciLocal);
         formData.append('titulo', inputTitulo.value);
         formData.append('categoria', inputTipo.value);
-        formData.append('integrantes', document.getElementById('proyIntegrantes').value);
+        formData.append('integrantes', inputIntegrantes.value); // Aquí enviamos los integrantes
         formData.append('ejeTematico', inputEje.value);
 
         if (window.esNuevoIntentoProyecto) {
             formData.append('nuevoIntento', 'true');
         } else if (proyectoExistente && proyectoExistente.data.enlacePDF && archivoInput.files.length === 0) {
-            formData.append('enlacePdfExistente', proyectoExistente.data.enlacePDF);
+            formData.append('enlacePdfExistente', window.enlacePdfExistente || proyectoExistente.data.enlacePDF);
         }
 
         if (archivoInput.files.length > 0) {
@@ -328,10 +351,10 @@ window.subirProyectoFeria = async function(e) {
         console.error("Error:", error);
         alert("❌ Error: " + error.message);
     } finally {
-        // Restaurar estado de bloqueo si es necesario
         inputTitulo.disabled = estabaTituloBloqueado;
         inputTipo.disabled = estabaTipoBloqueado;
         inputEje.disabled = estabaEjeBloqueado;
+        inputIntegrantes.disabled = estabanIntegrantesBloqueados;
         
         if(btn) { btn.innerHTML = textoOriginal; btn.disabled = false; }
     }
