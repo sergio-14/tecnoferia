@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible EXTREMA
+// FUNCIÓN: Generación de reportes dinámicos con Limpiador Inteligente
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -18,33 +18,50 @@ const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
 
 const normalizarNombre = str => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
-const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "") => {
-    if (!integrantesStringRaw) return "No registrado";
+const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "", nombreLiderReal = "") => {
+    if (!integrantesStringRaw) return `Líder: ${nombreLiderReal}`;
+    
+    const liderNorm = normalizarNombre(nombreLiderReal);
+    const pLider = liderNorm.split(' ');
+    const n1 = pLider[0];
+    const a1 = pLider.find(p => p.length > 2 && p !== n1) || '';
+
+    const esElLider = (nombreEvaluar) => {
+        const norm = normalizarNombre(nombreEvaluar);
+        if (norm.length > liderNorm.length + 15) return false;
+        if (norm === liderNorm) return true;
+        if (n1 && a1 && norm.includes(n1) && norm.includes(a1)) return true;
+        return false;
+    };
+
     if (integrantesStringRaw.includes('|||')) {
         const partes = integrantesStringRaw.split('|||');
         try {
             const arr = JSON.parse(partes[1].trim());
-            const liderP = partes[0].replace('⭐ LÍDER:', '').split('|')[0].trim();
+            const liderP = partes[0].replace('⭐ LÍDER:', '').split('|')[0].trim() || nombreLiderReal;
             
-            const liderNorm = normalizarNombre(liderP);
-            const pLider = liderNorm.split(' ');
-            const n1 = pLider[0];
-            const a1 = pLider.find(palabra => palabra.length > 2 && palabra !== n1) || '';
-
-            const esElLider = (nombreEvaluar) => {
-                const norm = normalizarNombre(nombreEvaluar);
-                if (norm === liderNorm) return true;
-                if (n1 && a1 && norm.includes(n1) && norm.includes(a1)) return true;
-                return false;
-            };
-
             const equipoFiltrado = arr.filter(m => String(m.ci).trim() !== ciLiderStr && !esElLider(m.nombre));
             
             if (equipoFiltrado.length > 0) return `Líder: ${liderP}, Equipo: ` + equipoFiltrado.map(i => i.nombre).join(', ');
             return `Líder: ${liderP}`;
         } catch(e) {}
     }
-    return integrantesStringRaw.replace('⭐ LÍDER:', 'Líder:').replace('| 👥 EQUIPO:', ', Equipo:');
+    
+    // 🔥 FORMATO PARA TEXTOS VIEJOS EN EL PDF 🔥
+    let textoRaw = integrantesStringRaw.replace('⭐ LÍDER:', '').replace(/\|\s*👥 EQUIPO:/, '').trim();
+    if (textoRaw === "" || esElLider(textoRaw)) return `Líder: ${nombreLiderReal}`;
+
+    let listaOld = [];
+    if (/\d\./.test(textoRaw)) {
+        listaOld = textoRaw.split(/\d+\./).map(s=>s.trim()).filter(s => s.length > 2 && !esElLider(s));
+    } else if (textoRaw.includes(',') || textoRaw.toLowerCase().includes(' y ')) {
+        listaOld = textoRaw.split(/,(?![^\(]*\))|\by\b|\(integrante\)/i).map(s=>s.trim()).filter(s => s.length > 2 && !esElLider(s));
+    } else {
+        listaOld = [textoRaw];
+    }
+
+    if (listaOld.length > 0) return `Líder: ${nombreLiderReal}, Equipo: ` + listaOld.join(', ');
+    return `Líder: ${nombreLiderReal}`;
 };
 
 function inicializarFiltroVisitantes() {
@@ -155,6 +172,7 @@ window.generarVistaPrevia = async function() {
                     if (partesNombre.length >= 2) {
                         const combo1 = partesNombre[0] + " " + partesNombre[1]; 
                         const combo2 = partesNombre[0] + " " + partesNombre[partesNombre.length - 1]; 
+                        // Solo confirma si el texto original realmente lo contiene
                         if (combo1.length > 5 && rawText.includes(combo1)) esCoExpositor = true;
                         if (combo2.length > 5 && rawText.includes(combo2)) esCoExpositor = true;
                     }
@@ -177,7 +195,12 @@ window.generarVistaPrevia = async function() {
                 if (p.estado_evaluacion === "Pre-seleccionado") {
                     let catName = p.categoria.includes('estudiante') ? "proyectos_estudiantes" :
                                   p.categoria.includes('docente') ? "proyectos_docentes" : "proyectos_emprendimientos";
-                    diccionarioProyectos[p.id] = { titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim()), categoria: catName, sumaTribunal: 0, cantidadTribunal: 0, sumaPublico: 0, cantidadPublico: 0 };
+                    
+                    let nombreLiderReal = "Desconocido";
+                    const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                    if(expLider) nombreLiderReal = expLider.nombre_completo;
+
+                    diccionarioProyectos[p.id] = { titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal), categoria: catName, sumaTribunal: 0, cantidadTribunal: 0, sumaPublico: 0, cantidadPublico: 0 };
                 }
             });
 
@@ -263,7 +286,12 @@ window.generarVistaPrevia = async function() {
             proyectos.forEach(p => {
                 const eje = p.eje_tematico ? p.eje_tematico.trim() : "Sin Línea Definida"; 
                 let tipo = p.categoria.includes('docente') ? "Docentes Investigadores" : p.categoria.includes('emprendimiento') ? "Emprendimientos Tecnológicos" : "Estudiantes (Pregrado)";
-                const n_ints = extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim());
+                
+                let nombreLiderReal = "Desconocido";
+                const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                if(expLider) nombreLiderReal = expLider.nombre_completo;
+
+                const n_ints = extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal);
 
                 if (ejesOficiales.includes(eje)) proyectosPorEje[eje].push({ titulo: p.titulo || "Sin Título", integrantes: n_ints, tipo: tipo });
                 else proyectosPorEje["Otros (Líneas Anteriores / No Oficiales)"].push({ titulo: p.titulo || "Sin Título", integrantes: n_ints, tipo: tipo });
@@ -468,11 +496,15 @@ window.generarVistaPrevia = async function() {
                 }
 
                 let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
-                grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim()), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
+                
+                let nombreLiderReal = "Desconocido";
+                const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                if(expLider) nombreLiderReal = expLider.nombre_completo;
+
+                grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
             });
 
             expositores.forEach(exp => {
-                // Verificar con el filtro avanzado de roles también
                 const roles = obtenerRolesDeProyectos(exp.ci, exp.nombre_completo);
                 if (roles.length === 0 && !ciConProy.has(String(exp.ci).trim())) {
                     grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
@@ -515,7 +547,6 @@ window.generarVistaPrevia = async function() {
                     cat = proyPrincipal.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proyPrincipal.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
                 }
 
-                // Solo el nombre puro
                 const nombreCapitalizado = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
 
                 grupos[cat].push({ 
@@ -679,11 +710,15 @@ window.generarVistaPrevia = async function() {
                 if (p.estado_evaluacion === "Evaluado (No clasifica)") {
                     cont++;
                     let cat = p.categoria.includes('docente') ? "Docentes" : p.categoria.includes('emprendimiento') ? "Emprendimientos" : "Estudiantes";
+                    let nombreLiderReal = "Desconocido";
+                    const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                    if(expLider) nombreLiderReal = expLider.nombre_completo;
+                    
                     html += `<tr style="border-bottom: 1px solid #eee;">
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center;"><b>${cont}</b></td>
                         <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; color: #002b5c;">${p.titulo || "Sin título"}</td>
                         <td style="padding: 8px; border: 1px solid #ccc;">${cat}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc;">${extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim())}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">${extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal)}</td>
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">${p.nota_tribunal ? Number(p.nota_tribunal).toFixed(1) : "0.0"} / 100</td>
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-weight: bold; color: #d32f2f;">${p.nota_ponderada ? Number(p.nota_ponderada).toFixed(1) : "0.0"} pts</td>
                         <td style="padding: 8px; border: 1px solid #ccc; font-style: italic; color: #444; font-size: 11px;">"${p.observaciones_tribunal || "Sin observaciones."}"</td>
