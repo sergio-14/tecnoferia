@@ -67,7 +67,7 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
                     <input type="text" class="int-ci" placeholder="Ej. 1234567" value="${ci}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
+                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular </label>
                     <input type="tel" class="int-celular" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
                 </div>
             </div>
