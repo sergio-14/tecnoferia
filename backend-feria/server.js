@@ -43,7 +43,21 @@ if (!fs.existsSync(dirArchivos)) { fs.mkdirSync(dirArchivos, { recursive: true }
 
 app.use(express.static(rutaFrontend, { maxAge: '1d' }));
 
+// 🔥 CARGA PRINCIPAL DE PDFs 🔥
 app.use('/archivos_proyectos', express.static(dirArchivos, {
+    acceptRanges: true, 
+    maxAge: '7d',       
+    setHeaders: (res, pathStr) => {
+        if (pathStr.endsWith('.pdf')) {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Accept-Ranges', 'bytes');
+            res.setHeader('Access-Control-Allow-Origin', '*'); 
+        }
+    }
+}));
+
+// 🔥 ALIAS PARA PROYECTOS ANTIGUOS (Evita Error 404) 🔥
+app.use('/ver-pdf', express.static(dirArchivos, {
     acceptRanges: true, 
     maxAge: '7d',       
     setHeaders: (res, pathStr) => {
@@ -369,14 +383,12 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 MODIFICADO PARA VISTA DEL ADMINISTRADOR (Separa a Líder y Equipo) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
         const proysLimpios = proyectos.rows.map(p => {
             let infoLimpia = p.integrantes || "";
             if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
-            // Le damos formato HTML para que la tabla en el Frontend se vea estructurada
             infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<br><strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
                                    .replace('| 👥 EQUIPO:', '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
             return { ...p, integrantes: infoLimpia };
@@ -536,17 +548,22 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar las evaluaciones" }); }
 });
 
-// 🔥 ENVIAMOS DATOS PUROS A LOS INFORMES 🔥
 app.get('/api/datos_informes', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');
+        const proysLimpios = proyectos.rows.map(p => {
+            let infoLimpia = p.integrantes || "";
+            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
+            return { ...p, integrantes: infoLimpia };
+        });
+
         const expositores = await db.query('SELECT * FROM expositores');
         const tribunales = await db.query('SELECT * FROM tribunales');
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
 
-        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
+        res.json({ proyectos: proysLimpios, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
     } catch (error) { res.status(500).json({ error: "Error al empaquetar los datos" }); }
 });
 

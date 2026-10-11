@@ -176,14 +176,15 @@ window.sumarPublico = function(elemento) {
     }
 };
 
-// 🔥 CORRECCIÓN CRÍTICA: VISOR DE PDFS 🔥
+// 🔥 VISOR DE PDFS PROTEGIDO CONTRA ERRORES 404 🔥
 window.abrirVisorPDF = function(url) {
     if (!url || url === "undefined" || url === "null" || url === "") {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
     
-    // 🚨 AQUÍ ESTABA EL ERROR: Ya no reemplazamos la ruta. Usamos la ruta original tal cual.
-    let urlAbsoluta = window.location.origin + url + "?t=" + new Date().getTime();
+    // Convertimos viejas rutas a la nueva estructura para que el servidor las encuentre
+    let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
+    let urlAbsoluta = window.location.origin + urlLimpia + "?t=" + new Date().getTime();
 
     const modalViejo = document.getElementById('modal-visor-pdf-global');
     if (modalViejo) document.body.removeChild(modalViejo);
@@ -206,22 +207,28 @@ window.abrirVisorPDF = function(url) {
     const container = document.createElement('div');
     container.style.cssText = 'width: 90%; max-width: 1000px; height: 82vh; background: #525659; border-radius: 8px; overflow-y: auto; text-align: center; padding: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.8);';
     
-    const loadingText = document.createElement('p');
+    const loadingText = document.createElement('div');
     loadingText.style.cssText = 'color: white; font-size: 1.1rem; margin-top: 50px;';
-    loadingText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Conectando con el servidor...';
+    loadingText.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x" style="margin-bottom:15px; display:block;"></i> Conectando con el servidor de archivos...';
     container.appendChild(loadingText);
     modal.appendChild(container);
     document.body.appendChild(modal);
 
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+    
     script.onload = () => {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         
         fetch(urlAbsoluta, { headers: { 'ngrok-skip-browser-warning': 'true' } })
             .then(res => {
-                // 🔥 SI EL SERVIDOR RESPONDE 404 (NO ENCONTRADO), LANZAMOS ERROR INMEDIATO 🔥
-                if (!res.ok) throw new Error('El archivo no fue encontrado en el servidor (Error 404).');
+                if (!res.ok) throw new Error(`El documento no existe en el servidor. Puede que haya sido eliminado (Error ${res.status}).`);
+                
+                // Evitamos que el PDF intente dibujar una página HTML de Error 404
+                const contentType = res.headers.get("content-type");
+                if (contentType && !contentType.includes("application/pdf")) {
+                     throw new Error("El archivo existe, pero está dañado o no es un PDF legítimo.");
+                }
                 return res.blob();
             })
             .then(blob => {
@@ -246,25 +253,34 @@ window.abrirVisorPDF = function(url) {
                             });
                         }
                     }).catch(err => {
-                        console.error("Error procesando el PDF:", err);
-                        loadingText.innerHTML = '❌ Error de formato: El archivo está dañado o no es un PDF válido.';
+                        console.error("Error estructural en PDF:", err);
+                        loadingText.innerHTML = `
+                            <i class="fas fa-exclamation-triangle" style="color: #ffc107; font-size: 3.5rem; margin-bottom:15px; display:block;"></i>
+                            <b style="color: #ffc107;">Estructura de Documento Inválida</b><br>
+                            <span style="font-size: 0.95rem;">El archivo PDF está vacío o corrupto internamente.</span>
+                        `;
                     });
                 };
                 fileReader.readAsArrayBuffer(blob);
             })
             .catch(err => { 
                 console.error("Error de Red/Fetch:", err);
-                loadingText.innerHTML = `❌ Error: ${err.message}`; 
+                loadingText.innerHTML = `
+                    <i class="fas fa-file-excel" style="color: #ff6b6b; font-size: 3.5rem; margin-bottom:15px; display:block;"></i>
+                    <b style="color: #ff6b6b;">Error de Visualización</b><br>
+                    <span style="font-size: 0.95rem;">${err.message}</span>
+                `; 
             });
+    };
+    script.onerror = () => {
+        loadingText.innerHTML = '❌ Error al cargar la librería del visor PDF (Revisa tu conexión a internet).';
     };
     document.head.appendChild(script);
 };
 
-// 🔥 NUEVO: VISOR ESPECIAL PARA ENLACES EXTERNOS COMO GOOGLE DOCS 🔥
 window.abrirVisorDocs = function(url) {
     if (!url) return;
     
-    // Forzamos el modo "vista previa" de Google Docs para ocultar los menús
     let urlLimpia = url.includes('/edit') ? url.replace('/edit', '/preview') : url;
 
     const modalViejo = document.getElementById('modal-visor-docs-global');
@@ -288,7 +304,6 @@ window.abrirVisorDocs = function(url) {
     const container = document.createElement('div');
     container.style.cssText = 'width: 90%; max-width: 1000px; height: 82vh; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; position: relative;';
     
-    // Indicador de carga visual detrás del iframe
     const loader = document.createElement('div');
     loader.innerHTML = '<i class="fas fa-spinner fa-spin fa-2x" style="color: #002b5c;"></i><p style="margin-top: 10px; font-weight: bold; color: #555;">Cargando documento...</p>';
     loader.style.cssText = 'position: absolute; text-align: center; z-index: 1;';
