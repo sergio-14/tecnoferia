@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas Inteligentes (Diseño Corregido)
+// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas Inteligentes (Diseño Corregido y Lectura JSON)
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
@@ -26,12 +26,13 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     div.className = "integrante-box"; 
     div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
+    // 🔥 EL BOTÓN QUITAR AHORA TIENE POSICIÓN ABSOLUTA CORRECTA 🔥
     div.innerHTML = `
         <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
-                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: transparent; color: #ff6b6b; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='#dc3545'" onmouseout="this.style.color='#ff6b6b'" title="Eliminar"><i class="fas fa-times-circle"></i></button>
+            <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; position: relative;">
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem; padding-right: 40px;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; right: 0; top: -5px; background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 4px 10px;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
             </div>
             
             <div class="input-group" style="margin-bottom: 15px;">
@@ -81,9 +82,9 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
                         </p>
                     </div>
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Editar"><i class="fas fa-pencil-alt"></i></button>
-                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 6px 10px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         </div>
@@ -162,7 +163,7 @@ window.buscarProyectoUsuario = async function(ci) {
         if (data) {
             return {
                 data: {
-                    tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes,
+                    tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes, // <- Este es el JSON bruto de la BD
                     ejeTematico: data.eje_tematico, enlacePDF: data.enlace_pdf, estadoEvaluacion: data.estado_evaluacion,
                     notaTribunal: data.nota_tribunal, notaPonderada: data.nota_ponderada, observacionesTribunal: data.observaciones_tribunal
                 }
@@ -306,13 +307,29 @@ window.cargarDatosProyecto = async function() {
                 }
             }
 
+            // 🔥 TRADUCCIÓN DEL JSON DE LA BASE DE DATOS PARA LA VISTA 🔥
             let listaNombresFront = "";
+            let integrsJSON = [];
             const integrs = proyectoExistente.data.integrantes;
-            if (integrs && integrs.includes('|')) {
-                const arr = integrs.split('|');
-                listaNombresFront = arr.map(i => i.split('-')[0].trim()).join(', ');
+
+            if (integrs) {
+                try {
+                    integrsJSON = JSON.parse(integrs); // Intentar leer como JSON
+                    if (Array.isArray(integrsJSON) && integrsJSON.length > 0) {
+                        listaNombresFront = integrsJSON.map(i => i.nombre).join(', ');
+                    } else {
+                        listaNombresFront = "Sin compañeros";
+                    }
+                } catch(e) {
+                    // Si falla el parseo, era el formato antiguo de texto (Separado por | o comas)
+                    if (integrs.includes('|')) {
+                        listaNombresFront = integrs.split('|').map(i => i.split('-')[0].trim()).join(', ');
+                    } else {
+                        listaNombresFront = integrs;
+                    }
+                }
             } else {
-                listaNombresFront = integrs || "Sin compañeros";
+                listaNombresFront = "Sin compañeros";
             }
 
             if (divEstado) {
@@ -345,16 +362,12 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        try {
-                            const resUsuarios = await fetch('/api/usuarios_admin');
-                            if (resUsuarios.ok) {
-                                const dataUsuarios = await resUsuarios.json();
-                                const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
-                                miGrupo.forEach(exp => {
-                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
-                                });
-                            }
-                        } catch(e) {}
+                        // 🔥 RECONSTRUIR LAS TARJETAS (LEYENDO EL JSON DE LA BD) 🔥
+                        if (integrsJSON && integrsJSON.length > 0) {
+                            integrsJSON.forEach(exp => {
+                                window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                            });
+                        }
 
                         if (estadoActual === "Pre-seleccionado") {
                             document.getElementById('proyTitulo').disabled = true;
@@ -382,14 +395,12 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyEje').value = "";
                             document.getElementById('proyEje').disabled = false;
 
-                            try {
-                                const resUsuarios = await fetch('/api/usuarios_admin');
-                                if (resUsuarios.ok) {
-                                    const dataUsuarios = await resUsuarios.json();
-                                    const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
-                                    miGrupo.forEach(exp => { window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true); });
-                                }
-                            } catch(e) {}
+                            // Mantenemos las tarjetas del equipo si quieren
+                            if (integrsJSON && integrsJSON.length > 0) {
+                                integrsJSON.forEach(exp => {
+                                    window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                                });
+                            }
 
                             window.habilitarCasillasIntegrantes(true);
 
@@ -493,7 +504,7 @@ window.subirProyectoFeria = async function(e) {
         });
 
         const stringFront = arrNombresFront.join(' | ');
-        const stringJsonBack = JSON.stringify(jsonBack);
+        const stringJsonBack = JSON.stringify(jsonBack); // 🔥 EMPAQUETADO OFICIAL JSON 🔥
 
         const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
         const archivoInput = document.getElementById('proyArchivo');
@@ -502,8 +513,10 @@ window.subirProyectoFeria = async function(e) {
         formData.append('ciPropietario', ciLocal);
         formData.append('titulo', inputTitulo.value);
         formData.append('categoria', inputTipo.value);
-        formData.append('integrantes', stringFront); 
+        
+        // 🔥 MANDAMOS EL JSON DIRECTO AL SERVIDOR PARA QUE LO GUARDE EN TEXTO 🔥
         formData.append('integrantesData', stringJsonBack); 
+        
         formData.append('ejeTematico', inputEje.value);
 
         if (window.esNuevoIntentoProyecto) {

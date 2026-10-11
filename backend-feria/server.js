@@ -16,32 +16,24 @@ const fs = require('fs');
 const app = express();
 app.set('trust proxy', 1);
 
-// 🔥 OPTIMIZACIÓN 1: Evitar doble compresión de PDFs 🔥
 app.use(compression({
     filter: (req, res) => {
-        if (req.path.endsWith('.pdf')) {
-            return false; // Los PDFs ya están comprimidos. Intentarlo de nuevo ralentiza el servidor.
-        }
-        return compression.filter(req, res); // Comprime solo HTML, CSS y JS
+        if (req.path.endsWith('.pdf')) return false; 
+        return compression.filter(req, res); 
     }
 }));
 
 app.use(helmet({ contentSecurityPolicy: false }));
 
-const limitadorGlobal = rateLimit({
-    windowMs: 10 * 60 * 1000, 
-    max: 5000, 
-    message: { error: "⚠️ Demasiadas peticiones desde esta conexión." }
-});
+const limitadorGlobal = rateLimit({ windowMs: 10 * 60 * 1000, max: 5000, message: { error: "⚠️ Demasiadas peticiones desde esta conexión." } });
 app.use('/api/', limitadorGlobal); 
 app.use(cors());
 app.use(express.json({ limit: '5mb' })); 
 
-// 🔥 OPTIMIZACIÓN 2: Evitar archivos corruptos o truncados 🔥
 app.use(fileUpload({ 
     createParentPath: true, 
-    limits: { fileSize: 25 * 1024 * 1024 }, // Aumentado a 25MB
-    abortOnLimit: true // CRÍTICO: Rechaza el archivo si pesa más, en lugar de cortarlo y corromperlo
+    limits: { fileSize: 25 * 1024 * 1024 }, 
+    abortOnLimit: true 
 }));
 
 const rutaFrontend = path.join(__dirname, '../');
@@ -51,15 +43,14 @@ if (!fs.existsSync(dirArchivos)) { fs.mkdirSync(dirArchivos, { recursive: true }
 
 app.use(express.static(rutaFrontend, { maxAge: '1d' }));
 
-// 🔥 OPTIMIZACIÓN 3: Streaming (Byte-Serving) para Visor Rápido 🔥
 app.use('/archivos_proyectos', express.static(dirArchivos, {
-    acceptRanges: true, // Permite descargar el PDF en "pedacitos" (Streaming)
-    maxAge: '7d',       // Guarda en memoria caché del dispositivo por 7 días
+    acceptRanges: true, 
+    maxAge: '7d',       
     setHeaders: (res, pathStr) => {
         if (pathStr.endsWith('.pdf')) {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Accept-Ranges', 'bytes');
-            res.setHeader('Access-Control-Allow-Origin', '*'); // Evita bloqueos de seguridad del visor
+            res.setHeader('Access-Control-Allow-Origin', '*'); 
         }
     }
 }));
@@ -310,23 +301,19 @@ app.post('/api/administradores', async (req, res) => {
 });
 
 app.post('/api/expositores', async (req, res) => {
-    // AHORA RECIBIMOS EL ARRAY DE INTEGRANTES EXTRA
     const { ci, nombreCompleto, institucion, correo, celular, password, integrantesExtra } = req.body;
     try {
         const salt = await bcrypt.genSalt(10); 
         const hash = await bcrypt.hash(password, salt);
         
-        // 1. Guardar al Líder del Grupo
         const queryLider = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
         await db.query(queryLider, [ci, nombreCompleto, institucion, correo, celular, hash]);
 
-        // 2. Guardar a los Integrantes Extra (Si existen)
         if (integrantesExtra && Array.isArray(integrantesExtra) && integrantesExtra.length > 0) {
             for (const integrante of integrantesExtra) {
-                // Guardamos a los integrantes también como expositores en la base de datos
-                // Como no tienen contraseña ni correo, usamos el del líder por defecto, o nulos.
-                const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO NOTHING`;
-                await db.query(queryIntegrante, [integrante.ci, integrante.nombre, institucion, correo, integrante.celular || 'S/N', hash]);
+                const passTemp = await bcrypt.hash(integrante.ci, salt); // CI como contraseña
+                const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
+                await db.query(queryIntegrante, [integrante.ci, integrante.nombre, integrante.institucion || institucion, integrante.correo || correo, integrante.celular || 'S/N', passTemp]);
             }
         }
 
@@ -351,7 +338,7 @@ app.post('/api/tribunales', async (req, res) => {
 });
 
 app.post('/api/proyectos', async (req, res) => {
-    const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento } = req.body;
+    const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento, integrantesData } = req.body;
     try {
         const user = await db.query('SELECT ci FROM expositores WHERE ci = $1', [ciPropietario]);
         if (user.rows.length === 0) return res.status(404).json({ error: "Expositor no encontrado" });
@@ -377,6 +364,10 @@ app.post('/api/proyectos', async (req, res) => {
             enlacePdfFinal = `/archivos_proyectos/${subcarpeta}/${nombreSeguro}`;
         }
 
+        // 🔥 AHORA GUARDAMOS EL JSON DE LAS TARJETAS DIRECTAMENTE EN LA COLUMNA INTEGRANTES 🔥
+        // Así el Frontend podrá leer ese JSON para reconstruir las tarjetas al editar.
+        const formatoParaBaseDeDatos = integrantesData || integrantes; 
+
         if (nuevoIntento === 'true') {
             const checkAntiguo = await db.query("SELECT id, enlace_pdf FROM proyectos WHERE ci_propietario = $1 AND estado_evaluacion = 'Evaluado (No clasifica)'", [ci]);
             for (let row of checkAntiguo.rows) {
@@ -391,7 +382,7 @@ app.post('/api/proyectos', async (req, res) => {
                     }
                 }
             }
-            await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, integrantes, ejeTematico, enlacePdfFinal]);
+            await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal]);
         } else {
             const check = await db.query('SELECT id, estado_evaluacion FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [ci]);
             if (check.rows.length > 0) {
@@ -399,15 +390,30 @@ app.post('/api/proyectos', async (req, res) => {
                 const estadoActual = check.rows[0].estado_evaluacion;
                 if (estadoActual === 'Evaluado (No clasifica)') {
                     await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
-                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, integrantes, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal, idProyecto]);
                 } else {
-                    await db.query('UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6', [titulo, categoria, integrantes, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query('UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6', [titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal, idProyecto]);
                 }
             } else {
-                await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, integrantes, ejeTematico, enlacePdfFinal]);
+                await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal]);
             }
         }
-        res.status(201).json({ mensaje: "Proyecto guardado con éxito" });
+
+        // 🔥 REGISTRAR A LOS COMPAÑEROS EN LA TABLA DE USUARIOS 🔥
+        if (integrantesData) {
+            try {
+                const arrExtra = JSON.parse(integrantesData);
+                const salt = await bcrypt.genSalt(10);
+                for (let member of arrExtra) {
+                    if (!member.ci || !member.nombre) continue;
+                    const passHash = await bcrypt.hash(member.ci, salt); // Contraseña temporal es su CI
+                    const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular`;
+                    await db.query(queryIntegrante, [member.ci, member.nombre, member.institucion, member.correo, member.celular || 'S/N', passHash]);
+                }
+            } catch (e) { console.error("Error guardando compañeros en la DB", e); }
+        }
+
+        res.status(201).json({ mensaje: "Proyecto y equipo guardados con éxito" });
     } catch (error) { res.status(500).json({ error: "Error al guardar proyecto y documento PDF" }); }
 });
 
@@ -478,7 +484,6 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
-// 🔥 BLOQUEO ABSOLUTO DE SERVIDOR CONTRA FRAUDE DE EXPOSITOR 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
