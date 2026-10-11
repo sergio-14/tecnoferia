@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/admin/admin.js
-// FUNCIÓN: Gestión de Proyectos, QRs, y Monitoreo en Tiempo Real
+// FUNCIÓN: Gestión de Proyectos, QRs, Descargas y Monitoreo en Tiempo Real
 // =========================================================================
 
 window.cargarProyectosAdmin = async function() {
@@ -46,17 +46,29 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
         const idUnicoProyecto = proyecto.id; 
         const fila = document.createElement('tr');
         
+        let btnView = '';
+        let btnDownload = '';
+        
+        // Verificamos si realmente existe un PDF subido
+        if (proyecto.enlace_pdf && proyecto.enlace_pdf !== 'null' && proyecto.enlace_pdf !== '') {
+            btnView = `<button type="button" onclick="window.abrirVisorPDF('${proyecto.enlace_pdf}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: white; color: #002b5c; border: 1px solid #002b5c; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Ver PDF en línea"><i class="fas fa-eye"></i> Ver</button>`;
+            
+            // 🔥 NUEVO BOTÓN DE DESCARGA DIRECTA 🔥
+            btnDownload = `<button type="button" onclick="window.descargarPDFLocal(event, '${proyecto.enlace_pdf}', '${proyecto.ci_propietario}', '${nombreColeccion}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Descargar el documento a tu computadora"><i class="fas fa-download"></i> Bajar</button>`;
+        } else {
+            btnView = `<button type="button" disabled style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #ccc; color: #666; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; cursor: not-allowed;" title="Este proyecto no tiene PDF"><i class="fas fa-eye-slash"></i> N/A</button>`;
+        }
+
         fila.innerHTML = `
             <td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>${proyecto.titulo}</strong></td>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">${proyecto.integrantes}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">
-                <button type="button" onclick="window.abrirVisorPDF('${proyecto.enlace_pdf}')" style="display: inline-block; padding: 6px 12px; margin-right: 5px; background: white; color: #002b5c; border: 1px solid #002b5c; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                    <i class="fas fa-file-pdf"></i> PDF
-                </button>
-                <button onclick="window.crearQRProyecto('${idUnicoProyecto}', '${nombreColeccion}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 12px; margin-right: 5px; background: #002b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center; white-space: nowrap;">
+                ${btnView}
+                ${btnDownload}
+                <button onclick="window.crearQRProyecto('${idUnicoProyecto}', '${nombreColeccion}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #002b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Generar QR del Proyecto">
                     <i class="fas fa-qrcode"></i> QR
                 </button>
-                <button onclick="window.eliminarProyectoAdmin('${idUnicoProyecto}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Eliminar proyecto de forma definitiva">
+                <button onclick="window.eliminarProyectoAdmin('${idUnicoProyecto}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Eliminar proyecto de forma definitiva">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -68,6 +80,53 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
         tabla.appendChild(fila);
     });
 }
+
+// 🔥 NUEVA FUNCIÓN PARA FORZAR LA DESCARGA CON NOMBRE INTELIGENTE 🔥
+window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {
+    e.preventDefault();
+    const btn = e.currentTarget;
+    const originalHTML = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        let catName = "Estudiantes";
+        if (categoriaStr.includes('docente')) catName = "Docentes";
+        else if (categoriaStr.includes('emprendimiento')) catName = "Emprendimientos";
+
+        let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
+        
+        // Usamos fetch para traer el archivo binario
+        const response = await fetch(urlLimpia);
+        if (!response.ok) throw new Error("El archivo no está disponible en el servidor.");
+        
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        
+        // Le damos un nombre organizado para que el administrador no se confunda al descargarlo
+        a.download = `TecnoFeria_${catName}_CI_${ci}.pdf`;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        window.URL.revokeObjectURL(blobUrl);
+        a.remove();
+        
+        // Efecto visual de éxito
+        btn.innerHTML = '<i class="fas fa-check"></i> Listo';
+        setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
+        
+    } catch(error) {
+        alert("❌ Error al descargar el documento:\n" + error.message);
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+};
 
 window.eliminarProyectoAdmin = async function(idProyecto, tituloProyecto) {
     if (!confirm(` ADVERTENCIA DE SEGURIDAD \n\n¿Estás completamente seguro de que deseas ELIMINAR el proyecto:\n"${tituloProyecto}"?\n\nEsta acción borrará toda su documentación, los votos del público y la calificación del tribunal vinculada a este proyecto de forma irreversible.`)) {
