@@ -300,7 +300,6 @@ app.post('/api/proyectos', async (req, res) => {
         const nombreLider = user.rows[0].nombre_completo;
         const ci = ciPropietario;
 
-        // SANITIZAR EL ENLACE PARA EVITAR QUE EL FRONTEND ENVÍE TEXTO 'NULL'
         let enlacePdfFinal = enlacePdfExistente || null;
         if (enlacePdfFinal === 'null' || enlacePdfFinal === 'undefined' || enlacePdfFinal === '') {
             enlacePdfFinal = null;
@@ -387,20 +386,28 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 SOLUCIÓN DEFINITIVA: LECTURA INTELIGENTE DEL JSON PARA LA TABLA DE ADMIN 🔥
+// 🔥 TRADUCTOR INTELIGENTE DE PROYECTOS ANTIGUOS PARA EL PANEL DE ADMIN 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
-        const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
+        // Hacemos un JOIN con expositores para saber el nombre del dueño original
+        const proyectos = await db.query(`
+            SELECT p.id, p.titulo, p.categoria, p.integrantes, p.enlace_pdf, p.estado_evaluacion, e.nombre_completo AS nombre_lider
+            FROM proyectos p
+            LEFT JOIN expositores e ON p.ci_propietario = e.ci
+            ORDER BY p.id DESC
+        `);
+        
         const proysLimpios = proyectos.rows.map(p => {
             let infoLimpia = p.integrantes || "";
+            let nombreLider = p.nombre_lider || "Líder Desconocido";
             
-            if(infoLimpia.includes('|||')) {
+            if (infoLimpia.includes('|||')) {
+                // Proyecto Moderno (Con JSON)
                 try {
                     const partes = infoLimpia.split('|||');
                     const textoFront = partes[0].trim();
                     const jsonBack = JSON.parse(partes[1].trim());
                     
-                    let nombreLider = "Desconocido";
                     if(textoFront.includes('⭐ LÍDER:')) {
                         nombreLider = textoFront.split('⭐ LÍDER:')[1].split('|')[0].trim();
                     }
@@ -413,14 +420,27 @@ app.get('/api/proyectos_admin', async (req, res) => {
                     
                     infoLimpia = `<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong> ${nombreLider}${htmlEquipo}`;
                 } catch(e) {
-                    // Si el JSON falla, usamos un respaldo simple
+                    // Fallback
                     infoLimpia = infoLimpia.split('|||')[0].trim()
                                            .replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
                                            .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
                 }
-            } else {
+            } else if (infoLimpia.includes('⭐ LÍDER:')) {
+                // Proyecto de Transición
                 infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
                                        .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
+            } else {
+                // 🔥 PROYECTOS VIEJOS: Darles formato retroactivo 🔥
+                let htmlEquipo = "";
+                if (infoLimpia.trim() !== "" && infoLimpia.trim().toLowerCase() !== nombreLider.trim().toLowerCase()) {
+                     // Convertir el string viejo separado por comas en una lista bonita
+                     let listaOld = infoLimpia.split(/,(?![^\(]*\))| y |\(integrante\)/i).map(s=>s.trim()).filter(s=>s);
+                     if (listaOld.length > 0) {
+                         htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
+                                      listaOld.map(m => `<span style="font-size: 0.9em;">&bull; ${m}</span>`).join('<br>');
+                     }
+                }
+                infoLimpia = `<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong> ${nombreLider}${htmlEquipo}`;
             }
             
             return { ...p, integrantes: infoLimpia };

@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible
+// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible EXTREMA
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -100,7 +100,7 @@ window.generarVistaPrevia = async function() {
         const db = await res.json();
         const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones } = db;
 
-        // 🔥 MOTOR DE BÚSQUEDA FLEXIBLE (CI + TEXTO ANTIGUO) 🔥
+        // 🔥 MOTOR DE BÚSQUEDA EXTREMADAMENTE AGRESIVO 🔥
         const obtenerRolesDeProyectos = (ci, nombre) => {
             const roles = [];
             const ciStr = String(ci).trim();
@@ -115,8 +115,11 @@ window.generarVistaPrevia = async function() {
                     continue; 
                 }
 
-                // 2. ¿Es Co-expositor guardado modernamente con CI (JSON)?
+                // 2. ¿Es Co-expositor guardado? (Búsqueda en todo el texto)
                 let esCoExpositor = false;
+                const rawText = (p.integrantes || "").toLowerCase();
+
+                // Intentar buscar dentro del JSON si existe
                 if (p.integrantes && p.integrantes.includes('|||')) {
                     try {
                         const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
@@ -126,20 +129,24 @@ window.generarVistaPrevia = async function() {
                     } catch(e) {}
                 }
 
-                // 3. FALLBACK: ¿Es Co-expositor de la versión antigua (solo texto libre)?
-                if (!esCoExpositor && p.integrantes && nomStr.length > 4) {
-                    const rawText = p.integrantes.toLowerCase();
-                    if (rawText.includes(nomStr)) {
-                        esCoExpositor = true;
-                    } else {
-                        // Búsqueda cruzada (Ej. Si se llama "Juan Perez Gomez" buscamos "Juan Perez" o "Juan Gomez")
-                        const partesNombre = nomStr.split(/\s+/);
-                        if (partesNombre.length >= 2) {
-                            const combo1 = partesNombre[0] + " " + partesNombre[1]; 
-                            const combo2 = partesNombre[0] + " " + partesNombre[partesNombre.length - 1]; 
-                            if (combo1.length > 5 && rawText.includes(combo1)) esCoExpositor = true;
-                            if (combo2.length > 5 && rawText.includes(combo2)) esCoExpositor = true;
-                        }
+                // Si falló el JSON, buscar el C.I. como texto bruto en la base de datos (Ej: "CI: 11111123")
+                if (!esCoExpositor && rawText.includes(ciStr)) {
+                    esCoExpositor = true;
+                }
+
+                // Si falló el C.I., buscar el Nombre Completo
+                if (!esCoExpositor && nomStr.length > 4 && rawText.includes(nomStr)) {
+                    esCoExpositor = true;
+                }
+
+                // Si el nombre no coincide exacto, buscar "Nombre + Apellido" cruzados
+                if (!esCoExpositor && nomStr.length > 4) {
+                    const partesNombre = nomStr.split(/\s+/);
+                    if (partesNombre.length >= 2) {
+                        const combo1 = partesNombre[0] + " " + partesNombre[1]; 
+                        const combo2 = partesNombre[0] + " " + partesNombre[partesNombre.length - 1]; 
+                        if (combo1.length > 5 && rawText.includes(combo1)) esCoExpositor = true;
+                        if (combo2.length > 5 && rawText.includes(combo2)) esCoExpositor = true;
                     }
                 }
 
@@ -433,19 +440,29 @@ window.generarVistaPrevia = async function() {
         // 5. REPORTES DE DOCUMENTOS RECIBIDOS
         // ==========================================
         else if (valor === "documentos") {
+            const ciConProy = new Set();
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
 
             proyectos.forEach(p => {
                 if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
+                
+                ciConProy.add(p.ci_propietario); 
+                
+                if (p.integrantes && p.integrantes.includes('|||')) {
+                    try {
+                        const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
+                        arrInts.forEach(miembro => {
+                            if(miembro.ci) ciConProy.add(miembro.ci);
+                        });
+                    } catch(e) {}
+                }
+
                 let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
                 grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
             });
 
             expositores.forEach(exp => {
-                const roles = obtenerRolesDeProyectos(exp.ci, exp.nombre_completo);
-                if (roles.length === 0) {
-                    grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
-                }
+                if (!ciConProy.has(exp.ci)) grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
             });
 
             Object.values(grupos).forEach(g => g.sort((a, b) => a.titulo.localeCompare(b.titulo)));
