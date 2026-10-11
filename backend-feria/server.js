@@ -344,7 +344,6 @@ app.post('/api/proyectos', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar proyecto" }); }
 });
 
-// 🔥 NUEVA BÚSQUEDA INTELIGENTE DE PROYECTO (Líder o Integrante) 🔥
 app.get('/api/proyectos/:ci', async (req, res) => {
     try {
         const ci = req.params.ci;
@@ -365,18 +364,21 @@ app.get('/api/proyectos/:ci', async (req, res) => {
         if (proy.rows.length === 0) return res.json(null);
         
         const proyecto = proy.rows[0];
-        // Bandera de seguridad para el Frontend
         proyecto.esLider = (String(proyecto.ci_propietario).trim() === String(ci).trim());
         res.json(proyecto);
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
+// 🔥 MODIFICADO PARA VISTA DEL ADMINISTRADOR (Separa a Líder y Equipo) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
         const proysLimpios = proyectos.rows.map(p => {
             let infoLimpia = p.integrantes || "";
             if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
+            // Le damos formato HTML para que la tabla en el Frontend se vea estructurada
+            infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<br><strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
+                                   .replace('| 👥 EQUIPO:', '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
             return { ...p, integrantes: infoLimpia };
         });
         res.json(proysLimpios);
@@ -534,22 +536,17 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar las evaluaciones" }); }
 });
 
+// 🔥 ENVIAMOS DATOS PUROS A LOS INFORMES 🔥
 app.get('/api/datos_informes', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');
-        const proysLimpios = proyectos.rows.map(p => {
-            let infoLimpia = p.integrantes || "";
-            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
-            return { ...p, integrantes: infoLimpia };
-        });
-
         const expositores = await db.query('SELECT * FROM expositores');
         const tribunales = await db.query('SELECT * FROM tribunales');
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
 
-        res.json({ proyectos: proysLimpios, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
+        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
     } catch (error) { res.status(500).json({ error: "Error al empaquetar los datos" }); }
 });
 

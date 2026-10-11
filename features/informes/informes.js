@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos conectados al Súper Puente SQL
+// FUNCIÓN: Generación de reportes dinámicos con Lógica Inteligente de Expositores
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -14,6 +14,21 @@ const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
         </div>
         ${extraHtml}
     `;
+};
+
+// 🔥 FUNCIÓN SECRETA PARA OBTENER LOS NOMBRES LIMPIOS DESDE EL JSON 🔥
+const extraerNombresDeProyecto = (integrantesStringRaw) => {
+    if (!integrantesStringRaw) return "No registrado";
+    if (integrantesStringRaw.includes('|||')) {
+        const partes = integrantesStringRaw.split('|||');
+        try {
+            const arr = JSON.parse(partes[1].trim());
+            const liderP = partes[0].replace('⭐ LÍDER:', '').split('|')[0].trim();
+            if (arr.length > 0) return `Líder: ${liderP}, Equipo: ` + arr.map(i => i.nombre).join(', ');
+            return `Líder: ${liderP}`;
+        } catch(e) {}
+    }
+    return integrantesStringRaw;
 };
 
 function inicializarFiltroVisitantes() {
@@ -96,7 +111,7 @@ window.generarVistaPrevia = async function() {
                 if (p.estado_evaluacion === "Pre-seleccionado") {
                     let catName = p.categoria.includes('estudiante') ? "proyectos_estudiantes" :
                                   p.categoria.includes('docente') ? "proyectos_docentes" : "proyectos_emprendimientos";
-                    diccionarioProyectos[p.id] = { titulo: p.titulo || "Sin Título", integrantes: p.integrantes || "No registrado", categoria: catName, sumaTribunal: 0, cantidadTribunal: 0, sumaPublico: 0, cantidadPublico: 0 };
+                    diccionarioProyectos[p.id] = { titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes), categoria: catName, sumaTribunal: 0, cantidadTribunal: 0, sumaPublico: 0, cantidadPublico: 0 };
                 }
             });
 
@@ -182,8 +197,10 @@ window.generarVistaPrevia = async function() {
             proyectos.forEach(p => {
                 const eje = p.eje_tematico ? p.eje_tematico.trim() : "Sin Línea Definida"; 
                 let tipo = p.categoria.includes('docente') ? "Docentes Investigadores" : p.categoria.includes('emprendimiento') ? "Emprendimientos Tecnológicos" : "Estudiantes (Pregrado)";
-                if (ejesOficiales.includes(eje)) proyectosPorEje[eje].push({ titulo: p.titulo || "Sin Título", integrantes: p.integrantes || "No registrado", tipo: tipo });
-                else proyectosPorEje["Otros (Líneas Anteriores / No Oficiales)"].push({ titulo: p.titulo || "Sin Título", integrantes: p.integrantes || "No registrado", tipo: tipo });
+                const n_ints = extraerNombresDeProyecto(p.integrantes);
+
+                if (ejesOficiales.includes(eje)) proyectosPorEje[eje].push({ titulo: p.titulo || "Sin Título", integrantes: n_ints, tipo: tipo });
+                else proyectosPorEje["Otros (Líneas Anteriores / No Oficiales)"].push({ titulo: p.titulo || "Sin Título", integrantes: n_ints, tipo: tipo });
             });
 
             let htmlEjes = "";
@@ -312,7 +329,6 @@ window.generarVistaPrevia = async function() {
                 if (p.visitas > 0) listaProy.push({ titulo: p.titulo, categoria: p.categoria, visitas: p.visitas, prom: p.sumaNotas / p.visitas, pts20: (p.sumaNotas / p.visitas) * 0.20 }); 
             });
 
-            //  FIX DEL PROMEDIO: Solo divide entre proyectos Pre-seleccionados 
             const totalProyValidos = proyectos.filter(p => p.estado_evaluacion === 'Pre-seleccionado').length;
             const promVotosProyecto = totalProyValidos > 0 ? (votos.length / totalProyValidos).toFixed(2) : "0.00";
 
@@ -368,19 +384,30 @@ window.generarVistaPrevia = async function() {
         // 5. REPORTES DE DOCUMENTOS RECIBIDOS
         // ==========================================
         else if (valor === "documentos") {
-            const correosConProy = new Set();
+            const ciConProy = new Set();
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
 
             proyectos.forEach(p => {
-                if (p.estado_evaluacion === 'Evaluado (No clasifica)') return; // No contar los abandonados
-                const exp = expositores.find(e => e.ci === p.ci_propietario);
-                if (exp && exp.correo) correosConProy.add(exp.correo.toLowerCase());
+                if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
+                
+                ciConProy.add(p.ci_propietario); // Guardamos al Líder
+                
+                // Extraemos a los compañeros del JSON para excluirlos de los "Pendientes"
+                if (p.integrantes && p.integrantes.includes('|||')) {
+                    try {
+                        const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
+                        arrInts.forEach(miembro => {
+                            if(miembro.ci) ciConProy.add(miembro.ci);
+                        });
+                    } catch(e) {}
+                }
+
                 let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
-                grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: p.integrantes || "No registrado", eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
+                grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
             });
 
             expositores.forEach(exp => {
-                if (!correosConProy.has((exp.correo || "").toLowerCase())) grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
+                if (!ciConProy.has(exp.ci)) grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
             });
 
             Object.values(grupos).forEach(g => g.sort((a, b) => a.titulo.localeCompare(b.titulo)));
@@ -411,8 +438,23 @@ window.generarVistaPrevia = async function() {
             const grupos = { "1. Estudiantes (Pregrado)": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
 
             expositores.forEach(e => {
-                const proy = proyectos.find(p => p.ci_propietario === e.ci && p.estado_evaluacion !== 'Evaluado (No clasifica)');
                 let cat = "4. Registrados sin Proyecto Subido (Pendientes)";
+                
+                // Buscamos si es líder
+                let proy = proyectos.find(p => p.ci_propietario === e.ci && p.estado_evaluacion !== 'Evaluado (No clasifica)');
+                
+                // Si no es líder, buscamos si es compañero
+                if (!proy) {
+                    proy = proyectos.find(p => {
+                        if (p.estado_evaluacion === 'Evaluado (No clasifica)') return false;
+                        if (!p.integrantes || !p.integrantes.includes('|||')) return false;
+                        try {
+                            const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
+                            return arrInts.some(m => String(m.ci) === String(e.ci));
+                        } catch(err) { return false; }
+                    });
+                }
+
                 if (proy) cat = proy.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proy.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
                 grupos[cat].push({ nombre: e.nombre_completo || "Sin Nombre", ci: e.ci || "N/A", institucion: e.institucion || "N/A", correo: (e.correo || "").toLowerCase(), celular: e.celular || "N/A" });
             });
@@ -444,46 +486,59 @@ window.generarVistaPrevia = async function() {
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
             const ciQueVotaron = new Set(votos.filter(v => v.ci_visitante).map(v => String(v.ci_visitante).trim()));
 
-            const esValido = (tC, nB) => {
-                if (!tC || !nB) return false;
-                const b = nB.trim().toLowerCase();
-                return b.split(/\s+/).length >= 2 && b.length >= 5 && new RegExp(`(\\b|^)${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\b|$)`, "i").test(tC.trim().toLowerCase());
+            // Función para ver si alguien está en el JSON interno de algún proyecto
+            const buscarEnProyectosJSON = (ci) => {
+                for (const p of proyectos) {
+                    if (p.ci_propietario === ci) return { lider: true, p };
+                    if (p.integrantes && p.integrantes.includes('|||')) {
+                        try {
+                            const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
+                            if (arrInts.some(m => String(m.ci) === String(ci))) return { lider: false, p };
+                        } catch(e) {}
+                    }
+                }
+                return null;
             };
-
-            const lProy = proyectos.map(p => { const e = expositores.find(e => e.ci === p.ci_propietario); return { id: p.ci_propietario, c: e ? (e.correo||"").toLowerCase().trim() : "", t: p.titulo||"Proyecto sin título", int: (p.integrantes||"").trim() }; });
 
             const lVis = [];
             
             visitantes.forEach(v => {
                 const i = (v.institucion || "N/A").trim();
-                const cel = v.celular || "Sin número"; //  FIX: Extraemos celular 
+                const cel = v.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     let n = v.nombre_completo || "Sin Nombre";
-                    const pF = lProy.find(p => esValido(p.int, n));
-                    if (pF) n += `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.t}"</i></span>`;
+                    const pF = buscarEnProyectosJSON(String(v.ci).trim());
+                    if (pF) {
+                        if (pF.lider) n += `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${pF.p.titulo}"</i></span>`;
+                        else n += `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.p.titulo}"</i></span>`;
+                    }
                     lVis.push({ n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
                 }
             });
 
             expositores.forEach(e => {
                 const i = (e.institucion || "N/A").trim();
-                const cel = e.celular || "Sin número"; //  FIX: Extraemos celular 
+                const cel = e.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     const c = String(e.ci).trim();
-                    const correo = (e.correo || "").toLowerCase().trim();
                     let nb = e.nombre_completo || "Sin Nombre";
-                    const pF = lProy.find(p => p.id === c || (correo !== "" && p.c === correo) || esValido(p.int, nb));
-                    const et = pF ? `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Expositor</b> — <i>"${pF.t}"</i></span>` : `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
+                    const pF = buscarEnProyectosJSON(c);
+                    
+                    let et = `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
+                    if (pF) {
+                        if (pF.lider) et = `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${pF.p.titulo}"</i></span>`;
+                        else et = `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.p.titulo}"</i></span>`;
+                    }
+
                     const idx = lVis.findIndex(v => v.ci === c);
                     if (idx === -1) lVis.push({ n: nb + et, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                    else { lVis[idx].n = nb + et; lVis[idx].cel = cel; } //  Inyecta celular si existía 
+                    else { lVis[idx].n = nb + et; lVis[idx].cel = cel; } 
                 }
             });
 
             lVis.sort((a, b) => a.n.localeCompare(b.n));
             let titTab = institucionElegida === "TODOS" ? "Padrón General (Visitantes y Expositores)" : (/colegio|unidad|escuela|uab|universidad|instituto/i.test(institucionElegida)) ? `Lista de Asistencia: ${institucionElegida}` : `Visitantes Externos: ${institucionElegida}`;
 
-            //  FIX: AÑADIDA COLUMNA CELULAR EN EL DISEÑO HTML 
             let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${titTab} (Total: ${lVis.length})</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
                 <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
@@ -517,7 +572,6 @@ window.generarVistaPrevia = async function() {
         // 8. PADRON TRIBUNALES
         // ==========================================
         else if (valor === "padron_tribunales") {
-            //  FIX: AÑADIMOS EXTRACCIÓN DE CELULAR EN TRIBUNALES 
             const lTrib = tribunales.map(t => ({ 
                 n: t.nombre_completo || "Sin Nombre", 
                 e: t.especialidad || "No especificada", 
@@ -535,7 +589,6 @@ window.generarVistaPrevia = async function() {
                 <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
             </tr>`);
 
-            //  FIX: AÑADIDA COLUMNA CELULAR EN EL DISEÑO HTML 
             areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE TRIBUNALES EVALUADORES") + `
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
                     <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;">
@@ -569,7 +622,7 @@ window.generarVistaPrevia = async function() {
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center;"><b>${cont}</b></td>
                         <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; color: #002b5c;">${p.titulo || "Sin título"}</td>
                         <td style="padding: 8px; border: 1px solid #ccc;">${cat}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc;">${p.integrantes || "Desconocido"}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">${extraerNombresDeProyecto(p.integrantes)}</td>
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">${p.nota_tribunal ? Number(p.nota_tribunal).toFixed(1) : "0.0"} / 100</td>
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-weight: bold; color: #d32f2f;">${p.nota_ponderada ? Number(p.nota_ponderada).toFixed(1) : "0.0"} pts</td>
                         <td style="padding: 8px; border: 1px solid #ccc; font-style: italic; color: #444; font-size: 11px;">"${p.observaciones_tribunal || "Sin observaciones."}"</td>
