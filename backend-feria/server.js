@@ -147,7 +147,7 @@ app.post('/api/configuraciones', async (req, res) => {
 
 app.get('/api/instituciones', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM instituciones ORDER BY tipo DESC, nombre ASC');
+        const result = await db.query('SELECT * FROM institutions ORDER BY tipo DESC, nombre ASC');
         res.json(result.rows);
     } catch (error) { res.status(500).json({ error: "Error al obtener instituciones" }); }
 });
@@ -270,12 +270,12 @@ app.post('/api/expositores', async (req, res) => {
     try {
         const salt = await bcrypt.genSalt(10); 
         const hash = await bcrypt.hash(password, salt);
-        await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`, [ci, nombreCompleto, institucion, correo, celular, hash]);
+        await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular`, [ci, nombreCompleto, institucion, correo, celular, hash]);
 
         if (integrantesExtra && Array.isArray(integrantesExtra)) {
             for (const integrante of integrantesExtra) {
                 const passTemp = await bcrypt.hash(integrante.ci, salt);
-                await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`, [integrante.ci, integrante.nombre, integrante.institucion || institucion, integrante.correo || correo, integrante.celular || 'S/N', passTemp]);
+                await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular`, [integrante.ci, integrante.nombre, integrante.institucion || institucion, integrante.correo || correo, integrante.celular || 'S/N', passTemp]);
             }
         }
         res.status(201).json({ mensaje: "Expositor e integrantes guardados." });
@@ -386,7 +386,6 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 SOLUCIÓN: LIMPIADOR INTELIGENTE (FUZZY MATCH Y LEGACY NUMBERS) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query(`
@@ -409,7 +408,7 @@ app.get('/api/proyectos_admin', async (req, res) => {
 
             const esElLider = (nombreEvaluar) => {
                 const norm = normalizar(nombreEvaluar);
-                if (norm.length > liderNorm.length + 15) return false; // Evita borrar cadenas gigantes pegadas
+                if (norm.length > liderNorm.length + 15) return false; 
                 if (norm === liderNorm) return true;
                 if (n1 && a1 && norm.includes(n1) && norm.includes(a1)) return true; 
                 return false;
@@ -441,23 +440,17 @@ app.get('/api/proyectos_admin', async (req, res) => {
                                            .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
                 }
             } else {
-                // 🔥 PROYECTOS VIEJOS SIN JSON (CASO JOSTHIN Y NICOL) 🔥
                 let htmlEquipo = "";
                 let textoRaw = infoLimpia.replace('⭐ LÍDER:', '').replace(/\|\s*👥 EQUIPO:/, '').trim();
                 
                 if (textoRaw !== "" && !esElLider(textoRaw)) {
                      let listaOld = [];
                      
-                     // Si el texto usa números (Ej. "1. Luis 2. Josthin")
                      if (/\d\./.test(textoRaw)) {
                          listaOld = textoRaw.split(/\d+\./).map(s=>s.replace(/^[^a-zA-Z]+/, '').trim()).filter(s => s.length > 2 && !esElLider(s));
-                     } 
-                     // Si el texto usa comas o "y"
-                     else if (textoRaw.includes(',') || textoRaw.toLowerCase().includes(' y ')) {
+                     } else if (textoRaw.includes(',') || textoRaw.toLowerCase().includes(' y ')) {
                          listaOld = textoRaw.split(/,(?![^\(]*\))|\by\b|\(integrante\)/i).map(s=>s.trim()).filter(s => s.length > 2 && !esElLider(s));
-                     } 
-                     // Si el texto es una cadena gigante sin separadores (Ej. "Caleb Guayacuma...")
-                     else {
+                     } else {
                          listaOld = [textoRaw];
                      }
 
@@ -522,6 +515,7 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
+// 🔥 ANTI-FRAUDE: SE ACEPTA DEV- PERO SE REVISA LA COOKIE NINJA 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
