@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: core/utils.js
-// FUNCIÓN: Herramientas globales, auto-completado, sumatorias y PDF
+// FUNCIÓN: Herramientas globales, auto-completado, sumatorias y PDF Seguro
 // =========================================================================
 
 let currentRole = "";
@@ -176,12 +176,14 @@ window.sumarPublico = function(elemento) {
     }
 };
 
+// 🔥 CORRECCIÓN CRÍTICA: VISOR DE PDFS 🔥
 window.abrirVisorPDF = function(url) {
     if (!url || url === "undefined" || url === "null" || url === "") {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
-    let urlSegura = url.startsWith('/archivos_proyectos/') ? url.replace('/archivos_proyectos/', '/ver-pdf/') : url;
-    let urlAbsoluta = window.location.origin + urlSegura + "?t=" + new Date().getTime();
+    
+    // 🚨 AQUÍ ESTABA EL ERROR: Ya no reemplazamos la ruta. Usamos la ruta original tal cual.
+    let urlAbsoluta = window.location.origin + url + "?t=" + new Date().getTime();
 
     const modalViejo = document.getElementById('modal-visor-pdf-global');
     if (modalViejo) document.body.removeChild(modalViejo);
@@ -206,7 +208,7 @@ window.abrirVisorPDF = function(url) {
     
     const loadingText = document.createElement('p');
     loadingText.style.cssText = 'color: white; font-size: 1.1rem; margin-top: 50px;';
-    loadingText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando documento de forma segura...';
+    loadingText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Conectando con el servidor...';
     container.appendChild(loadingText);
     modal.appendChild(container);
     document.body.appendChild(modal);
@@ -217,7 +219,11 @@ window.abrirVisorPDF = function(url) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         
         fetch(urlAbsoluta, { headers: { 'ngrok-skip-browser-warning': 'true' } })
-            .then(res => res.blob())
+            .then(res => {
+                // 🔥 SI EL SERVIDOR RESPONDE 404 (NO ENCONTRADO), LANZAMOS ERROR INMEDIATO 🔥
+                if (!res.ok) throw new Error('El archivo no fue encontrado en el servidor (Error 404).');
+                return res.blob();
+            })
             .then(blob => {
                 const fileReader = new FileReader();
                 fileReader.onload = function() {
@@ -239,11 +245,17 @@ window.abrirVisorPDF = function(url) {
                                 container.appendChild(canvas);
                             });
                         }
+                    }).catch(err => {
+                        console.error("Error procesando el PDF:", err);
+                        loadingText.innerHTML = '❌ Error de formato: El archivo está dañado o no es un PDF válido.';
                     });
                 };
                 fileReader.readAsArrayBuffer(blob);
             })
-            .catch(err => { loadingText.innerHTML = '❌ Error al cargar el documento.'; });
+            .catch(err => { 
+                console.error("Error de Red/Fetch:", err);
+                loadingText.innerHTML = `❌ Error: ${err.message}`; 
+            });
     };
     document.head.appendChild(script);
 };
