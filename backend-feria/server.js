@@ -291,7 +291,6 @@ app.post('/api/tribunales', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
 });
 
-// 🔥 CREACIÓN Y ACTUALIZACIÓN PROTEGIDA CON COALESCE (Anti-Sobreescritura) 🔥
 app.post('/api/proyectos', async (req, res) => {
     const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento, integrantesData } = req.body;
     try {
@@ -315,7 +314,6 @@ app.post('/api/proyectos', async (req, res) => {
         const dirDestino = path.join(__dirname, '../archivos_proyectos/', subcarpeta);
         if (!fs.existsSync(dirDestino)) { fs.mkdirSync(dirDestino, { recursive: true }); }
         
-        // Si hay un archivo nuevo subido, lo guardamos y actualizamos el enlace final
         if (req.files && req.files.proyArchivo) {
             const archivo = req.files.proyArchivo;
             const nombreSeguro = `${ci}_${Date.now()}.pdf`;
@@ -337,8 +335,6 @@ app.post('/api/proyectos', async (req, res) => {
             if (check.rows.length > 0) {
                 const idProyecto = check.rows[0].id;
                 
-                // 🔥 APLICAMOS EL ESCUDO COALESCE EN LA BASE DE DATOS 🔥
-                // Si enlacePdfFinal viene vacío (null), PostgreSQL ignorará el null y conservará el enlace original que ya estaba guardado en 'enlace_pdf'.
                 if (check.rows[0].estado_evaluacion === 'Evaluado (No clasifica)') {
                     await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
                     await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
@@ -391,14 +387,42 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
+// 🔥 SOLUCIÓN DEFINITIVA: LECTURA INTELIGENTE DEL JSON PARA LA TABLA DE ADMIN 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
         const proysLimpios = proyectos.rows.map(p => {
             let infoLimpia = p.integrantes || "";
-            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
-            infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<br><strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
-                                   .replace('| 👥 EQUIPO:', '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
+            
+            if(infoLimpia.includes('|||')) {
+                try {
+                    const partes = infoLimpia.split('|||');
+                    const textoFront = partes[0].trim();
+                    const jsonBack = JSON.parse(partes[1].trim());
+                    
+                    let nombreLider = "Desconocido";
+                    if(textoFront.includes('⭐ LÍDER:')) {
+                        nombreLider = textoFront.split('⭐ LÍDER:')[1].split('|')[0].trim();
+                    }
+                    
+                    let htmlEquipo = "";
+                    if(jsonBack && jsonBack.length > 0) {
+                        htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
+                                     jsonBack.map(m => `<span style="font-size: 0.9em;">&bull; ${m.nombre} (CI: ${m.ci})</span>`).join('<br>');
+                    }
+                    
+                    infoLimpia = `<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong> ${nombreLider}${htmlEquipo}`;
+                } catch(e) {
+                    // Si el JSON falla, usamos un respaldo simple
+                    infoLimpia = infoLimpia.split('|||')[0].trim()
+                                           .replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
+                                           .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
+                }
+            } else {
+                infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
+                                       .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
+            }
+            
             return { ...p, integrantes: infoLimpia };
         });
         res.json(proysLimpios);
