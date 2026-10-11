@@ -1,25 +1,50 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas e Identidad de Rol (Líder/Equipo)
+// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas, Carga Rápida y Seguridad de PDFs
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
+window.opcionesInstitucionesCache = null; // Memoria caché para que cargue súper rápido
 
-// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS 🔥
-window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
+// 🔥 NUEVO: OBTENER INSTITUCIONES DIRECTO DE LA BASE DE DATOS 🔥
+window.cargarOpcionesInstituciones = async function() {
+    if (window.opcionesInstitucionesCache) return window.opcionesInstitucionesCache;
+    try {
+        const res = await fetch('/api/instituciones');
+        const instituciones = await res.json();
+        const grupos = {};
+        instituciones.forEach(inst => {
+            if (!grupos[inst.tipo]) grupos[inst.tipo] = [];
+            grupos[inst.tipo].push(inst);
+        });
+        let html = '<option value="" disabled selected style="color: #333;">Seleccione su institución...</option>';
+        for (const [tipo, lista] of Object.entries(grupos)) {
+            html += `<optgroup label="${tipo}" style="background-color: #f1f5f9; color: #002b5c; font-weight: bold;">`;
+            lista.forEach(i => html += `<option value="${i.nombre}" style="background-color: #ffffff; color: #000000; font-weight: normal;">${i.nombre}</option>`);
+            html += `</optgroup>`;
+        }
+        html += `<optgroup label="Visitantes Particulares / Otros" style="background-color: #f1f5f9; color: #002b5c; font-weight: bold;"><option value="OTRO" style="background-color: #ffffff; color: #0056b3; font-weight: bold;">Escribir manualmente / Otro...</option></optgroup>`;
+        window.opcionesInstitucionesCache = html;
+        return html;
+    } catch (e) {
+        return '<option value="">Error al cargar instituciones</option>';
+    }
+};
+
+// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS (ASÍNCRONA PARA CARGAR COLEGIOS) 🔥
+window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
-        return;
+        return null;
     }
     
     window.contadorIntegrantesProyecto++;
-    const idUnico = `proy-int-${Date.now()}`;
+    const idUnico = `proy-int-${Date.now()}-${Math.floor(Math.random()*1000)}`;
     
-    const selInstBase = document.getElementById('regInstitucion') || document.getElementById('hab-institucion');
-    const opcionesInst = selInstBase ? selInstBase.innerHTML : '<option value="">Cargando opciones...</option>';
+    const opcionesInst = await window.cargarOpcionesInstituciones();
 
     const contenedor = document.getElementById('contenedor-integrantes-proyecto');
-    if (!contenedor) return;
+    if (!contenedor) return null;
 
     const div = document.createElement('div');
     div.id = idUnico;
@@ -57,7 +82,7 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
                     <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Institución</label>
-                    <select class="int-institucion" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none; box-sizing: border-box;">
+                    <select class="int-institucion" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none; box-sizing: border-box; appearance: auto;">
                         ${opcionesInst}
                     </select>
                 </div>
@@ -95,13 +120,15 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
         setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = institucion; }, 50);
     }
     
-    div.querySelectorAll('input').forEach(inp => {
+    div.querySelectorAll('input, select').forEach(inp => {
         inp.addEventListener('focus', () => { inp.style.borderColor = '#4db8ff'; inp.style.boxShadow = '0 0 8px rgba(77,184,255,0.3)'; });
         inp.addEventListener('blur', () => { inp.style.borderColor = 'rgba(255,255,255,0.3)'; inp.style.boxShadow = 'none'; });
     });
+
+    return idUnico;
 };
 
-// 🔥 CORRECCIÓN: ALMACENAR DATOS OCULTOS EN LA TARJETA AL GUARDAR 🔥
+// 🔥 MANTENIMIENTO DE DATOS EN LA TARJETA VISUAL 🔥
 window.guardarIntegranteProyecto = function(idUnico) {
     const div = document.getElementById(idUnico);
     const nom = div.querySelector('.int-nombre').value.trim();
@@ -119,7 +146,7 @@ window.guardarIntegranteProyecto = function(idUnico) {
     div.querySelector('.view-ci').innerText = ci;
     div.querySelector('.view-inst').innerText = inst;
 
-    // 🔥 Guardamos los datos de forma oculta en la tarjeta visual para evitar que se pierdan
+    // Guardamos los datos ocultos para que el sistema los agarre al dar "Subir Proyecto"
     div.dataset.nombre = nom;
     div.dataset.ci = ci;
     div.dataset.celular = cel;
@@ -170,7 +197,6 @@ window.validarPDF = function(input) {
     return false;
 };
 
-// 🔥 BÚSQUEDA INTELIGENTE DE PROYECTO 🔥
 window.buscarProyectoUsuario = async function(ci) {
     try {
         const respuesta = await fetch(`/api/proyectos/${ci}`);
@@ -181,7 +207,7 @@ window.buscarProyectoUsuario = async function(ci) {
                     tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes, 
                     ejeTematico: data.eje_tematico, enlacePDF: data.enlace_pdf, estadoEvaluacion: data.estado_evaluacion,
                     notaTribunal: data.nota_tribunal, notaPonderada: data.nota_ponderada, observacionesTribunal: data.observaciones_tribunal,
-                    esLider: data.esLider // <- Viene del servidor
+                    esLider: data.esLider
                 }
             };
         }
@@ -278,7 +304,7 @@ window.cargarDatosProyecto = async function() {
             if (tarjetaBlanca) tarjetaBlanca.style.display = 'none'; 
             if (divEstado) divEstado.style.display = 'block';  
             
-            const esLider = proyectoExistente.data.esLider; // Vemos si es el líder principal
+            const esLider = proyectoExistente.data.esLider; 
             const urlPDF = proyectoExistente.data.enlacePDF;
             const estadoActual = proyectoExistente.data.estadoEvaluacion || "Pendiente";
             window.enlacePdfExistente = urlPDF; 
@@ -313,7 +339,6 @@ window.cargarDatosProyecto = async function() {
             let mensajeExtra = "";
 
             if (!esLider) {
-                // SOFÍA (O COMPAÑEROS) LOGUEADA: Ocultamos el botón de editar
                 mensajeExtra = `
                     <div style="background: rgba(40, 167, 69, 0.15); color: #2ecc71; padding: 18px; margin-bottom: 25px; border-radius: 8px; border: 1px solid rgba(46, 204, 113, 0.3); text-align: left;">
                         <div style="display: flex; align-items: center; gap: 15px;">
@@ -326,7 +351,6 @@ window.cargarDatosProyecto = async function() {
                     </div>
                 `;
             } else {
-                // LÍDER LOGUEADO: Botones normales
                 mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes hacer modificaciones hasta el <b>${fechaFormateada}</b>.</div>`;
                 
                 if (!tiempoAgotado) {
@@ -402,20 +426,21 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        // 🔥 CORRECCIÓN: Al editar, guardamos los datos completos de los compañeros en las tarjetas
+                        // 🔥 CORRECCIÓN: Renderizar las tarjetas y rellenar sus Data-Attributes ocultos
                         if (jsonIntegrantes && jsonIntegrantes.length > 0) {
-                            jsonIntegrantes.forEach(exp => {
-                                window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
-                                // Forzamos el guardado de datos en el elemento visual
-                                const divId = `proy-int-${Date.now() - Math.random()}`; // Hack para id
-                                const boxes = document.querySelectorAll('.integrante-box');
-                                const ultimaBox = boxes[boxes.length-1];
-                                ultimaBox.dataset.nombre = exp.nombre;
-                                ultimaBox.dataset.ci = exp.ci;
-                                ultimaBox.dataset.celular = exp.celular;
-                                ultimaBox.dataset.correo = exp.correo;
-                                ultimaBox.dataset.institucion = exp.institucion;
-                            });
+                            for (const exp of jsonIntegrantes) {
+                                const divId = await window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                                if (divId) {
+                                    const box = document.getElementById(divId);
+                                    if(box) {
+                                        box.dataset.nombre = exp.nombre;
+                                        box.dataset.ci = exp.ci;
+                                        box.dataset.celular = exp.celular;
+                                        box.dataset.correo = exp.correo;
+                                        box.dataset.institucion = exp.institucion;
+                                    }
+                                }
+                            }
                         }
 
                         if (estadoActual === "Pre-seleccionado") {
@@ -445,9 +470,9 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyEje').disabled = false;
 
                             if (jsonIntegrantes && jsonIntegrantes.length > 0) {
-                                jsonIntegrantes.forEach(exp => {
-                                    window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
-                                });
+                                for (const exp of jsonIntegrantes) {
+                                    await window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                                }
                             }
 
                             window.habilitarCasillasIntegrantes(true);
@@ -484,9 +509,9 @@ window.cargarDatosProyecto = async function() {
                             const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
                             
                             if (miGrupo.length > 0) {
-                                miGrupo.forEach(exp => {
-                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
-                                });
+                                for (const exp of miGrupo) {
+                                    await window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                                }
                             }
                         }
                     } catch(e) { console.error(e); }
@@ -496,6 +521,7 @@ window.cargarDatosProyecto = async function() {
     } catch (error) { console.error("Error al cargar datos:", error); }
 };
 
+// 🔥 MEJORA DE EFICACIA Y VELOCIDAD DE RESPUESTA AL GUARDAR 🔥
 window.subirProyectoFeria = async function(e) {
     e.preventDefault();
     if (await window.verificarFechaLimite()) {
@@ -521,7 +547,8 @@ window.subirProyectoFeria = async function(e) {
 
     const btn = document.getElementById('btnSubirProyecto');
     const textoOriginal = btn.innerHTML;
-    btn.innerHTML = 'Subiendo al Servidor...';
+    // Retroalimentación instantánea para el usuario
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo al Servidor (Por favor, no cierre esta ventana)...';
     btn.disabled = true;
 
     const inputTitulo = document.getElementById('proyTitulo');
@@ -538,15 +565,13 @@ window.subirProyectoFeria = async function(e) {
         let jsonBack = [];
 
         boxes.forEach(box => {
-            // 🔥 CORRECCIÓN: Leemos los datos ocultos (dataset) si la caja ya estaba guardada
             let nom = box.querySelector('.int-nombre').value.trim();
             let ced = box.querySelector('.int-ci').value.trim();
             let cel = box.querySelector('.int-celular').value.trim() || 'S/N';
             let cor = box.querySelector('.int-correo').value.trim() || correoLider;
             let inst = box.querySelector('.int-institucion').value;
             
-            // Si los inputs estaban vacíos (porque vino de la BD y no se abrieron para editar)
-            // recuperamos la información desde los data-attributes que inyectamos.
+            // Si el input está vacío porque nunca lo abrieron, recuperamos la info de la BD
             if (!nom && box.dataset.nombre) {
                 nom = box.dataset.nombre;
                 ced = box.dataset.ci;
@@ -576,6 +601,8 @@ window.subirProyectoFeria = async function(e) {
         if (window.esNuevoIntentoProyecto) {
             formData.append('nuevoIntento', 'true');
         } else if (proyectoExistente && proyectoExistente.data.enlacePDF && archivoInput.files.length === 0) {
+            // 🔥 REGLA DE ORO DE SEGURIDAD DEL PDF 🔥
+            // Si el usuario no selecciona un archivo nuevo, le reenviamos al servidor el PDF viejo para que NUNCA lo borre.
             formData.append('enlacePdfExistente', window.enlacePdfExistente || proyectoExistente.data.enlacePDF);
         }
 
@@ -589,17 +616,25 @@ window.subirProyectoFeria = async function(e) {
         const res = await fetch('/api/proyectos', { method: 'POST', body: formData });
         if (!res.ok) throw new Error("Error guardando en el servidor.");
 
-        window.esNuevoIntentoProyecto = false; 
-        alert(" Proyecto guardado y subido correctamente.");
-        await window.cargarDatosProyecto();
+        // Éxito visual rápido
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Guardado Exitoso!';
+        btn.style.backgroundColor = '#28a745';
+        
+        setTimeout(async () => {
+            window.esNuevoIntentoProyecto = false; 
+            await window.cargarDatosProyecto();
+            btn.style.backgroundColor = ''; 
+        }, 1000);
+
     } catch (error) {
         console.error("Error:", error);
         alert("❌ Error: " + error.message);
+        btn.innerHTML = textoOriginal; 
+        btn.disabled = false;
     } finally {
         inputTitulo.disabled = estabaTituloBloqueado;
         inputTipo.disabled = estabaTipoBloqueado;
         inputEje.disabled = estabaEjeBloqueado;
-        if(btn) { btn.innerHTML = textoOriginal; btn.disabled = false; }
     }
 };
 
