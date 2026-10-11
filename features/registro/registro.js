@@ -1,9 +1,9 @@
 // =========================================================================
 // ARCHIVO: features/registro/registro.js
-// FUNCIÓN: Registro de expositores a PostgreSQL (Con Integrantes Múltiples)
+// FUNCIÓN: Registro de expositores con Sistema de Tarjetas (Cards)
 // =========================================================================
 
-let contadorIntegrantes = 0;
+window.contadorRegistro = 0;
 
 window.addEventListener('DOMContentLoaded', () => {
     const parametros = new URLSearchParams(window.location.search);
@@ -23,51 +23,137 @@ window.addEventListener('DOMContentLoaded', () => {
     if (inputRegPhone) inputRegPhone.addEventListener('input', soloNumeros);
 });
 
-// 🔥 NUEVO: Función para agregar formularios dinámicos de integrantes 🔥
-window.agregarCasillaIntegrante = function() {
-    if (contadorIntegrantes >= 8) {
-        alert("El límite máximo por proyecto es de 9 personas (1 Líder + 8 Compañeros).");
+// 🔥 FUNCIÓN: Crear Tarjeta de Registro 🔥
+window.agregarCasillaIntegrante = function(nombre='', ci='', cel='', correo='', inst='', guardado=false) {
+    if (window.contadorRegistro >= 8) {
+        alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
         return;
     }
     
-    contadorIntegrantes++;
-    const idUnico = `int-${Date.now()}`;
-    
+    window.contadorRegistro++;
+    const idUnico = `reg-int-${Date.now()}`;
     const contenedor = document.getElementById('contenedor-integrantes-extra');
+    if (!contenedor) return;
+
+    // Obtener las instituciones cargadas desde el servidor
+    const selInstBase = document.getElementById('regInstitucion');
+    const opcionesInst = selInstBase ? selInstBase.innerHTML : '<option value="">Cargando opciones...</option>';
+
     const div = document.createElement('div');
     div.id = idUnico;
-    div.style.cssText = "background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative;";
+    div.className = "integrante-box";
+    div.style.cssText = "background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
     div.innerHTML = `
-        <h5 style="margin-top: 0; color: #4db8ff; margin-bottom: 10px; font-size: 0.95rem;">Compañero #${contadorIntegrantes}</h5>
-        <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.restarContador();" style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-times"></i> Quitar</button>
-        
-        <div class="input-group" style="margin-bottom: 10px;">
-            <label style="font-size: 0.8rem;">Nombre Completo</label>
-            <input type="text" class="input-int-nombre" placeholder="Ej. Ana Soto" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); color: white;">
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div class="input-group" style="margin-bottom: 0;">
-                <label style="font-size: 0.8rem;">C.I.</label>
-                <input type="text" class="input-int-ci" placeholder="Ej. 1234567" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); color: white;">
+        <!-- MODO EDICIÓN -->
+        <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1rem;"><i class="fas fa-user-plus"></i> Datos del Compañero #${window.contadorRegistro}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorRegistro--;" style="background: transparent; color: #ff6b6b; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-times"></i></button>
             </div>
-            <div class="input-group" style="margin-bottom: 0;">
-                <label style="font-size: 0.8rem;">Celular (Opcional)</label>
-                <input type="tel" class="input-int-cel" placeholder="Ej. 71234567" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.2); color: white;">
+            
+            <div class="input-group" style="margin-bottom: 12px;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
+                <input type="text" class="int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
+                    <input type="text" class="int-ci" placeholder="Ej. 1234567" value="${ci}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none;">
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
+                    <input type="tel" class="int-celular" placeholder="Ej. 71234567" value="${cel}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Correo Electrónico (Opcional)</label>
+                    <input type="email" class="int-correo" placeholder="ejemplo@correo.com" value="${correo}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none;">
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Institución</label>
+                    <select class="int-institucion" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none;">
+                        ${opcionesInst}
+                    </select>
+                </div>
+            </div>
+
+            <button type="button" onclick="window.guardarCasillaRegistro('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3);"><i class="fas fa-check"></i> Guardar Compañero</button>
+        </div>
+
+        <!-- MODO VISTA (Tarjeta) -->
+        <div class="view-mode" style="display: ${guardado ? 'block' : 'none'};">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: rgba(77, 184, 255, 0.15); color: #4db8ff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; border: 1px solid rgba(77, 184, 255, 0.3);">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <div>
+                        <h4 class="view-nombre" style="margin: 0; color: #ffffff; font-size: 1.1rem; text-transform: capitalize;">${nombre}</h4>
+                        <p style="margin: 4px 0 0 0; color: #cbd5e1; font-size: 0.85rem;">
+                            <i class="fas fa-id-card" style="color: #94a3b8;"></i> <span class="view-ci">${ci}</span> &nbsp;|&nbsp; 
+                            <i class="fas fa-university" style="color: #94a3b8;"></i> <span class="view-inst">${inst}</span>
+                        </p>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button type="button" onclick="window.editarCasillaRegistro('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; cursor: pointer;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorRegistro--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 6px 10px; cursor: pointer;" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </div>
             </div>
         </div>
     `;
-    
+
     contenedor.appendChild(div);
+
+    if (inst) {
+        setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = inst; }, 50);
+    }
 };
 
-window.restarContador = function() {
-    contadorIntegrantes--;
+window.guardarCasillaRegistro = function(idUnico) {
+    const div = document.getElementById(idUnico);
+    const nom = div.querySelector('.int-nombre').value.trim();
+    const ci = div.querySelector('.int-ci').value.trim();
+    const inst = div.querySelector('.int-institucion').value;
+
+    if (!nom || !ci || !inst) {
+        alert("⚠️ Por favor completa obligatoriamente el Nombre, C.I. y la Institución.");
+        return;
+    }
+
+    div.querySelector('.view-nombre').innerText = nom;
+    div.querySelector('.view-ci').innerText = ci;
+    div.querySelector('.view-inst').innerText = inst;
+
+    div.querySelector('.edit-mode').style.display = 'none';
+    div.querySelector('.view-mode').style.display = 'block';
+};
+
+window.editarCasillaRegistro = function(idUnico) {
+    const div = document.getElementById(idUnico);
+    div.querySelector('.edit-mode').style.display = 'block';
+    div.querySelector('.view-mode').style.display = 'none';
 };
 
 window.handleRegister = async function(e) {
     if(e && typeof e.preventDefault === 'function') e.preventDefault();
     
+    // Verificar si hay tarjetas en modo de edición abiertas
+    let hayCajasAbiertas = false;
+    const boxes = document.querySelectorAll('#contenedor-integrantes-extra .integrante-box');
+    boxes.forEach(box => {
+        if (box.querySelector('.edit-mode').style.display !== 'none') hayCajasAbiertas = true;
+    });
+
+    if (hayCajasAbiertas) {
+        alert("⚠️ Tienes compañeros sin guardar (en modo edición). Por favor, dale al botón verde 'Guardar Compañero' en cada tarjeta o bórralos antes de registrar al grupo.");
+        return;
+    }
+
     const btn = e.target.querySelector('button[type="submit"]');
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando Grupo...';
@@ -91,19 +177,18 @@ window.handleRegister = async function(e) {
         const phone = document.getElementById('regPhone').value.trim();
         const pass = document.getElementById('regPass').value;
         
-        // RECOLECTAR A LOS COMPAÑEROS
+        // Empaquetar a los compañeros
         let listaIntegrantes = [];
-        const nombresExtra = document.querySelectorAll('.input-int-nombre');
-        const cisExtra = document.querySelectorAll('.input-int-ci');
-        const celsExtra = document.querySelectorAll('.input-int-cel');
-        
-        for (let i = 0; i < nombresExtra.length; i++) {
-            listaIntegrantes.push({
-                nombre: nombresExtra[i].value.trim(),
-                ci: cisExtra[i].value.trim(),
-                celular: celsExtra[i].value.trim()
-            });
-        }
+        boxes.forEach(box => {
+            const nom = box.querySelector('.int-nombre').value.trim();
+            const ced = box.querySelector('.int-ci').value.trim();
+            const cel = box.querySelector('.int-celular').value.trim() || 'S/N';
+            const cor = box.querySelector('.int-correo').value.trim() || email; 
+            const inst = box.querySelector('.int-institucion').value;
+            if (nom && ced) {
+                listaIntegrantes.push({ nombre: nom, ci: ced, celular: cel, correo: cor, institucion: inst });
+            }
+        });
         
         const res = await fetch('/api/expositores', {
             method: 'POST',
@@ -115,7 +200,7 @@ window.handleRegister = async function(e) {
                 correo: email, 
                 celular: phone, 
                 password: pass,
-                integrantesExtra: listaIntegrantes // Mandamos el array al servidor
+                integrantesExtra: listaIntegrantes 
             })
         });
 
@@ -124,12 +209,10 @@ window.handleRegister = async function(e) {
         let mensajeExito = `¡Registro del Grupo completado con éxito!\n\nSe ha registrado al líder y a ${listaIntegrantes.length} compañeros.\nPor favor, inicie sesión con su C.I. para subir el proyecto.`;
         alert(mensajeExito);
 
-        //  Limpiar la URL para evitar el bucle al recargar
         window.history.replaceState({}, document.title, window.location.pathname);
-
         e.target.reset();
-        document.getElementById('contenedor-integrantes-extra').innerHTML = ''; // Limpiamos las casillas extra
-        contadorIntegrantes = 0;
+        document.getElementById('contenedor-integrantes-extra').innerHTML = ''; 
+        window.contadorRegistro = 0;
         
         window.toggleAuthMode(null, 'login');
 

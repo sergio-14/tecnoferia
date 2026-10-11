@@ -1,55 +1,135 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Cajas Dinámicas Inteligentes
+// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas Inteligentes
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
 
-// 🔥 Función para crear los casilleros dinámicos 🔥
-window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '') {
+// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS (MODO EDICIÓN/VISTA) 🔥
+window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
         return;
     }
     
     window.contadorIntegrantesProyecto++;
-    const idUnico = `proy-int-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    const idUnico = `proy-int-${Date.now()}`;
     
+    const selInstBase = document.getElementById('regInstitucion') || document.getElementById('hab-institucion');
+    const opcionesInst = selInstBase ? selInstBase.innerHTML : '<option value="">Cargando opciones...</option>';
+
     const contenedor = document.getElementById('contenedor-integrantes-proyecto');
     if (!contenedor) return;
 
     const div = document.createElement('div');
     div.id = idUnico;
-    div.style.cssText = "background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative;";
+    div.className = "integrante-box"; 
+    div.style.cssText = "background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
     div.innerHTML = `
-        <h5 style="margin-top: 0; color: #4db8ff; margin-bottom: 10px; font-size: 0.95rem;">Compañero #${window.contadorIntegrantesProyecto}</h5>
-        <button type="button" class="btn-quitar-int" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; top: 10px; right: 10px; background: #dc3545; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem;"><i class="fas fa-times"></i> Quitar</button>
-        
-        <div class="input-group" style="margin-bottom: 10px;">
-            <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
-            <input type="text" class="input-proy-int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div class="input-group" style="margin-bottom: 0;">
-                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
-                <input type="text" class="input-proy-int-ci" placeholder="Ej. 1234567" value="${ci}" required style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
+        <!-- MODO EDICIÓN -->
+        <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1rem;"><i class="fas fa-user-edit"></i> Datos del Compañero #${window.contadorIntegrantesProyecto}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: transparent; color: #ff6b6b; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-times"></i></button>
             </div>
-            <div class="input-group" style="margin-bottom: 0;">
-                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
-                <input type="tel" class="input-proy-int-cel" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); color: white; outline: none;">
+            
+            <div class="input-group" style="margin-bottom: 12px;">
+                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
+                <input type="text" class="int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
+                    <input type="text" class="int-ci" placeholder="Ej. 1234567" value="${ci}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
+                    <input type="tel" class="int-celular" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Correo Electrónico (Opcional)</label>
+                    <input type="email" class="int-correo" placeholder="ejemplo@correo.com" value="${correo}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                </div>
+                <div class="input-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Institución</label>
+                    <select class="int-institucion" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none;">
+                        ${opcionesInst}
+                    </select>
+                </div>
+            </div>
+
+            <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; box-shadow: 0 4px 10px rgba(40,167,69,0.3);"><i class="fas fa-check"></i> Guardar Compañero</button>
+        </div>
+
+        <!-- MODO VISTA (Tarjeta Resumen) -->
+        <div class="view-mode" style="display: ${guardado ? 'block' : 'none'};">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="background: rgba(77, 184, 255, 0.15); color: #4db8ff; width: 45px; height: 45px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; border: 1px solid rgba(77, 184, 255, 0.3);">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div>
+                        <h4 class="view-nombre" style="margin: 0; color: #ffffff; font-size: 1.1rem; text-transform: capitalize;">${nombre}</h4>
+                        <p style="margin: 4px 0 0 0; color: #cbd5e1; font-size: 0.85rem;">
+                            <i class="fas fa-id-card" style="color: #94a3b8;"></i> <span class="view-ci">${ci}</span> &nbsp;|&nbsp; 
+                            <i class="fas fa-university" style="color: #94a3b8;"></i> <span class="view-inst">${institucion}</span>
+                        </p>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash"></i></button>
+                </div>
             </div>
         </div>
     `;
+
     contenedor.appendChild(div);
+
+    if (institucion) {
+        setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = institucion; }, 50);
+    }
+    
+    div.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('focus', () => { inp.style.borderColor = '#4db8ff'; inp.style.boxShadow = '0 0 8px rgba(77,184,255,0.3)'; });
+        inp.addEventListener('blur', () => { inp.style.borderColor = 'rgba(255,255,255,0.3)'; inp.style.boxShadow = 'none'; });
+    });
 };
 
-// Función para bloquear o desbloquear las cajas si el proyecto ya fue calificado
+window.guardarIntegranteProyecto = function(idUnico) {
+    const div = document.getElementById(idUnico);
+    const nom = div.querySelector('.int-nombre').value.trim();
+    const ci = div.querySelector('.int-ci').value.trim();
+    const inst = div.querySelector('.int-institucion').value;
+
+    if (!nom || !ci || !inst) {
+        alert("⚠️ Por favor completa obligatoriamente el Nombre, C.I. y la Institución.");
+        return;
+    }
+
+    div.querySelector('.view-nombre').innerText = nom;
+    div.querySelector('.view-ci').innerText = ci;
+    div.querySelector('.view-inst').innerText = inst;
+
+    div.querySelector('.edit-mode').style.display = 'none';
+    div.querySelector('.view-mode').style.display = 'block';
+};
+
+window.editarIntegranteProyecto = function(idUnico) {
+    const div = document.getElementById(idUnico);
+    div.querySelector('.edit-mode').style.display = 'block';
+    div.querySelector('.view-mode').style.display = 'none';
+};
+
 window.habilitarCasillasIntegrantes = function(habilitar) {
     const contenedor = document.getElementById('contenedor-integrantes-proyecto');
     if (contenedor) {
-        const nodos = contenedor.querySelectorAll('input, button');
-        nodos.forEach(n => n.disabled = !habilitar);
+        contenedor.querySelectorAll('input, select, button').forEach(n => n.disabled = !habilitar);
     }
     const btnAdd = document.getElementById('btn-add-integrante-proy');
     if (btnAdd) btnAdd.style.display = habilitar ? 'block' : 'none';
@@ -105,7 +185,6 @@ window.cargarDatosProyecto = async function() {
     if (!ciLocal) return;
 
     try {
-        // Limpiamos los casilleros dinámicos en cada recarga
         window.contadorIntegrantesProyecto = 0;
         const contInt = document.getElementById('contenedor-integrantes-proyecto');
         if (contInt) contInt.innerHTML = '';
@@ -232,7 +311,6 @@ window.cargarDatosProyecto = async function() {
                 }
             }
 
-            // Para mostrar bonito el listado de integrantes en el panel informativo
             let listaNombresFront = "";
             const integrs = proyectoExistente.data.integrantes;
             if (integrs && integrs.includes('|')) {
@@ -264,7 +342,7 @@ window.cargarDatosProyecto = async function() {
             if (!tiempoAgotado) {
                 const btnEdicion = document.getElementById('btnActivarEdicion');
                 if (btnEdicion) {
-                    btnEdicion.addEventListener('click', () => {
+                    btnEdicion.addEventListener('click', async () => {
                         window.esNuevoIntentoProyecto = false; 
                         if (divEstado) divEstado.style.display = 'none';
                         if (tarjetaBlanca) tarjetaBlanca.style.display = 'block';
@@ -272,27 +350,16 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        // 🔥 RE-CONSTRUIR LOS CASILLEROS SI VA A EDITAR 🔥
-                        if (integrs) {
-                            if (integrs.includes('|')) {
-                                const partes = integrs.split('|');
-                                partes.forEach(p => {
-                                    if(!p.trim()) return;
-                                    let nombre = '', ciStr = '', cel = '';
-                                    const sub = p.split('-');
-                                    if(sub[0]) nombre = sub[0].trim();
-                                    if(sub[1]) ciStr = sub[1].replace('CI:', '').trim();
-                                    if(sub[2]) cel = sub[2].replace('Cel:', '').trim();
-                                    window.agregarCasillaIntegranteProyecto(nombre, ciStr, cel !== 'S/N' ? cel : '');
-                                });
-                            } else {
-                                // Soporte para proyectos antiguos guardados con comas
-                                const partes = integrs.split(',');
-                                partes.forEach(p => {
-                                    if(p.trim()) window.agregarCasillaIntegranteProyecto(p.trim(), '', '');
+                        try {
+                            const resUsuarios = await fetch('/api/usuarios_admin');
+                            if (resUsuarios.ok) {
+                                const dataUsuarios = await resUsuarios.json();
+                                const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
+                                miGrupo.forEach(exp => {
+                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
                                 });
                             }
-                        }
+                        } catch(e) {}
 
                         if (estadoActual === "Pre-seleccionado") {
                             document.getElementById('proyTitulo').disabled = true;
@@ -309,7 +376,7 @@ window.cargarDatosProyecto = async function() {
 
                 const btnNuevo = document.getElementById('btnNuevoProyecto');
                 if (btnNuevo) {
-                    btnNuevo.addEventListener('click', () => {
+                    btnNuevo.addEventListener('click', async () => {
                         if(confirm("⚠️ ¿Deseas participar con un NUEVO proyecto?\n\nTu proyecto actual quedará guardado en el historial como 'No Clasificado'.\nPodrás empezar una postulación desde cero con un nuevo título y documento.\n\n¿Estás seguro de continuar?")) {
                             window.esNuevoIntentoProyecto = true; 
                             if (divEstado) divEstado.style.display = 'none';
@@ -317,9 +384,17 @@ window.cargarDatosProyecto = async function() {
                             
                             document.getElementById('proyTitulo').value = "";
                             document.getElementById('proyTitulo').disabled = false;
-                            
                             document.getElementById('proyEje').value = "";
                             document.getElementById('proyEje').disabled = false;
+
+                            try {
+                                const resUsuarios = await fetch('/api/usuarios_admin');
+                                if (resUsuarios.ok) {
+                                    const dataUsuarios = await resUsuarios.json();
+                                    const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
+                                    miGrupo.forEach(exp => { window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true); });
+                                }
+                            } catch(e) {}
 
                             window.habilitarCasillasIntegrantes(true);
 
@@ -347,18 +422,16 @@ window.cargarDatosProyecto = async function() {
                 }
                 if (archivoInput) archivoInput.setAttribute('required', 'true');
 
-                // 🔥 MAGIA DE AUTO-COMPLETADO CON CASILLEROS 🔥
                 if (correoLider && window.contadorIntegrantesProyecto === 0) {
                     try {
                         const resUsuarios = await fetch('/api/usuarios_admin');
                         if (resUsuarios.ok) {
                             const dataUsuarios = await resUsuarios.json();
-                            // Buscamos a los compañeros (ignoramos al líder porque ya es el dueño)
                             const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
                             
                             if (miGrupo.length > 0) {
                                 miGrupo.forEach(exp => {
-                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular || '');
+                                    window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
                                 });
                             }
                         }
@@ -375,8 +448,21 @@ window.subirProyectoFeria = async function(e) {
         alert("❌ Error de Seguridad: El plazo límite ha finalizado."); return;
     }
     const ciLocal = localStorage.getItem("feria_ci");
+    const correoLider = localStorage.getItem('feria_correo'); 
+
     if (!ciLocal) {
         alert("❌ Error: Su sesión caducó."); return;
+    }
+
+    let hayCajasAbiertas = false;
+    const boxes = document.querySelectorAll('#contenedor-integrantes-proyecto .integrante-box');
+    boxes.forEach(box => {
+        if (box.querySelector('.edit-mode').style.display !== 'none') hayCajasAbiertas = true;
+    });
+
+    if (hayCajasAbiertas) {
+        alert("⚠️ Tienes compañeros sin guardar (en modo edición). Por favor, dale al botón verde 'Guardar Compañero' en cada tarjeta o bórralos antes de enviar el proyecto.");
+        return;
     }
 
     const btn = document.getElementById('btnSubirProyecto');
@@ -395,22 +481,24 @@ window.subirProyectoFeria = async function(e) {
     inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
 
     try {
-        // 🔥 EMPAQUETAMOS LOS DATOS DE LOS CASILLEROS DINÁMICOS 🔥
-        let arrIntegrantes = [];
-        const noms = document.querySelectorAll('.input-proy-int-nombre');
-        const cis = document.querySelectorAll('.input-proy-int-ci');
-        const cels = document.querySelectorAll('.input-proy-int-cel');
-        
-        for(let i=0; i<noms.length; i++) {
-            let n = noms[i].value.trim();
-            let c = cis[i].value.trim();
-            let cel = cels[i].value.trim() || 'S/N';
-            if(n && c) {
-                // Formato limpio para la base de datos: Nombre - CI: xxx - Cel: xxx | Nombre2 - CI: yyy
-                arrIntegrantes.push(`${n} - CI: ${c} - Cel: ${cel}`);
+        let arrNombresFront = [];
+        let jsonBack = [];
+
+        boxes.forEach(box => {
+            const nom = box.querySelector('.int-nombre').value.trim();
+            const ced = box.querySelector('.int-ci').value.trim();
+            const cel = box.querySelector('.int-celular').value.trim() || 'S/N';
+            const cor = box.querySelector('.int-correo').value.trim() || correoLider;
+            const inst = box.querySelector('.int-institucion').value;
+
+            if (nom && ced && inst) {
+                arrNombresFront.push(`${nom} - CI: ${ced}`); 
+                jsonBack.push({ nombre: nom, ci: ced, celular: cel, correo: cor, institucion: inst }); 
             }
-        }
-        const finalIntegrantesStr = arrIntegrantes.join(' | ');
+        });
+
+        const stringFront = arrNombresFront.join(' | ');
+        const stringJsonBack = JSON.stringify(jsonBack);
 
         const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
         const archivoInput = document.getElementById('proyArchivo');
@@ -419,7 +507,8 @@ window.subirProyectoFeria = async function(e) {
         formData.append('ciPropietario', ciLocal);
         formData.append('titulo', inputTitulo.value);
         formData.append('categoria', inputTipo.value);
-        formData.append('integrantes', finalIntegrantesStr); 
+        formData.append('integrantes', stringFront); 
+        formData.append('integrantesData', stringJsonBack); 
         formData.append('ejeTematico', inputEje.value);
 
         if (window.esNuevoIntentoProyecto) {
@@ -439,7 +528,7 @@ window.subirProyectoFeria = async function(e) {
         if (!res.ok) throw new Error("Error guardando en el servidor.");
 
         window.esNuevoIntentoProyecto = false; 
-        alert(" Proyecto guardado y subido correctamente.");
+        alert(" Proyecto guardado y subido correctamente.\n\nLos compañeros que hayas agregado ya pueden iniciar sesión en el sistema usando su propio C.I.");
         await window.cargarDatosProyecto();
     } catch (error) {
         console.error("Error:", error);
