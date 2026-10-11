@@ -1,10 +1,11 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Lógica Lider/Compañero
+// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas e Identidad de Rol (Líder/Equipo)
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
 
+// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS 🔥
 window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
@@ -26,6 +27,7 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
     div.innerHTML = `
+        <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
             <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; position: relative;">
                 <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem; padding-right: 40px;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
@@ -64,6 +66,7 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
             <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 14px; cursor: pointer; font-weight: bold; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.2s;"><i class="fas fa-check-circle"></i> Confirmar y Guardar Compañero</button>
         </div>
 
+        <!-- MODO VISTA (Tarjeta Resumen) -->
         <div class="view-mode" style="display: ${guardado ? 'block' : 'none'};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -91,6 +94,11 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     if (institucion) {
         setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = institucion; }, 50);
     }
+    
+    div.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('focus', () => { inp.style.borderColor = '#4db8ff'; inp.style.boxShadow = '0 0 8px rgba(77,184,255,0.3)'; });
+        inp.addEventListener('blur', () => { inp.style.borderColor = 'rgba(255,255,255,0.3)'; inp.style.boxShadow = 'none'; });
+    });
 };
 
 window.guardarIntegranteProyecto = function(idUnico) {
@@ -152,7 +160,7 @@ window.validarPDF = function(input) {
     return false;
 };
 
-// 🔥 LA BÚSQUEDA AHORA SABE SI ERES LÍDER O COMPAÑERO 🔥
+// 🔥 BÚSQUEDA INTELIGENTE DE PROYECTO 🔥
 window.buscarProyectoUsuario = async function(ci) {
     try {
         const respuesta = await fetch(`/api/proyectos/${ci}`);
@@ -163,7 +171,7 @@ window.buscarProyectoUsuario = async function(ci) {
                     tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes, 
                     ejeTematico: data.eje_tematico, enlacePDF: data.enlace_pdf, estadoEvaluacion: data.estado_evaluacion,
                     notaTribunal: data.nota_tribunal, notaPonderada: data.nota_ponderada, observacionesTribunal: data.observaciones_tribunal,
-                    esLider: data.esLider // Bandera secreta enviada desde el servidor
+                    esLider: data.esLider // <- Viene del servidor
                 }
             };
         }
@@ -260,20 +268,25 @@ window.cargarDatosProyecto = async function() {
             if (tarjetaBlanca) tarjetaBlanca.style.display = 'none'; 
             if (divEstado) divEstado.style.display = 'block';  
             
-            const esLider = proyectoExistente.data.esLider; // Vemos si es el líder
+            const esLider = proyectoExistente.data.esLider; // Vemos si es el líder principal
             const urlPDF = proyectoExistente.data.enlacePDF;
             const estadoActual = proyectoExistente.data.estadoEvaluacion || "Pendiente";
             window.enlacePdfExistente = urlPDF; 
             
             let tituloCartel = "¡Proyecto en Evaluación!"; let iconoCartel = "fas fa-check-circle"; let colorPrimario = "#2ecc71";
-            let colorFondo = "rgba(0, 0, 0, 0.25)"; let colorBorde = "rgba(46, 204, 113, 0.4)"; let mensajeEstado = "Usted ya subió un proyecto para ser evaluado en la feria.";
+            let colorFondo = "rgba(0, 0, 0, 0.25)"; let colorBorde = "rgba(46, 204, 113, 0.4)"; 
+            
+            // 🔥 MENSAJE INTELIGENTE DEPENDIENDO DE SI ES LÍDER O COMPAÑERO 🔥
+            let mensajeEstado = esLider ? "Usted ya subió un proyecto para ser evaluado en la feria." : "Usted ya pertenece a un proyecto en espera a ser evaluado en la feria.";
 
             if (estadoActual === "Pre-seleccionado") {
                 tituloCartel = "¡Felicidades! Etapa Superada"; iconoCartel = "fas fa-trophy"; colorPrimario = "#ffc107";
-                colorFondo = "rgba(255, 193, 7, 0.12)"; colorBorde = "rgba(255, 193, 7, 0.5)"; mensajeEstado = "Tu proyecto ha sido <b style='color: #ffc107;'>PRE-SELECCIONADO</b> por el Tribunal.";
+                colorFondo = "rgba(255, 193, 7, 0.12)"; colorBorde = "rgba(255, 193, 7, 0.5)"; 
+                mensajeEstado = esLider ? "Tu proyecto ha sido <b style='color: #ffc107;'>PRE-SELECCIONADO</b> por el Tribunal." : "El proyecto de tu equipo ha sido <b style='color: #ffc107;'>PRE-SELECCIONADO</b> por el Tribunal.";
             } else if (estadoActual === "Evaluado (No clasifica)") {
                 tituloCartel = "Proyecto Observado (Requiere Mejoras)"; iconoCartel = "fas fa-sync-alt"; colorPrimario = "#f39c12"; 
-                colorFondo = "rgba(243, 156, 18, 0.1)"; colorBorde = "rgba(243, 156, 18, 0.3)"; mensajeEstado = "Tu proyecto fue evaluado pero no alcanzó la nota mínima ponderada. <b>¡No te rindas! Corrige las observaciones del tribunal y vuelve a subirlo.</b>";
+                colorFondo = "rgba(243, 156, 18, 0.1)"; colorBorde = "rgba(243, 156, 18, 0.3)"; 
+                mensajeEstado = esLider ? "Tu proyecto fue evaluado pero no alcanzó la nota mínima ponderada. <b>¡Corrige y vuelve a subirlo!</b>" : "El proyecto de tu equipo fue evaluado pero no alcanzó la nota mínima. <b>Comunícate con tu líder para hacer las correcciones.</b>";
             }
 
             let notasHTML = "";
@@ -290,22 +303,21 @@ window.cargarDatosProyecto = async function() {
             let botonEdicionHTML = "";
             let mensajeExtra = "";
 
-            // 🔥 COMPROBACIÓN INTELIGENTE DE ROL DE EQUIPO 🔥
             if (!esLider) {
-                // SOFÍA (O COMPAÑEROS) LOGUEADA
+                // SOFÍA (O COMPAÑEROS) LOGUEADA: Ocultamos el botón de editar
                 mensajeExtra = `
                     <div style="background: rgba(40, 167, 69, 0.15); color: #2ecc71; padding: 18px; margin-bottom: 25px; border-radius: 8px; border: 1px solid rgba(46, 204, 113, 0.3); text-align: left;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <i class="fas fa-users" style="font-size: 2.5rem;"></i>
                             <div>
                                 <b style="font-size: 1.1rem;">¡Eres parte de este equipo!</b><br>
-                                <span style="font-size: 0.9rem; color: #e2e8f0;">El líder del grupo ya presentó oficialmente este proyecto. Como integrante, puedes monitorear su estado aquí, pero <b>solo el líder principal tiene los permisos para editarlo.</b></span>
+                                <span style="font-size: 0.9rem; color: #e2e8f0;">Como integrante, puedes monitorear el estado del proyecto aquí, pero <b>solo el líder del grupo tiene los permisos para editarlo.</b></span>
                             </div>
                         </div>
                     </div>
                 `;
             } else {
-                // LÍDER LOGUEADO
+                // LÍDER LOGUEADO: Botones normales
                 mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes hacer modificaciones hasta el <b>${fechaFormateada}</b>.</div>`;
                 
                 if (!tiempoAgotado) {
@@ -325,9 +337,20 @@ window.cargarDatosProyecto = async function() {
                 }
             }
 
+            // 🔥 TRADUCCIÓN DEL JSON DE LA BASE DE DATOS Y EXTRACCIÓN DEL LÍDER 🔥
             let listaNombresFront = "";
+            let nombreLiderFront = "Líder del equipo";
             let jsonIntegrantes = [];
             const integrsRaw = proyectoExistente.data.integrantes || "";
+
+            if (integrsRaw.includes('⭐ LÍDER:')) {
+                let tempLider = integrsRaw.split('⭐ LÍDER:')[1];
+                if (tempLider.includes('|')) {
+                    nombreLiderFront = tempLider.split('|')[0].trim();
+                } else {
+                    nombreLiderFront = tempLider.trim();
+                }
+            }
 
             if (integrsRaw.includes('|||')) {
                 const partes = integrsRaw.split('|||');
@@ -350,6 +373,7 @@ window.cargarDatosProyecto = async function() {
                         <div style="text-align: left; background: rgba(0, 0, 0, 0.3); padding: 22px; border-radius: 8px; margin-bottom: 25px; color: #ffffff;">
                             <p style="margin-bottom: 10px;"><b>📌 Título:</b> ${proyectoExistente.data.tituloProyecto}</p>
                             <p style="margin-bottom: 10px;"><b>📁 Categoría:</b> ${proyectoExistente.data.tipoExpositor}</p>
+                            <p style="margin-bottom: 10px; color: #ffc107;"><b>⭐ Líder del Proyecto:</b> ${nombreLiderFront}</p>
                             <p style="margin-bottom: 10px;"><b>👥 Compañeros:</b> ${listaNombresFront}</p>
                             <p style="margin-bottom: 0;"><b>🎯 Eje Temático:</b> ${proyectoExistente.data.ejeTematico}</p>
                         </div>
@@ -359,7 +383,6 @@ window.cargarDatosProyecto = async function() {
                 `;
             }
 
-            // Ocultamos las funciones de edición si no es el líder
             if (!tiempoAgotado && esLider) {
                 const btnEdicion = document.getElementById('btnActivarEdicion');
                 if (btnEdicion) {
@@ -441,6 +464,7 @@ window.cargarDatosProyecto = async function() {
                         if (resUsuarios.ok) {
                             const dataUsuarios = await resUsuarios.json();
                             const miGrupo = dataUsuarios.expositores.filter(exp => exp.correo === correoLider && String(exp.id) !== String(ciLocal));
+                            
                             if (miGrupo.length > 0) {
                                 miGrupo.forEach(exp => {
                                     window.agregarCasillaIntegranteProyecto(exp.nombre_completo, exp.id, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
