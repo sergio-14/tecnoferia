@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación por Estrellas (Estricto por C.I. Registrado)
+// FUNCIÓN: Lógica de Votación por Estrellas (Estricto por C.I. Registrado - Sin AutoLlenado)
 // =========================================================================
 
 // 🔥 CAPTURA NINJA EN EL TECLADO (Por si es un expositor) 🔥
@@ -100,16 +100,26 @@ window.cargarProyectoParaVotar = async function() {
         // Explicación amigable en el label
         const lblCi = document.querySelector('#caja-ci-oculta label');
         if(lblCi) lblCi.innerHTML = "Tu Carnet de Identidad (CI)";
-        if(inputCi) inputCi.placeholder = "Ej. 1234567";
+        
+        // FORZAMOS A QUE ESTÉ VACÍO SIEMPRE PARA QUE EL USUARIO LO ESCRIBA
+        if(inputCi) {
+            inputCi.placeholder = "Ej. 1234567";
+            inputCi.value = ""; 
+        }
 
         // Asegurarnos de que el cajón de institución esté oculto
         const cajaInst = document.getElementById('caja-institucion-visitante');
         if (cajaInst) cajaInst.style.display = 'none';
 
-        // 2. Si el sistema ya conoce al usuario, pre-llenar
-        if (savedNinja && inputCi) {
-            inputCi.value = savedNinja; 
-        } 
+        // Reset del botón y mensaje
+        const btnEnviar = document.getElementById('btnEnviarVoto');
+        if(btnEnviar) {
+            btnEnviar.disabled = true;
+            btnEnviar.style.opacity = "0.5";
+            btnEnviar.style.cursor = "not-allowed";
+        }
+        const msj = document.getElementById('mensaje-validacion-ci');
+        if(msj) msj.innerHTML = "";
 
         try {
             const res = await fetch(`/api/proyectos_qr/${idProy}`);
@@ -118,7 +128,8 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                // Si ya sabemos quién es (tiene cookie ninja)
+                // Si ya sabemos quién es la memoria oculta (tiene cookie ninja)
+                // Verificamos de forma silenciosa para bloquearle la pantalla si ya votó o si es tramposo
                 if (savedNinja) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${savedNinja}/${idProy}`);
@@ -146,7 +157,7 @@ window.cargarProyectoParaVotar = async function() {
                     } catch(e) {}
                 }
 
-                // VALIDACIÓN DE FRAUDE: ¿Es su propio proyecto?
+                // VALIDACIÓN DE FRAUDE: ¿Es su propio proyecto en su celular?
                 const integrsRaw = proyecto.integrantes || "";
                 let esAutor = false;
                 
@@ -185,8 +196,6 @@ window.cargarProyectoParaVotar = async function() {
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
-
-                if (savedNinja) setTimeout(() => { window.simularVerificacionCI(); }, 300);
 
             } else {
                 document.getElementById('votar-titulo').innerText = "Proyecto no encontrado en la Base de Datos.";
