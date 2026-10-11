@@ -1,9 +1,9 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación y Captura Ninja Anti-Fraude (Líder y Compañeros)
+// FUNCIÓN: Lógica de Votación por Estrellas y Captura Ninja Anti-Fraude
 // =========================================================================
 
-// 🔥 1. CAPTURA NINJA EN EL TECLADO 🔥
+// 🔥 CAPTURA NINJA EN EL TECLADO 🔥
 document.addEventListener('input', function(e) {
     if (e.target && (e.target.id === 'userInput' || e.target.id === 'regCI' || e.target.id === 'voto-ci')) {
         const val = e.target.value.trim();
@@ -24,7 +24,6 @@ window.obtenerCiNinja = function() {
 };
 
 window.calificacionActual = 0; 
-window.completadosPublico = 0;
 
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const R = 6371e3; 
@@ -178,7 +177,6 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                // 🔥 PROTECCIÓN VISUAL INMEDIATA CONTRA DOBLE VOTO 🔥
                 if (deviceId) {
                     try {
                         const resVerif = await fetch(`/api/verificar_voto_duplicado/${deviceId}/${idProy}`);
@@ -207,7 +205,6 @@ window.cargarProyectoParaVotar = async function() {
                     } catch(e) {}
                 }
 
-                // 🔥 BLOQUEO VISUAL: LÍDER O COMPAÑEROS TRAMPOSOS 🔥
                 const ciNinja = window.obtenerCiNinja();
                 const integrsRaw = proyecto.integrantes || "";
                 
@@ -269,35 +266,28 @@ window.cargarProyectoParaVotar = async function() {
     }
 };
 
-window.sumarPublico = function(elemento) {
-    if (elemento) {
-        let val = elemento.value.replace(/[^0-9]/g, '');
-        val = val.replace(/^0+/, '');
-        if (val !== "") {
-            val = parseInt(val, 10);
-            let max = parseInt(elemento.getAttribute('max'), 10);
-            if (val > max) val = max;
-        }
-        elemento.value = val;
-    }
-
-    const inputs = document.querySelectorAll('.pub-nota');
-    let total = 0; let completados = 0;
+// 🔥 SISTEMA DE 5 ESTRELLAS (100 pts) 🔥
+window.marcarEstrellas = function(cantidad) {
+    const estrellas = document.querySelectorAll('.star-btn');
+    const labels = ["Malo (20 pts)", "Regular (40 pts)", "Bueno (60 pts)", "Muy Bueno (80 pts)", "Excelente (100 pts)"];
     
-    inputs.forEach(input => {
-        if (input.value !== "") {
-            total += parseInt(input.value, 10);
-            completados++;
+    // Coloreamos las estrellas según la selección
+    estrellas.forEach((estrella, index) => {
+        if (index < cantidad) {
+            estrella.style.color = "#ffc107"; // Dorado
+            estrella.style.transform = "scale(1.1)";
+        } else {
+            estrella.style.color = "rgba(255,255,255,0.2)"; // Gris
+            estrella.style.transform = "scale(1)";
         }
     });
 
-    const votoPuntaje = document.getElementById('voto-puntaje');
-    if(votoPuntaje) votoPuntaje.value = total;
-
-    window.calificacionActual = total; 
-    window.completadosPublico = completados;
+    const puntajeReal = cantidad * 20;
+    document.getElementById('voto-puntaje').value = puntajeReal;
+    document.getElementById('rating-label').innerHTML = labels[cantidad - 1];
     
-    window.simularVerificacionCI();
+    window.calificacionActual = puntajeReal;
+    window.simularVerificacionCI(); // Despierta el botón de confirmar
 };
 
 window.simularVerificacionCI = async function() {
@@ -335,7 +325,8 @@ window.simularVerificacionCI = async function() {
 
         msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Habilitado</span>`;
         
-        if (window.completadosPublico === 4 && instSeleccionada) {
+        // Verifica que haya votado (al menos 1 estrella = 20 pts)
+        if (window.calificacionActual > 0 && instSeleccionada) {
             btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
         } else {
             btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
@@ -349,7 +340,6 @@ window.simularVerificacionCI = async function() {
         return;
     }
 
-    // SI ESCRIBE SU C.I. MANUALMENTE, CAE EN LA TRAMPA NINJA GLOBAL
     localStorage.setItem('feria_ninja_ci', ciInput);
     document.cookie = "feria_ninja_ci=" + ciInput + "; max-age=31536000; path=/";
 
@@ -372,7 +362,7 @@ window.simularVerificacionCI = async function() {
 
                 msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-user-check"></i> Hola ${data.datos.nombre_completo} (${data.rol})</span>`;
 
-                if (window.completadosPublico === 4) {
+                if (window.calificacionActual > 0) {
                     btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
                 } else {
                     btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
@@ -425,7 +415,7 @@ window.enviarCalificacion = async function(e) {
     }
 
     if (!idProy || !nota || !ci) {
-        alert("⚠️ Completa todos los campos y la rúbrica.");
+        alert("⚠️ Completa todos los campos y dale tu calificación con las estrellas.");
         return;
     }
 
