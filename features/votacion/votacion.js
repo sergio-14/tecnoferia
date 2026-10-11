@@ -35,6 +35,7 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
 }
 
+// 🔥 CORRECCIÓN: ASIGNACIÓN CORRECTA DEL ROL DE VISITANTE 🔥
 window.ingresarComoPublico = async function() {
     const panelVoto = document.getElementById('votar-proyecto');
     if (panelVoto) panelVoto.style.display = 'none';
@@ -56,8 +57,17 @@ window.ingresarComoPublico = async function() {
         if(el) el.style.display = 'none';
     });
 
-    localStorage.setItem('usuario_rol', 'VISITANTE');
-    localStorage.setItem('usuario_datos', JSON.stringify({ ci: 'publico', nombre_completo: 'Visitante Público' }));
+    // 1. Limpiamos cualquier sesión fantasma de Admin o Expositor que haya quedado guardada
+    localStorage.clear();
+    
+    // 2. Asignamos correctamente las credenciales oficiales de Visitante
+    localStorage.setItem('feria_rol', 'VISITANTE');
+    localStorage.setItem('feria_nombre', 'Visitante Público');
+    localStorage.setItem('feria_ci', 'publico');
+
+    if (typeof window.applyPermissions === 'function') {
+        window.applyPermissions('VISITANTE', 'Visitante Público');
+    }
 
     if (typeof navigate === 'function') {
         const btnInicio = document.querySelector('#nav-links-menu li a');
@@ -266,18 +276,16 @@ window.cargarProyectoParaVotar = async function() {
     }
 };
 
-// 🔥 SISTEMA DE 5 ESTRELLAS (100 pts) 🔥
 window.marcarEstrellas = function(cantidad) {
     const estrellas = document.querySelectorAll('.star-btn');
     const labels = ["Malo (20 pts)", "Regular (40 pts)", "Bueno (60 pts)", "Muy Bueno (80 pts)", "Excelente (100 pts)"];
     
-    // Coloreamos las estrellas según la selección
     estrellas.forEach((estrella, index) => {
         if (index < cantidad) {
-            estrella.style.color = "#ffc107"; // Dorado
+            estrella.style.color = "#ffc107"; 
             estrella.style.transform = "scale(1.1)";
         } else {
-            estrella.style.color = "rgba(255,255,255,0.2)"; // Gris
+            estrella.style.color = "rgba(255,255,255,0.2)"; 
             estrella.style.transform = "scale(1)";
         }
     });
@@ -287,7 +295,7 @@ window.marcarEstrellas = function(cantidad) {
     document.getElementById('rating-label').innerHTML = labels[cantidad - 1];
     
     window.calificacionActual = puntajeReal;
-    window.simularVerificacionCI(); // Despierta el botón de confirmar
+    window.simularVerificacionCI(); 
 };
 
 window.simularVerificacionCI = async function() {
@@ -325,7 +333,6 @@ window.simularVerificacionCI = async function() {
 
         msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Habilitado</span>`;
         
-        // Verifica que haya votado (al menos 1 estrella = 20 pts)
         if (window.calificacionActual > 0 && instSeleccionada) {
             btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
         } else {
