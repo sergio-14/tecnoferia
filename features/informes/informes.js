@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible
+// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible EXTREMA
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -16,7 +16,8 @@ const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
     `;
 };
 
-// 🔥 FILTRAMOS AL LÍDER PARA QUE NO SE REPITA EN SU PROPIO EQUIPO 🔥
+const normalizarNombre = str => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
 const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "") => {
     if (!integrantesStringRaw) return "No registrado";
     if (integrantesStringRaw.includes('|||')) {
@@ -25,7 +26,19 @@ const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "") => {
             const arr = JSON.parse(partes[1].trim());
             const liderP = partes[0].replace('⭐ LÍDER:', '').split('|')[0].trim();
             
-            const equipoFiltrado = arr.filter(m => String(m.ci).trim() !== ciLiderStr && m.nombre.toLowerCase().trim() !== liderP.toLowerCase().trim());
+            const liderNorm = normalizarNombre(liderP);
+            const pLider = liderNorm.split(' ');
+            const n1 = pLider[0];
+            const a1 = pLider.find(palabra => palabra.length > 2 && palabra !== n1) || '';
+
+            const esElLider = (nombreEvaluar) => {
+                const norm = normalizarNombre(nombreEvaluar);
+                if (norm === liderNorm) return true;
+                if (n1 && a1 && norm.includes(n1) && norm.includes(a1)) return true;
+                return false;
+            };
+
+            const equipoFiltrado = arr.filter(m => String(m.ci).trim() !== ciLiderStr && !esElLider(m.nombre));
             
             if (equipoFiltrado.length > 0) return `Líder: ${liderP}, Equipo: ` + equipoFiltrado.map(i => i.nombre).join(', ');
             return `Líder: ${liderP}`;
@@ -459,7 +472,11 @@ window.generarVistaPrevia = async function() {
             });
 
             expositores.forEach(exp => {
-                if (!ciConProy.has(String(exp.ci).trim())) grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
+                // Verificar con el filtro avanzado de roles también
+                const roles = obtenerRolesDeProyectos(exp.ci, exp.nombre_completo);
+                if (roles.length === 0 && !ciConProy.has(String(exp.ci).trim())) {
+                    grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
+                }
             });
 
             Object.values(grupos).forEach(g => g.sort((a, b) => a.titulo.localeCompare(b.titulo)));
@@ -484,7 +501,7 @@ window.generarVistaPrevia = async function() {
         }
 
         // ==========================================
-        // 6. EXPOSITORES (LIMPIO, SIN ETIQUETAS DE ROL)
+        // 6. EXPOSITORES (LIMPIO, SIN ETIQUETAS)
         // ==========================================
         else if (valor === "expositores") {
             const grupos = { "1. Estudiantes (Pregrado)": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };

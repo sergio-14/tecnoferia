@@ -333,7 +333,6 @@ app.post('/api/proyectos', async (req, res) => {
             const check = await db.query('SELECT id, estado_evaluacion FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [ci]);
             if (check.rows.length > 0) {
                 const idProyecto = check.rows[0].id;
-                
                 if (check.rows[0].estado_evaluacion === 'Evaluado (No clasifica)') {
                     await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
                     await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
@@ -386,7 +385,7 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 FILTRO INTELIGENTE PARA NO REPETIR LÍDER EN EQUIPO 🔥
+// 🔥 FILTRO INTELIGENTE PARA NO REPETIR LÍDER EN EQUIPO (FUZZY MATCH) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query(`
@@ -401,6 +400,20 @@ app.get('/api/proyectos_admin', async (req, res) => {
             let nombreLider = p.nombre_lider || "Líder Desconocido";
             let ciLider = String(p.ci_propietario).trim(); 
             
+            // Función Normalizadora: quita acentos y espacios extra para comparar
+            const normalizar = str => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const liderNorm = normalizar(nombreLider);
+            const pLider = liderNorm.split(' ');
+            const n1 = pLider[0];
+            const a1 = pLider.find(palabra => palabra.length > 2 && palabra !== n1) || '';
+
+            const esElLider = (nombreEvaluar) => {
+                const norm = normalizar(nombreEvaluar);
+                if (norm === liderNorm) return true;
+                if (n1 && a1 && norm.includes(n1) && norm.includes(a1)) return true; // Contiene al menos 1er nombre y apellido
+                return false;
+            };
+
             if (infoLimpia.includes('|||')) {
                 try {
                     const partes = infoLimpia.split('|||');
@@ -413,8 +426,7 @@ app.get('/api/proyectos_admin', async (req, res) => {
                     
                     let htmlEquipo = "";
                     if(jsonBack && jsonBack.length > 0) {
-                        // Filtramos al líder para que no salga en la lista de compañeros
-                        const equipoFiltrado = jsonBack.filter(m => String(m.ci).trim() !== ciLider && m.nombre.toLowerCase().trim() !== nombreLider.toLowerCase().trim());
+                        const equipoFiltrado = jsonBack.filter(m => String(m.ci).trim() !== ciLider && !esElLider(m.nombre));
                         if (equipoFiltrado.length > 0) {
                             htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
                                          equipoFiltrado.map(m => `<span style="font-size: 0.9em;">&bull; ${m.nombre} (CI: ${m.ci})</span>`).join('<br>');
@@ -432,8 +444,8 @@ app.get('/api/proyectos_admin', async (req, res) => {
                                        .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
             } else {
                 let htmlEquipo = "";
-                if (infoLimpia.trim() !== "" && infoLimpia.trim().toLowerCase() !== nombreLider.trim().toLowerCase()) {
-                     let listaOld = infoLimpia.split(/,(?![^\(]*\))| y |\(integrante\)/i).map(s=>s.trim()).filter(s=>s && s.toLowerCase() !== nombreLider.toLowerCase().trim());
+                if (infoLimpia.trim() !== "") {
+                     let listaOld = infoLimpia.split(/,(?![^\(]*\))| y |\(integrante\)/i).map(s=>s.trim()).filter(s => s && !esElLider(s));
                      if (listaOld.length > 0) {
                          htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
                                       listaOld.map(m => `<span style="font-size: 0.9em;">&bull; ${m}</span>`).join('<br>');
