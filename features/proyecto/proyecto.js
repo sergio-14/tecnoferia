@@ -101,11 +101,14 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     });
 };
 
+// 🔥 CORRECCIÓN: ALMACENAR DATOS OCULTOS EN LA TARJETA AL GUARDAR 🔥
 window.guardarIntegranteProyecto = function(idUnico) {
     const div = document.getElementById(idUnico);
     const nom = div.querySelector('.int-nombre').value.trim();
     const ci = div.querySelector('.int-ci').value.trim();
     const inst = div.querySelector('.int-institucion').value;
+    const cel = div.querySelector('.int-celular').value.trim();
+    const cor = div.querySelector('.int-correo').value.trim();
 
     if (!nom || !ci || !inst) {
         alert("⚠️ Por favor completa obligatoriamente el Nombre, C.I. y la Institución.");
@@ -115,6 +118,13 @@ window.guardarIntegranteProyecto = function(idUnico) {
     div.querySelector('.view-nombre').innerText = nom;
     div.querySelector('.view-ci').innerText = ci;
     div.querySelector('.view-inst').innerText = inst;
+
+    // 🔥 Guardamos los datos de forma oculta en la tarjeta visual para evitar que se pierdan
+    div.dataset.nombre = nom;
+    div.dataset.ci = ci;
+    div.dataset.celular = cel;
+    div.dataset.correo = cor;
+    div.dataset.institucion = inst;
 
     div.querySelector('.edit-mode').style.display = 'none';
     div.querySelector('.view-mode').style.display = 'block';
@@ -276,7 +286,6 @@ window.cargarDatosProyecto = async function() {
             let tituloCartel = "¡Proyecto en Evaluación!"; let iconoCartel = "fas fa-check-circle"; let colorPrimario = "#2ecc71";
             let colorFondo = "rgba(0, 0, 0, 0.25)"; let colorBorde = "rgba(46, 204, 113, 0.4)"; 
             
-            // 🔥 MENSAJE INTELIGENTE DEPENDIENDO DE SI ES LÍDER O COMPAÑERO 🔥
             let mensajeEstado = esLider ? "Usted ya subió un proyecto para ser evaluado en la feria." : "Usted ya pertenece a un proyecto en espera a ser evaluado en la feria.";
 
             if (estadoActual === "Pre-seleccionado") {
@@ -337,7 +346,6 @@ window.cargarDatosProyecto = async function() {
                 }
             }
 
-            // 🔥 TRADUCCIÓN DEL JSON DE LA BASE DE DATOS Y EXTRACCIÓN DEL LÍDER 🔥
             let listaNombresFront = "";
             let nombreLiderFront = "Líder del equipo";
             let jsonIntegrantes = [];
@@ -394,9 +402,19 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
+                        // 🔥 CORRECCIÓN: Al editar, guardamos los datos completos de los compañeros en las tarjetas
                         if (jsonIntegrantes && jsonIntegrantes.length > 0) {
                             jsonIntegrantes.forEach(exp => {
                                 window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
+                                // Forzamos el guardado de datos en el elemento visual
+                                const divId = `proy-int-${Date.now() - Math.random()}`; // Hack para id
+                                const boxes = document.querySelectorAll('.integrante-box');
+                                const ultimaBox = boxes[boxes.length-1];
+                                ultimaBox.dataset.nombre = exp.nombre;
+                                ultimaBox.dataset.ci = exp.ci;
+                                ultimaBox.dataset.celular = exp.celular;
+                                ultimaBox.dataset.correo = exp.correo;
+                                ultimaBox.dataset.institucion = exp.institucion;
                             });
                         }
 
@@ -520,11 +538,22 @@ window.subirProyectoFeria = async function(e) {
         let jsonBack = [];
 
         boxes.forEach(box => {
-            const nom = box.querySelector('.int-nombre').value.trim();
-            const ced = box.querySelector('.int-ci').value.trim();
-            const cel = box.querySelector('.int-celular').value.trim() || 'S/N';
-            const cor = box.querySelector('.int-correo').value.trim() || correoLider;
-            const inst = box.querySelector('.int-institucion').value;
+            // 🔥 CORRECCIÓN: Leemos los datos ocultos (dataset) si la caja ya estaba guardada
+            let nom = box.querySelector('.int-nombre').value.trim();
+            let ced = box.querySelector('.int-ci').value.trim();
+            let cel = box.querySelector('.int-celular').value.trim() || 'S/N';
+            let cor = box.querySelector('.int-correo').value.trim() || correoLider;
+            let inst = box.querySelector('.int-institucion').value;
+            
+            // Si los inputs estaban vacíos (porque vino de la BD y no se abrieron para editar)
+            // recuperamos la información desde los data-attributes que inyectamos.
+            if (!nom && box.dataset.nombre) {
+                nom = box.dataset.nombre;
+                ced = box.dataset.ci;
+                cel = box.dataset.celular;
+                cor = box.dataset.correo;
+                inst = box.dataset.institucion;
+            }
 
             if (nom && ced && inst) {
                 jsonBack.push({ nombre: nom, ci: ced, celular: cel, correo: cor, institucion: inst }); 
