@@ -386,12 +386,11 @@ app.get('/api/proyectos/:ci', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 TRADUCTOR INTELIGENTE DE PROYECTOS ANTIGUOS PARA EL PANEL DE ADMIN 🔥
+// 🔥 FILTRO INTELIGENTE PARA NO REPETIR LÍDER EN EQUIPO 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
-        // Hacemos un JOIN con expositores para saber el nombre del dueño original
         const proyectos = await db.query(`
-            SELECT p.id, p.titulo, p.categoria, p.integrantes, p.enlace_pdf, p.estado_evaluacion, e.nombre_completo AS nombre_lider
+            SELECT p.id, p.titulo, p.categoria, p.integrantes, p.enlace_pdf, p.estado_evaluacion, p.ci_propietario, e.nombre_completo AS nombre_lider
             FROM proyectos p
             LEFT JOIN expositores e ON p.ci_propietario = e.ci
             ORDER BY p.id DESC
@@ -400,9 +399,9 @@ app.get('/api/proyectos_admin', async (req, res) => {
         const proysLimpios = proyectos.rows.map(p => {
             let infoLimpia = p.integrantes || "";
             let nombreLider = p.nombre_lider || "Líder Desconocido";
+            let ciLider = String(p.ci_propietario).trim(); 
             
             if (infoLimpia.includes('|||')) {
-                // Proyecto Moderno (Con JSON)
                 try {
                     const partes = infoLimpia.split('|||');
                     const textoFront = partes[0].trim();
@@ -414,27 +413,27 @@ app.get('/api/proyectos_admin', async (req, res) => {
                     
                     let htmlEquipo = "";
                     if(jsonBack && jsonBack.length > 0) {
-                        htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
-                                     jsonBack.map(m => `<span style="font-size: 0.9em;">&bull; ${m.nombre} (CI: ${m.ci})</span>`).join('<br>');
+                        // Filtramos al líder para que no salga en la lista de compañeros
+                        const equipoFiltrado = jsonBack.filter(m => String(m.ci).trim() !== ciLider && m.nombre.toLowerCase().trim() !== nombreLider.toLowerCase().trim());
+                        if (equipoFiltrado.length > 0) {
+                            htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
+                                         equipoFiltrado.map(m => `<span style="font-size: 0.9em;">&bull; ${m.nombre} (CI: ${m.ci})</span>`).join('<br>');
+                        }
                     }
                     
                     infoLimpia = `<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong> ${nombreLider}${htmlEquipo}`;
                 } catch(e) {
-                    // Fallback
                     infoLimpia = infoLimpia.split('|||')[0].trim()
                                            .replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
                                            .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
                 }
             } else if (infoLimpia.includes('⭐ LÍDER:')) {
-                // Proyecto de Transición
                 infoLimpia = infoLimpia.replace('⭐ LÍDER:', '<strong style="color: #4db8ff;"><i class="fas fa-crown"></i> LÍDER:</strong>')
                                        .replace(/\|\s*👥 EQUIPO:/, '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>');
             } else {
-                // 🔥 PROYECTOS VIEJOS: Darles formato retroactivo 🔥
                 let htmlEquipo = "";
                 if (infoLimpia.trim() !== "" && infoLimpia.trim().toLowerCase() !== nombreLider.trim().toLowerCase()) {
-                     // Convertir el string viejo separado por comas en una lista bonita
-                     let listaOld = infoLimpia.split(/,(?![^\(]*\))| y |\(integrante\)/i).map(s=>s.trim()).filter(s=>s);
+                     let listaOld = infoLimpia.split(/,(?![^\(]*\))| y |\(integrante\)/i).map(s=>s.trim()).filter(s=>s && s.toLowerCase() !== nombreLider.toLowerCase().trim());
                      if (listaOld.length > 0) {
                          htmlEquipo = '<br><strong style="color: #28a745;"><i class="fas fa-users"></i> EQUIPO:</strong><br>' + 
                                       listaOld.map(m => `<span style="font-size: 0.9em;">&bull; ${m}</span>`).join('<br>');
