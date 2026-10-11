@@ -180,15 +180,19 @@ window.abrirVisorPDF = function(url) {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
     
-    // 1. Reemplazamos la ruta antigua si existe
-    let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
+    // 1. Decodificar la URL por si internet la convirtió en texto con %20
+    let urlLimpia = decodeURIComponent(url);
+
+    // 2. Reemplazar la ruta base si era de la versión vieja del sistema
+    urlLimpia = urlLimpia.replace('/ver-pdf/', '/archivos_proyectos/');
     
-    // 2. PARCHE: Si la BD tiene espacios en el nombre de la carpeta, lo forzamos a guion bajo
-    urlLimpia = urlLimpia.replace('Docentes Investigadores', 'Docentes_Investigadores');
-    urlLimpia = urlLimpia.replace('Estudiantes Pregrado', 'Estudiantes_Pregrado');
+    // 3. 🌟 EL SALVAVIDAS: Buscamos si la base de datos tenía espacios en las carpetas y le ponemos guion bajo 🌟
+    urlLimpia = urlLimpia.replace(/Docentes\s+Investigadores/gi, 'Docentes_Investigadores');
+    urlLimpia = urlLimpia.replace(/Estudiantes\s+Pregrado/gi, 'Estudiantes_Pregrado');
     
-    // 3. Generamos la URL final
-    let urlAbsoluta = window.location.origin + urlLimpia + "?t=" + new Date().getTime();
+    // 4. Volver a codificar para que el servidor lo lea de forma segura
+    let urlFinalCodificada = encodeURI(urlLimpia);
+    let urlAbsoluta = window.location.origin + urlFinalCodificada + "?t=" + new Date().getTime();
 
     const modalViejo = document.getElementById('modal-visor-pdf-global');
     if (modalViejo) document.body.removeChild(modalViejo);
