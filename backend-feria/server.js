@@ -147,7 +147,7 @@ app.post('/api/configuraciones', async (req, res) => {
 
 app.get('/api/instituciones', async (req, res) => {
     try {
-        const result = await db.query('SELECT * FROM institutions ORDER BY tipo DESC, nombre ASC');
+        const result = await db.query('SELECT * FROM instituciones ORDER BY tipo DESC, nombre ASC');
         res.json(result.rows);
     } catch (error) { res.status(500).json({ error: "Error al obtener instituciones" }); }
 });
@@ -515,7 +515,6 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
-// 🔥 ANTI-FRAUDE: SE ACEPTA DEV- PERO SE REVISA LA COOKIE NINJA 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
