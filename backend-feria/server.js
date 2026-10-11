@@ -279,7 +279,6 @@ app.post('/api/tribunales', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
 });
 
-// 🔥 CREACIÓN DE PROYECTOS: FORMATEO PERFECTO PARA BASE DE DATOS 🔥
 app.post('/api/proyectos', async (req, res) => {
     const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento, integrantesData } = req.body;
     try {
@@ -305,7 +304,6 @@ app.post('/api/proyectos', async (req, res) => {
             enlacePdfFinal = `/archivos_proyectos/${subcarpeta}/${nombreSeguro}`;
         }
 
-        // 🌟 CREAMOS UN TEXTO HERMOSO PARA EL ADMINISTRADOR Y OCULTAMOS EL JSON AL FINAL 🌟
         let formatoParaDB = "";
         if (integrantesData && integrantesData !== "[]") {
             formatoParaDB = `⭐ LÍDER: ${nombreLider} | ${integrantes ? '👥 EQUIPO: ' + integrantes : ''} ||| ${integrantesData}`;
@@ -330,7 +328,6 @@ app.post('/api/proyectos', async (req, res) => {
             }
         }
 
-        // Registramos a los compañeros en la base de datos de usuarios
         if (integrantesData) {
             try {
                 const arrExtra = JSON.parse(integrantesData);
@@ -347,14 +344,33 @@ app.post('/api/proyectos', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar proyecto" }); }
 });
 
+// 🔥 NUEVA BÚSQUEDA INTELIGENTE DE PROYECTO (Líder o Integrante) 🔥
 app.get('/api/proyectos/:ci', async (req, res) => {
     try {
-        const proy = await db.query('SELECT * FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [req.params.ci]);
-        res.json(proy.rows.length > 0 ? proy.rows[0] : null);
+        const ci = req.params.ci;
+        const like1 = `%"ci":"${ci}"%`;
+        const like2 = `%CI: ${ci}%`;
+        const like3 = `%CI:${ci}%`;
+        
+        const proy = await db.query(
+            `SELECT * FROM proyectos 
+             WHERE ci_propietario = $1 
+             OR integrantes LIKE $2 
+             OR integrantes LIKE $3 
+             OR integrantes LIKE $4 
+             ORDER BY id DESC LIMIT 1`, 
+            [ci, like1, like2, like3]
+        );
+        
+        if (proy.rows.length === 0) return res.json(null);
+        
+        const proyecto = proy.rows[0];
+        // Bandera de seguridad para el Frontend
+        proyecto.esLider = (String(proyecto.ci_propietario).trim() === String(ci).trim());
+        res.json(proyecto);
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
-// 🔥 LIMPIAR LA VISTA DEL ADMINISTRADOR (Quita la trampa JSON) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
@@ -414,7 +430,6 @@ app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
-// 🔥 BLOQUEO DE FRAUDE APLICADO A LÍDER Y A TODOS LOS COMPAÑEROS 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
@@ -430,11 +445,7 @@ app.post('/api/votar', async (req, res) => {
             const ninjaReq = ciNinja ? String(ciNinja).trim() : null;
 
             let esMiembroEquipo = false;
-            
-            // 1. Revisamos si es el LÍDER
             if (propietario === ciReq || propietario === ninjaReq) esMiembroEquipo = true;
-            
-            // 2. Revisamos si es CUALQUIER COMPAÑERO buscando su CI dentro del JSON de la Base de Datos
             if (integrantesStringDB.includes(`"ci":"${ciReq}"`) || integrantesStringDB.includes(`CI: ${ciReq}`)) esMiembroEquipo = true;
             if (ninjaReq && (integrantesStringDB.includes(`"ci":"${ninjaReq}"`) || integrantesStringDB.includes(`CI: ${ninjaReq}`))) esMiembroEquipo = true;
 
@@ -523,7 +534,6 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar las evaluaciones" }); }
 });
 
-// 🔥 LIMPIAR LA VISTA DE INFORMES EN PDF 🔥
 app.get('/api/datos_informes', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');

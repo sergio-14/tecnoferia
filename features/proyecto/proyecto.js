@@ -1,11 +1,10 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas y Reconstrucción JSON
+// FUNCIÓN: Gestión de Proyectos con Lógica Lider/Compañero
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
 
-// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS 🔥
 window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
@@ -26,14 +25,11 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     div.className = "integrante-box"; 
     div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
-    // 🔥 EL BOTÓN QUITAR ESTÁ ARREGLADO CON FLEXBOX 🔥
     div.innerHTML = `
-        <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
-                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 6px 12px; height: fit-content;" title="Eliminar"><i class="fas fa-trash"></i> Quitar</button>
+            <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; position: relative;">
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem; padding-right: 40px;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; right: 0; top: -5px; background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 4px 10px;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i> Quitar</button>
             </div>
             
             <div class="input-group" style="margin-bottom: 15px;">
@@ -68,7 +64,6 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
             <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 14px; cursor: pointer; font-weight: bold; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.2s;"><i class="fas fa-check-circle"></i> Confirmar y Guardar Compañero</button>
         </div>
 
-        <!-- MODO VISTA (Tarjeta Resumen) -->
         <div class="view-mode" style="display: ${guardado ? 'block' : 'none'};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -157,6 +152,7 @@ window.validarPDF = function(input) {
     return false;
 };
 
+// 🔥 LA BÚSQUEDA AHORA SABE SI ERES LÍDER O COMPAÑERO 🔥
 window.buscarProyectoUsuario = async function(ci) {
     try {
         const respuesta = await fetch(`/api/proyectos/${ci}`);
@@ -164,9 +160,10 @@ window.buscarProyectoUsuario = async function(ci) {
         if (data) {
             return {
                 data: {
-                    tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes,
+                    tituloProyecto: data.titulo, tipoExpositor: data.categoria, integrantes: data.integrantes, 
                     ejeTematico: data.eje_tematico, enlacePDF: data.enlace_pdf, estadoEvaluacion: data.estado_evaluacion,
-                    notaTribunal: data.nota_tribunal, notaPonderada: data.nota_ponderada, observacionesTribunal: data.observaciones_tribunal
+                    notaTribunal: data.nota_tribunal, notaPonderada: data.nota_ponderada, observacionesTribunal: data.observaciones_tribunal,
+                    esLider: data.esLider // Bandera secreta enviada desde el servidor
                 }
             };
         }
@@ -174,7 +171,6 @@ window.buscarProyectoUsuario = async function(ci) {
     } catch (error) { return null; }
 };
 
-// 🔥 2. EL CEREBRO QUE LEE EL TEXTO DE LA BD Y LO TRADUCE A TARJETAS 🔥
 window.cargarDatosProyecto = async function() {
     const ciLocal = localStorage.getItem("feria_ci");
     const rolActual = localStorage.getItem("feria_rol");
@@ -264,6 +260,7 @@ window.cargarDatosProyecto = async function() {
             if (tarjetaBlanca) tarjetaBlanca.style.display = 'none'; 
             if (divEstado) divEstado.style.display = 'block';  
             
+            const esLider = proyectoExistente.data.esLider; // Vemos si es el líder
             const urlPDF = proyectoExistente.data.enlacePDF;
             const estadoActual = proyectoExistente.data.estadoEvaluacion || "Pendiente";
             window.enlacePdfExistente = urlPDF; 
@@ -291,37 +288,57 @@ window.cargarDatosProyecto = async function() {
             }
 
             let botonEdicionHTML = "";
-            let mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes hacer modificaciones hasta el <b>${fechaFormateada}</b>.</div>`;
-            
-            if (!tiempoAgotado) {
-                if (estadoActual === "Evaluado (No clasifica)") {
-                    botonEdicionHTML = `
-                    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                        <button type="button" id="btnActivarEdicion" style="background: #e74c3c; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;">
-                            <i class="fas fa-upload"></i> Subir Versión Corregida
-                        </button>
-                        <button type="button" id="btnNuevoProyecto" style="background: #6c757d; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;" title="Guarda el proyecto actual en el historial y empieza uno nuevo">
-                            <i class="fas fa-file-medical"></i> Participar con otro proyecto
-                        </button>
-                    </div>`;
-                } else {
-                    botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
+            let mensajeExtra = "";
+
+            // 🔥 COMPROBACIÓN INTELIGENTE DE ROL DE EQUIPO 🔥
+            if (!esLider) {
+                // SOFÍA (O COMPAÑEROS) LOGUEADA
+                mensajeExtra = `
+                    <div style="background: rgba(40, 167, 69, 0.15); color: #2ecc71; padding: 18px; margin-bottom: 25px; border-radius: 8px; border: 1px solid rgba(46, 204, 113, 0.3); text-align: left;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <i class="fas fa-users" style="font-size: 2.5rem;"></i>
+                            <div>
+                                <b style="font-size: 1.1rem;">¡Eres parte de este equipo!</b><br>
+                                <span style="font-size: 0.9rem; color: #e2e8f0;">El líder del grupo ya presentó oficialmente este proyecto. Como integrante, puedes monitorear su estado aquí, pero <b>solo el líder principal tiene los permisos para editarlo.</b></span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // LÍDER LOGUEADO
+                mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes hacer modificaciones hasta el <b>${fechaFormateada}</b>.</div>`;
+                
+                if (!tiempoAgotado) {
+                    if (estadoActual === "Evaluado (No clasifica)") {
+                        botonEdicionHTML = `
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" id="btnActivarEdicion" style="background: #e74c3c; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;">
+                                <i class="fas fa-upload"></i> Subir Versión Corregida
+                            </button>
+                            <button type="button" id="btnNuevoProyecto" style="background: #6c757d; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;" title="Guarda el proyecto actual en el historial y empieza uno nuevo">
+                                <i class="fas fa-file-medical"></i> Participar con otro proyecto
+                            </button>
+                        </div>`;
+                    } else {
+                        botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
+                    }
                 }
             }
 
-            // 🔥 TRADUCCIÓN DEL JSON DE LA BASE DE DATOS PARA LA VISTA Y EDICIÓN 🔥
-            const integrsRaw = proyectoExistente.data.integrantes || "";
-            let textoIntegrantes = integrsRaw;
+            let listaNombresFront = "";
             let jsonIntegrantes = [];
+            const integrsRaw = proyectoExistente.data.integrantes || "";
 
             if (integrsRaw.includes('|||')) {
                 const partes = integrsRaw.split('|||');
-                textoIntegrantes = partes[0].trim();
                 try { jsonIntegrantes = JSON.parse(partes[1].trim()); } catch(e){}
             }
 
-            let listaNombresFront = textoIntegrantes.replace(/⭐ LÍDER:.*?\| 👥 EQUIPO:/, '').replace(/⭐ LÍDER:.*/, '').trim();
-            if (!listaNombresFront || listaNombresFront === '') listaNombresFront = "Sin compañeros extras";
+            if (jsonIntegrantes.length > 0) {
+                listaNombresFront = jsonIntegrantes.map(i => i.nombre).join(', ');
+            } else {
+                listaNombresFront = "Sin compañeros extras";
+            }
 
             if (divEstado) {
                 divEstado.innerHTML = `
@@ -342,7 +359,8 @@ window.cargarDatosProyecto = async function() {
                 `;
             }
 
-            if (!tiempoAgotado) {
+            // Ocultamos las funciones de edición si no es el líder
+            if (!tiempoAgotado && esLider) {
                 const btnEdicion = document.getElementById('btnActivarEdicion');
                 if (btnEdicion) {
                     btnEdicion.addEventListener('click', async () => {
@@ -353,7 +371,6 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        // 🔥 RECONSTRUIR LAS TARJETAS AL EDITAR (Directo desde el JSON guardado) 🔥
                         if (jsonIntegrantes && jsonIntegrantes.length > 0) {
                             jsonIntegrantes.forEach(exp => {
                                 window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
@@ -386,7 +403,6 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyEje').value = "";
                             document.getElementById('proyEje').disabled = false;
 
-                            // Mantenemos las tarjetas del equipo si quieren seguir juntos
                             if (jsonIntegrantes && jsonIntegrantes.length > 0) {
                                 jsonIntegrantes.forEach(exp => {
                                     window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
@@ -477,7 +493,6 @@ window.subirProyectoFeria = async function(e) {
     inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
 
     try {
-        let arrNombresFront = [];
         let jsonBack = [];
 
         boxes.forEach(box => {
@@ -488,12 +503,10 @@ window.subirProyectoFeria = async function(e) {
             const inst = box.querySelector('.int-institucion').value;
 
             if (nom && ced && inst) {
-                arrNombresFront.push(`${nom} (CI: ${ced})`); 
                 jsonBack.push({ nombre: nom, ci: ced, celular: cel, correo: cor, institucion: inst }); 
             }
         });
 
-        const stringFront = arrNombresFront.join(' | ');
         const stringJsonBack = JSON.stringify(jsonBack); 
 
         const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
@@ -503,7 +516,7 @@ window.subirProyectoFeria = async function(e) {
         formData.append('ciPropietario', ciLocal);
         formData.append('titulo', inputTitulo.value);
         formData.append('categoria', inputTipo.value);
-        formData.append('integrantes', stringFront); 
+        
         formData.append('integrantesData', stringJsonBack); 
         formData.append('ejeTematico', inputEje.value);
 
@@ -524,7 +537,7 @@ window.subirProyectoFeria = async function(e) {
         if (!res.ok) throw new Error("Error guardando en el servidor.");
 
         window.esNuevoIntentoProyecto = false; 
-        alert(" Proyecto guardado y subido correctamente.\n\nLos compañeros que hayas agregado ya pueden iniciar sesión en el sistema usando su propio C.I.");
+        alert(" Proyecto guardado y subido correctamente.");
         await window.cargarDatosProyecto();
     } catch (error) {
         console.error("Error:", error);
