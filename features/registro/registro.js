@@ -23,7 +23,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (inputRegPhone) inputRegPhone.addEventListener('input', soloNumeros);
 });
 
-// 🔥 FUNCIÓN: Crear Tarjeta de Registro (Diseño Corregido) 🔥
+// 🔥 FUNCIÓN: Crear Tarjeta de Registro 🔥
 window.agregarCasillaIntegrante = function(nombre='', ci='', cel='', correo='', inst='', guardado=false) {
     if (window.contadorRegistro >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
@@ -35,6 +35,7 @@ window.agregarCasillaIntegrante = function(nombre='', ci='', cel='', correo='', 
     const contenedor = document.getElementById('contenedor-integrantes-extra');
     if (!contenedor) return;
 
+    // Obtener las instituciones cargadas desde el servidor
     const selInstBase = document.getElementById('regInstitucion');
     const opcionesInst = selInstBase ? selInstBase.innerHTML : '<option value="">Cargando opciones...</option>';
 
@@ -43,13 +44,13 @@ window.agregarCasillaIntegrante = function(nombre='', ci='', cel='', correo='', 
     div.className = "integrante-box";
     div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
-    // 🔥 EL BOTÓN QUITAR AHORA TIENE POSICIÓN ABSOLUTA CORRECTA Y TAMAÑO REDUCIDO 🔥
     div.innerHTML = `
         <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
-            <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; position: relative;">
-                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem; padding-right: 40px;"><i class="fas fa-user-plus"></i> Compañero #${window.contadorRegistro}</h5>
-                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorRegistro--;" style="position: absolute; right: 0; top: -5px; background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 4px 10px;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem;"><i class="fas fa-user-plus"></i> Compañero #${window.contadorRegistro}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorRegistro--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 6px 12px; height: fit-content;" title="Eliminar"><i class="fas fa-trash"></i> Quitar</button>
             </div>
             
             <div class="input-group" style="margin-bottom: 15px;">
@@ -142,7 +143,6 @@ window.editarCasillaRegistro = function(idUnico) {
 window.handleRegister = async function(e) {
     if(e && typeof e.preventDefault === 'function') e.preventDefault();
     
-    // Verificar si hay tarjetas en modo de edición abiertas
     let hayCajasAbiertas = false;
     const boxes = document.querySelectorAll('#contenedor-integrantes-extra .integrante-box');
     boxes.forEach(box => {

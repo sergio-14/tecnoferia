@@ -1,9 +1,9 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación y Captura Ninja Anti-Fraude
+// FUNCIÓN: Lógica de Votación y Captura Ninja Anti-Fraude (Líder y Compañeros)
 // =========================================================================
 
-// 🔥 1. CAPTURA NINJA EN EL TECLADO (Súper-Cookie Indestructible) 🔥
+// 🔥 1. CAPTURA NINJA EN EL TECLADO 🔥
 document.addEventListener('input', function(e) {
     if (e.target && (e.target.id === 'userInput' || e.target.id === 'regCI' || e.target.id === 'voto-ci')) {
         const val = e.target.value.trim();
@@ -14,7 +14,6 @@ document.addEventListener('input', function(e) {
     }
 });
 
-// Función para recuperar la memoria profunda
 window.obtenerCiNinja = function() {
     let ciNinja = localStorage.getItem('feria_ninja_ci');
     if (!ciNinja) {
@@ -23,7 +22,6 @@ window.obtenerCiNinja = function() {
     }
     return ciNinja ? String(ciNinja).replace(/['"]+/g, '').trim() : null;
 };
-
 
 window.calificacionActual = 0; 
 window.completadosPublico = 0;
@@ -156,7 +154,7 @@ window.cargarProyectoParaVotar = async function() {
         document.getElementById('votar-proyecto').style.display = 'block';
 
         const inputCi = document.getElementById('voto-ci');
-        let deviceId = window.generarIdFuerte(); // Visitante Anónimo
+        let deviceId = window.generarIdFuerte(); 
         
         if (inputCi) {
             document.getElementById('caja-ci-oculta').style.display = 'none';
@@ -170,7 +168,7 @@ window.cargarProyectoParaVotar = async function() {
                     document.getElementById('caja-institucion-visitante').style.display = 'block';
                     window.cargarInstitucionesParaVoto();
                 }
-            } catch(e) { console.error(e); }
+            } catch(e) {}
         }
 
         try {
@@ -199,9 +197,6 @@ window.cargarProyectoParaVotar = async function() {
                                         Tu dispositivo ya emitió un voto válido para la innovación:<br>
                                         <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
                                     </p>
-                                    <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 30px;">
-                                        <i class="fas fa-shield-alt"></i> Por reglas de la feria, el sistema solo permite un (1) voto por dispositivo para cada stand.
-                                    </p>
                                     <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
                                         <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
                                     </button>
@@ -212,9 +207,17 @@ window.cargarProyectoParaVotar = async function() {
                     } catch(e) {}
                 }
 
-                // 🔥 BLOQUEO VISUAL DEL EXPOSITOR TRAMPOSO 🔥
+                // 🔥 BLOQUEO VISUAL: LÍDER O COMPAÑEROS TRAMPOSOS 🔥
                 const ciNinja = window.obtenerCiNinja();
-                if (ciNinja && String(proyecto.ci_propietario).trim() === ciNinja) {
+                const integrsRaw = proyecto.integrantes || "";
+                
+                let esAutor = false;
+                if (ciNinja) {
+                    if (String(proyecto.ci_propietario).trim() === ciNinja) esAutor = true;
+                    if (integrsRaw.includes(`"ci":"${ciNinja}"`) || integrsRaw.includes(`CI: ${ciNinja}`)) esAutor = true;
+                }
+
+                if (esAutor) {
                     formEl.style.display = 'none'; 
                     if(document.getElementById('toggle-expositor-container')) {
                         document.getElementById('toggle-expositor-container').style.display = 'none';
@@ -226,7 +229,7 @@ window.cargarProyectoParaVotar = async function() {
                             <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
                             <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Acción Bloqueada!</h3>
                             <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
-                                Este dispositivo pertenece a los autores del proyecto:<br>
+                                Este dispositivo pertenece al equipo responsable del proyecto:<br>
                                 <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
                             </p>
                             <p style="color: #ffc107; font-size: 0.95rem; font-weight: bold; margin-bottom: 30px;">
@@ -262,7 +265,7 @@ window.cargarProyectoParaVotar = async function() {
                 document.getElementById('votar-titulo').style.color = "#d32f2f";
                 document.getElementById('form-votacion').style.display = 'none';
             }
-        } catch (error) { console.error(error); }
+        } catch (error) {}
     }
 };
 
@@ -411,7 +414,7 @@ window.enviarCalificacion = async function(e) {
     const idProy = document.getElementById('voto-idProy').value;
     const ci = document.getElementById('voto-ci').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
-    const ciNinja = window.obtenerCiNinja(); // Extraemos la cookie secreta
+    const ciNinja = window.obtenerCiNinja(); 
     
     const cajaInst = document.getElementById('caja-institucion-visitante');
     const selInst = document.getElementById('voto-institucion');
@@ -473,7 +476,6 @@ window.enviarCalificacion = async function(e) {
 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Voto...';
 
-        // 🔥 ENVIAMOS EL CI NORMAL Y EL CI NINJA AL SERVIDOR 🔥
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

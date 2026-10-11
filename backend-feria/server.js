@@ -80,13 +80,6 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
 
-        try { await db.query(`ALTER TABLE votos_publico DROP CONSTRAINT IF EXISTS votos_publico_nota_check;`); } catch(e) {}
-        try { await db.query(`ALTER TABLE administradores ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
-        try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
-        try { await db.query(`ALTER TABLE visitantes ADD COLUMN IF NOT EXISTS celular VARCHAR(50);`); } catch(e){}
-        try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS latitud DECIMAL(15,8);`); } catch(e){}
-        try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS longitud DECIMAL(15,8);`); } catch(e){}
-
         console.log('✅ Base de datos verificada y optimizada.');
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
@@ -96,7 +89,6 @@ app.get('/api/usuarios_admin', async (req, res) => {
         const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
         const tribunales = await db.query('SELECT usuario_tribunal as id, nombre_completo, especialidad as institucion, celular, correo FROM tribunales ORDER BY nombre_completo ASC');
         const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
-        
         res.json({ expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows });
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
 });
@@ -121,40 +113,23 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
             await db.query('DELETE FROM votos_publico WHERE ci_visitante = $1', [id]);
             await db.query('DELETE FROM visitantes WHERE ci = $1', [id]);
         } 
-        else { return res.status(400).json({ error: "Rol no válido." }); }
-
         res.json({ mensaje: `Usuario eliminado correctamente del sistema.` });
     } catch (error) { res.status(500).json({ error: "Error interno al intentar eliminar al usuario." }); }
 });
 
 app.get('/api/configuraciones', async (req, res) => {
     try {
-        const query = `
-            SELECT 
-                TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro,
-                TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida,
-                TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados,
-                TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion,
-                gps_latitud, gps_longitud, gps_radio 
-            FROM configuraciones WHERE id = 1
-        `;
+        const query = `SELECT TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro, TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida, TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados, TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`;
         const conf = await db.query(query);
-        if(conf.rows.length === 0) return res.json({});
-        res.json(conf.rows[0]);
+        res.json(conf.rows[0] || {});
     } catch (error) { res.status(500).json({ error: "Error al obtener configuraciones" }); }
 });
 
 app.post('/api/configuraciones', async (req, res) => {
     const { fechaRegistro, fechaSubida, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio } = req.body;
     try {
-        await db.query(
-            `UPDATE configuraciones SET 
-            fecha_registro=$1, fecha_subida=$2, fecha_resultados=$3, 
-            fecha_cierre_votacion=$4, gps_latitud=$5, gps_longitud=$6, gps_radio=$7 
-            WHERE id = 1`, 
-            [fechaRegistro, fechaSubida, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio]
-        );
-        res.json({ mensaje: "Configuraciones globales actualizadas correctamente" });
+        await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_resultados=$3, fecha_cierre_votacion=$4, gps_latitud=$5, gps_longitud=$6, gps_radio=$7 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio]);
+        res.json({ mensaje: "Configuraciones actualizadas correctamente" });
     } catch (error) { res.status(500).json({ error: "Error al actualizar fechas" }); }
 });
 
@@ -206,12 +181,7 @@ app.post('/api/login', async (req, res) => {
         if (!rolEncontrado) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
 
         if (rolEncontrado !== 'VISITANTE') {
-            if (!hashBd) {
-                if (password !== identificador) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
-            } else {
-                const passValida = await bcrypt.compare(password, hashBd);
-                if (!passValida) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
-            }
+            if (!hashBd || !(await bcrypt.compare(password, hashBd))) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
         }
 
         const ciUsuario = datosEncontrados.ci || datosEncontrados.usuario_tribunal;
@@ -227,8 +197,7 @@ app.get('/api/verificar_sesion/:identificador/:token', async (req, res) => {
         const { identificador, token } = req.params;
         const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1', [identificador]);
         if (result.rows.length === 0) return res.json({ valida: false });
-        if (result.rows[0].token === token) return res.json({ valida: true }); 
-        res.json({ valida: false }); 
+        res.json({ valida: result.rows[0].token === token }); 
     } catch (error) { res.status(500).json({ valida: true }); }
 });
 
@@ -249,8 +218,7 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
             if (visitante.rows.length > 0) { rolEncontrado = 'VISITANTE'; datosEncontrados = visitante.rows[0]; }
         }
 
-        if (!rolEncontrado) { return res.status(404).json({ error: "Usuario no encontrado." }); }
-
+        if (!rolEncontrado) return res.status(404).json({ error: "Usuario no encontrado." });
         res.json({ rol: rolEncontrado, datos: datosEncontrados });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
 });
@@ -259,23 +227,11 @@ app.post('/api/restablecer_password_directo', async (req, res) => {
     const { ci, correo, nuevaPassword } = req.body;
     try {
         let tabla = null;
+        if ((await db.query('SELECT * FROM administradores WHERE ci = $1 AND correo = $2', [ci, correo])).rows.length > 0) tabla = 'administradores';
+        else if ((await db.query('SELECT * FROM expositores WHERE ci = $1 AND correo = $2', [ci, correo])).rows.length > 0) tabla = 'expositores';
+        else if ((await db.query('SELECT * FROM tribunales WHERE usuario_tribunal = $1 AND correo = $2', [ci, correo])).rows.length > 0) tabla = 'tribunales';
 
-        let q = await db.query('SELECT * FROM administradores WHERE ci = $1 AND correo = $2', [ci, correo]);
-        if (q.rows.length > 0) tabla = 'administradores';
-        
-        if (!tabla) {
-            q = await db.query('SELECT * FROM expositores WHERE ci = $1 AND correo = $2', [ci, correo]);
-            if (q.rows.length > 0) tabla = 'expositores';
-        }
-
-        if (!tabla) {
-            q = await db.query('SELECT * FROM tribunales WHERE usuario_tribunal = $1 AND correo = $2', [ci, correo]);
-            if (q.rows.length > 0) tabla = 'tribunales';
-        }
-
-        if (!tabla) {
-            return res.status(404).json({ error: "⛔ Datos incorrectos. El Carnet/Usuario no coincide con ese correo en nuestros registros." });
-        }
+        if (!tabla) return res.status(404).json({ error: "⛔ Datos incorrectos." });
 
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(nuevaPassword, salt);
@@ -284,20 +240,17 @@ app.post('/api/restablecer_password_directo', async (req, res) => {
         if (tabla === 'expositores') await db.query('UPDATE expositores SET contrasena = $1 WHERE ci = $2', [hash, ci]);
         if (tabla === 'tribunales') await db.query('UPDATE tribunales SET contrasena = $1 WHERE usuario_tribunal = $2', [hash, ci]);
 
-        res.json({ mensaje: "Tu contraseña ha sido actualizada correctamente." });
-    } catch (error) { res.status(500).json({ error: "Error interno al intentar cambiar la contraseña." }); }
+        res.json({ mensaje: "Contraseña actualizada." });
+    } catch (error) { res.status(500).json({ error: "Error al cambiar la contraseña." }); }
 });
 
 app.post('/api/administradores', async (req, res) => {
     const { ci, nombre, correo, celular, password } = req.body;
     try {
-        const salt = await bcrypt.genSalt(10); const hash = await bcrypt.hash(password, salt);
+        const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
         await db.query('INSERT INTO administradores (ci, nombre_completo, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5)', [ci, nombre, correo, celular, hash]);
         res.status(201).json({ mensaje: "Administrador guardado exitosamente." });
-    } catch (error) {
-        if (error.code === '23505') return res.status(400).json({ error: "El CI o el Correo ya pertenecen a un administrador." });
-        res.status(500).json({ error: "Error interno al guardar administrador." });
-    }
+    } catch (error) { res.status(500).json({ error: "Error al guardar administrador." }); }
 });
 
 app.post('/api/expositores', async (req, res) => {
@@ -305,44 +258,36 @@ app.post('/api/expositores', async (req, res) => {
     try {
         const salt = await bcrypt.genSalt(10); 
         const hash = await bcrypt.hash(password, salt);
-        
-        const queryLider = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
-        await db.query(queryLider, [ci, nombreCompleto, institucion, correo, celular, hash]);
+        await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`, [ci, nombreCompleto, institucion, correo, celular, hash]);
 
-        if (integrantesExtra && Array.isArray(integrantesExtra) && integrantesExtra.length > 0) {
+        if (integrantesExtra && Array.isArray(integrantesExtra)) {
             for (const integrante of integrantesExtra) {
-                const passTemp = await bcrypt.hash(integrante.ci, salt); // CI como contraseña
-                const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`;
-                await db.query(queryIntegrante, [integrante.ci, integrante.nombre, integrante.institucion || institucion, integrante.correo || correo, integrante.celular || 'S/N', passTemp]);
+                const passTemp = await bcrypt.hash(integrante.ci, salt);
+                await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular, contrasena = EXCLUDED.contrasena`, [integrante.ci, integrante.nombre, integrante.institucion || institucion, integrante.correo || correo, integrante.celular || 'S/N', passTemp]);
             }
         }
-
-        res.status(201).json({ mensaje: "Expositor e integrantes guardados exitosamente." });
-    } catch (error) { 
-        console.error(error);
-        res.status(500).json({ error: "Error al guardar el expositor o sus integrantes." }); 
-    }
+        res.status(201).json({ mensaje: "Expositor e integrantes guardados." });
+    } catch (error) { res.status(500).json({ error: "Error al guardar expositor." }); }
 });
 
 app.post('/api/tribunales', async (req, res) => {
     const { usuario, nombre, especialidad, categoria, proyectosAsignados, correo, celular, password } = req.body;
     try {
-        const salt = await bcrypt.genSalt(10); const hash = await bcrypt.hash(password, salt);
-        const query = `INSERT INTO tribunales (usuario_tribunal, nombre_completo, especialidad, categoria_asignada, proyectos_asignados, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
-        await db.query(query, [usuario, nombre, especialidad, categoria, proyectosAsignados, correo, celular, hash]);
+        const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
+        await db.query(`INSERT INTO tribunales (usuario_tribunal, nombre_completo, especialidad, categoria_asignada, proyectos_asignados, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [usuario, nombre, especialidad, categoria, proyectosAsignados, correo, celular, hash]);
         res.status(201).json({ mensaje: "✅ Tribunal guardado." });
-    } catch (error) {
-        if (error.code === '23505') return res.status(400).json({ error: "Ese Usuario o Correo ya está registrado." });
-        res.status(500).json({ error: "Error interno al guardar el tribunal." });
-    }
+    } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
 });
 
+// 🔥 CREACIÓN DE PROYECTOS: FORMATEO PERFECTO PARA BASE DE DATOS 🔥
 app.post('/api/proyectos', async (req, res) => {
     const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento, integrantesData } = req.body;
     try {
-        const user = await db.query('SELECT ci FROM expositores WHERE ci = $1', [ciPropietario]);
+        const user = await db.query('SELECT nombre_completo FROM expositores WHERE ci = $1', [ciPropietario]);
         if (user.rows.length === 0) return res.status(404).json({ error: "Expositor no encontrado" });
-        const ci = user.rows[0].ci;
+        
+        const nombreLider = user.rows[0].nombre_completo;
+        const ci = ciPropietario;
 
         let enlacePdfFinal = enlacePdfExistente || null;
         let subcarpeta = 'otros';
@@ -353,90 +298,79 @@ app.post('/api/proyectos', async (req, res) => {
         const dirDestino = path.join(__dirname, '../archivos_proyectos/', subcarpeta);
         if (!fs.existsSync(dirDestino)) { fs.mkdirSync(dirDestino, { recursive: true }); }
         
-        const dirNoClasificados = path.join(__dirname, '../archivos_proyectos/Proyectos_NoClasificados');
-        if (!fs.existsSync(dirNoClasificados)) { fs.mkdirSync(dirNoClasificados, { recursive: true }); }
-
         if (req.files && req.files.proyArchivo) {
             const archivo = req.files.proyArchivo;
             const nombreSeguro = `${ci}_${Date.now()}.pdf`;
-            const rutaGuardado = path.join(dirDestino, nombreSeguro);
-            await archivo.mv(rutaGuardado);
+            await archivo.mv(path.join(dirDestino, nombreSeguro));
             enlacePdfFinal = `/archivos_proyectos/${subcarpeta}/${nombreSeguro}`;
         }
 
-        // 🔥 AHORA GUARDAMOS EL JSON DE LAS TARJETAS DIRECTAMENTE EN LA COLUMNA INTEGRANTES 🔥
-        // Así el Frontend podrá leer ese JSON para reconstruir las tarjetas al editar.
-        const formatoParaBaseDeDatos = integrantesData || integrantes; 
+        // 🌟 CREAMOS UN TEXTO HERMOSO PARA EL ADMINISTRADOR Y OCULTAMOS EL JSON AL FINAL 🌟
+        let formatoParaDB = "";
+        if (integrantesData && integrantesData !== "[]") {
+            formatoParaDB = `⭐ LÍDER: ${nombreLider} | ${integrantes ? '👥 EQUIPO: ' + integrantes : ''} ||| ${integrantesData}`;
+        } else {
+            formatoParaDB = `⭐ LÍDER: ${nombreLider} ||| []`;
+        }
 
         if (nuevoIntento === 'true') {
-            const checkAntiguo = await db.query("SELECT id, enlace_pdf FROM proyectos WHERE ci_propietario = $1 AND estado_evaluacion = 'Evaluado (No clasifica)'", [ci]);
-            for (let row of checkAntiguo.rows) {
-                if (row.enlace_pdf && !row.enlace_pdf.includes('Proyectos_NoClasificados')) {
-                    const oldPath = path.join(__dirname, '../', row.enlace_pdf);
-                    if (fs.existsSync(oldPath)) {
-                        const fileName = path.basename(oldPath);
-                        const newPath = path.join(dirNoClasificados, fileName);
-                        fs.renameSync(oldPath, newPath);
-                        const nuevoEnlaceDB = `/archivos_proyectos/Proyectos_NoClasificados/${fileName}`;
-                        await db.query("UPDATE proyectos SET enlace_pdf = $1 WHERE id = $2", [nuevoEnlaceDB, row.id]);
-                    }
-                }
-            }
-            await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal]);
+            await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal]);
         } else {
             const check = await db.query('SELECT id, estado_evaluacion FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [ci]);
             if (check.rows.length > 0) {
                 const idProyecto = check.rows[0].id;
-                const estadoActual = check.rows[0].estado_evaluacion;
-                if (estadoActual === 'Evaluado (No clasifica)') {
+                if (check.rows[0].estado_evaluacion === 'Evaluado (No clasifica)') {
                     await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
-                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
                 } else {
-                    await db.query('UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6', [titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query('UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6', [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
                 }
             } else {
-                await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaBaseDeDatos, ejeTematico, enlacePdfFinal]);
+                await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal]);
             }
         }
 
-        // 🔥 REGISTRAR A LOS COMPAÑEROS EN LA TABLA DE USUARIOS 🔥
+        // Registramos a los compañeros en la base de datos de usuarios
         if (integrantesData) {
             try {
                 const arrExtra = JSON.parse(integrantesData);
                 const salt = await bcrypt.genSalt(10);
                 for (let member of arrExtra) {
                     if (!member.ci || !member.nombre) continue;
-                    const passHash = await bcrypt.hash(member.ci, salt); // Contraseña temporal es su CI
-                    const queryIntegrante = `INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular`;
-                    await db.query(queryIntegrante, [member.ci, member.nombre, member.institucion, member.correo, member.celular || 'S/N', passHash]);
+                    const passHash = await bcrypt.hash(member.ci, salt); 
+                    await db.query(`INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo, institucion = EXCLUDED.institucion, correo = EXCLUDED.correo, celular = EXCLUDED.celular`, [member.ci, member.nombre, member.institucion, member.correo, member.celular || 'S/N', passHash]);
                 }
-            } catch (e) { console.error("Error guardando compañeros en la DB", e); }
+            } catch (e) {}
         }
 
         res.status(201).json({ mensaje: "Proyecto y equipo guardados con éxito" });
-    } catch (error) { res.status(500).json({ error: "Error al guardar proyecto y documento PDF" }); }
+    } catch (error) { res.status(500).json({ error: "Error al guardar proyecto" }); }
 });
 
 app.get('/api/proyectos/:ci', async (req, res) => {
     try {
         const proy = await db.query('SELECT * FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [req.params.ci]);
-        if (proy.rows.length === 0) return res.json(null);
-        res.json(proy.rows[0]);
+        res.json(proy.rows.length > 0 ? proy.rows[0] : null);
     } catch (error) { res.status(500).json({ error: "Error al buscar proyecto" }); }
 });
 
+// 🔥 LIMPIAR LA VISTA DEL ADMINISTRADOR (Quita la trampa JSON) 🔥
 app.get('/api/proyectos_admin', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT id, titulo, categoria, integrantes, enlace_pdf, estado_evaluacion FROM proyectos ORDER BY id DESC');
-        res.json(proyectos.rows);
+        const proysLimpios = proyectos.rows.map(p => {
+            let infoLimpia = p.integrantes || "";
+            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
+            return { ...p, integrantes: infoLimpia };
+        });
+        res.json(proysLimpios);
     } catch (error) { res.status(500).json({ error: "Error al cargar proyectos" }); }
 });
 
 app.get('/api/proyectos_qr/:id', async (req, res) => {
     try {
         const proy = await db.query('SELECT * FROM proyectos WHERE id = $1', [req.params.id]);
-        if (proy.rows.length === 0) return res.status(404).json({ error: "Proyecto no encontrado" });
-        res.json(proy.rows[0]);
+        res.json(proy.rows.length > 0 ? proy.rows[0] : null);
     } catch (error) { res.status(500).json({ error: "Error del servidor" }); }
 });
 
@@ -446,22 +380,20 @@ app.delete('/api/proyectos_admin/:id', async (req, res) => {
         await db.query('DELETE FROM votos_publico WHERE id_proyecto = $1', [idProyecto]);
         await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
         await db.query('DELETE FROM proyectos WHERE id = $1', [idProyecto]);
-        res.json({ mensaje: "Proyecto eliminado exitosamente del sistema." });
-    } catch (error) { res.status(500).json({ error: "Error interno al intentar eliminar el proyecto." }); }
+        res.json({ mensaje: "Proyecto eliminado." });
+    } catch (error) { res.status(500).json({ error: "Error interno." }); }
 });
 
 app.post('/api/visitantes', async (req, res) => {
     const { ci, nombreCompleto, institucion, celular } = req.body;
     try {
-        const checkVisitante = await db.query('SELECT * FROM visitantes WHERE ci = $1', [ci]);
-        if (checkVisitante.rows.length > 0) return res.status(400).json({ error: "C.I. ya habilitado." });
+        if ((await db.query('SELECT * FROM visitantes WHERE ci = $1', [ci])).rows.length > 0) return res.status(400).json({ error: "C.I. ya habilitado." });
         let nombreFinal = nombreCompleto; let institucionFinal = institucion;
         const checkExpositor = await db.query('SELECT * FROM expositores WHERE ci = $1', [ci]);
         if (checkExpositor.rows.length > 0) { nombreFinal = checkExpositor.rows[0].nombre_completo; institucionFinal = checkExpositor.rows[0].institucion; }
-        const insertQuery = `INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4) RETURNING *`;
-        const nuevoVisitante = await db.query(insertQuery, [ci, nombreFinal, institucionFinal, celular]);
-        res.status(201).json({ mensaje: "✅ Visitante habilitado correctamente", visitante: nuevoVisitante.rows[0] });
-    } catch (error) { res.status(500).json({ error: "Error al intentar habilitar." }); }
+        const nuevoVisitante = await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4) RETURNING *`, [ci, nombreFinal, institucionFinal, celular]);
+        res.status(201).json({ mensaje: "✅ Visitante habilitado", visitante: nuevoVisitante.rows[0] });
+    } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
 });
 
 function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
@@ -471,55 +403,58 @@ function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
     const deltaLat = (lat2 - lat1) * Math.PI / 180;
     const deltaLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; 
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
 }
 
 app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
     try {
         const { ci, idProy } = req.params;
         const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProy]);
-        if (dup.rows.length > 0) return res.json({ yaVoto: true });
-        res.json({ yaVoto: false });
+        res.json({ yaVoto: dup.rows.length > 0 });
     } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
 });
 
+// 🔥 BLOQUEO DE FRAUDE APLICADO A LÍDER Y A TODOS LOS COMPAÑEROS 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`);
-        const conf = checkTime.rows[0];
+        if (checkTime.rows[0].votacion_cerrada) return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado." });
 
-        if (conf.votacion_cerrada) {
-            return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado. Ya no se aceptan nuevos votos." });
-        }
-
-        const proyCheck = await db.query('SELECT ci_propietario, estado_evaluacion FROM proyectos WHERE id = $1', [idProyecto]);
+        const proyCheck = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProyecto]);
         
         if (proyCheck.rows.length > 0) {
             const propietario = String(proyCheck.rows[0].ci_propietario).trim();
-            if (propietario === String(ci).trim() || (ciNinja && propietario === String(ciNinja).trim())) {
-                return res.status(400).json({ error: "⛔ Fraude Detectado por Servidor: Este dispositivo pertenece a los autores de este proyecto. Tu voto ha sido bloqueado." });
+            const integrantesStringDB = proyCheck.rows[0].integrantes || "";
+            const ciReq = String(ci).trim();
+            const ninjaReq = ciNinja ? String(ciNinja).trim() : null;
+
+            let esMiembroEquipo = false;
+            
+            // 1. Revisamos si es el LÍDER
+            if (propietario === ciReq || propietario === ninjaReq) esMiembroEquipo = true;
+            
+            // 2. Revisamos si es CUALQUIER COMPAÑERO buscando su CI dentro del JSON de la Base de Datos
+            if (integrantesStringDB.includes(`"ci":"${ciReq}"`) || integrantesStringDB.includes(`CI: ${ciReq}`)) esMiembroEquipo = true;
+            if (ninjaReq && (integrantesStringDB.includes(`"ci":"${ninjaReq}"`) || integrantesStringDB.includes(`CI: ${ninjaReq}`))) esMiembroEquipo = true;
+
+            if (esMiembroEquipo) {
+                return res.status(400).json({ error: "⛔ Fraude Detectado por Servidor: Este dispositivo o usuario pertenece al equipo de este proyecto. Tu voto ha sido bloqueado." });
             }
         }
         
-        const checkVis = await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci]);
-        if (checkVis.rows.length === 0) {
+        if ((await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci])).rows.length === 0) {
             const checkExp = await db.query('SELECT nombre_completo, institucion, celular FROM expositores WHERE ci = $1', [ci]);
             if (checkExp.rows.length > 0) {
                 await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4)`, [ci, checkExp.rows[0].nombre_completo, checkExp.rows[0].institucion, checkExp.rows[0].celular]);
             } else {
-                const institucionFinal = institucionVisitante || 'Visitante Anónimo (Dispositivo)';
-                const nombreVis = ci.startsWith('DEV-') ? 'Visitante (Móvil)' : 'Visitante Habilitado';
-                await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, 'S/N')`, [ci, nombreVis, institucionFinal]);
+                await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, 'S/N')`, [ci, ci.startsWith('DEV-') ? 'Visitante (Móvil)' : 'Visitante Habilitado', institucionVisitante || 'Visitante Anónimo (Dispositivo)']);
             }
         }
 
-        const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProyecto]);
-        if (dup.rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente." });
+        if ((await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProyecto])).rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente." });
         
-        const notaValidada = parseInt(nota, 10);
-        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, ci, notaValidada, lat, lon]);
+        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, ci, parseInt(nota, 10), lat, lon]);
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
     } catch (error) { res.status(500).json({ error: "Error en la Base de Datos: " + error.message }); }
 });
@@ -547,8 +482,8 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
             await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
         }
-        res.json({ mensaje: "Evaluación del tribunal eliminada y proyecto regresado a estado Pendiente." });
-    } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación del tribunal." }); }
+        res.json({ mensaje: "Evaluación eliminada." });
+    } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación." }); }
 });
 
 app.get('/api/tribunal_correo/:correo', async (req, res) => {
@@ -565,8 +500,7 @@ app.post('/api/evaluar', async (req, res) => {
         if (tribunalData.rows.length === 0) return res.status(404).json({ error: "Tribunal no encontrado." });
         const usuarioTribunal = tribunalData.rows[0].usuario_tribunal;
 
-        const check = await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal]);
-        if (check.rows.length > 0) return res.status(400).json({ error: "⛔ Ya registraste una calificación." });
+        if ((await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal])).rows.length > 0) return res.status(400).json({ error: "⛔ Ya registraste una calificación." });
 
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, observaciones) VALUES ($1, $2, $3, $4)', [idProyecto, usuarioTribunal, notaTribunal, observaciones]);
 
@@ -577,12 +511,7 @@ app.post('/api/evaluar', async (req, res) => {
 
         const proyData = await db.query('SELECT p.titulo, e.correo, e.nombre_completo FROM proyectos p JOIN expositores e ON p.ci_propietario = e.ci WHERE p.id = $1', [idProyecto]);
 
-        res.status(201).json({ 
-            mensaje: "✅ Evaluación guardada", estado: estado, notaPonderada: notaPonderada,
-            correoEstudiante: proyData.rows.length > 0 ? proyData.rows[0].correo : "",
-            nombreExpositor: proyData.rows.length > 0 ? proyData.rows[0].nombre_completo : "",
-            tituloProyecto: proyData.rows.length > 0 ? proyData.rows[0].titulo : "Proyecto"
-        });
+        res.status(201).json({ mensaje: "✅ Evaluación guardada", estado: estado, notaPonderada: notaPonderada, correoEstudiante: proyData.rows.length > 0 ? proyData.rows[0].correo : "", nombreExpositor: proyData.rows.length > 0 ? proyData.rows[0].nombre_completo : "", tituloProyecto: proyData.rows.length > 0 ? proyData.rows[0].titulo : "Proyecto" });
     } catch (error) { res.status(500).json({ error: "Error al evaluar" }); }
 });
 
@@ -594,16 +523,23 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar las evaluaciones" }); }
 });
 
+// 🔥 LIMPIAR LA VISTA DE INFORMES EN PDF 🔥
 app.get('/api/datos_informes', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');
+        const proysLimpios = proyectos.rows.map(p => {
+            let infoLimpia = p.integrantes || "";
+            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
+            return { ...p, integrantes: infoLimpia };
+        });
+
         const expositores = await db.query('SELECT * FROM expositores');
         const tribunales = await db.query('SELECT * FROM tribunales');
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
 
-        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
+        res.json({ proyectos: proysLimpios, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
     } catch (error) { res.status(500).json({ error: "Error al empaquetar los datos" }); }
 });
 
@@ -611,17 +547,12 @@ app.get('/api/resultados', async (req, res) => {
     const { ci } = req.query;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_resultados) as resultados_ocultos FROM configuraciones WHERE id = 1`);
-        const resultados_ocultos = checkTime.rows[0].resultados_ocultos;
-        
         let esAdmin = false;
         if (ci && ci !== "publico") {
-            const adminCheck = await db.query('SELECT ci FROM administradores WHERE ci = $1', [ci]);
-            if (adminCheck.rows.length > 0) esAdmin = true;
+            if ((await db.query('SELECT ci FROM administradores WHERE ci = $1', [ci])).rows.length > 0) esAdmin = true;
         }
 
-        if (resultados_ocultos && !esAdmin) {
-            return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
-        }
+        if (checkTime.rows[0].resultados_ocultos && !esAdmin) return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
 
         const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Pre-seleccionado'`;
         const resultados = await db.query(query);
