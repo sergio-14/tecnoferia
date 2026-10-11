@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos con Limpiador Inteligente
+// FUNCIÓN: Generación de reportes dinámicos y Certificados Editables
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -47,7 +47,6 @@ const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "", nombreL
         } catch(e) {}
     }
     
-    // 🔥 FORMATO PARA TEXTOS VIEJOS EN EL PDF 🔥
     let textoRaw = integrantesStringRaw.replace('⭐ LÍDER:', '').replace(/\|\s*👥 EQUIPO:/, '').trim();
     if (textoRaw === "" || esElLider(textoRaw)) return `Líder: ${nombreLiderReal}`;
 
@@ -117,6 +116,194 @@ function inicializarFiltroVisitantes() {
 
 document.addEventListener('DOMContentLoaded', inicializarFiltroVisitantes);
 
+// 🔥 NUEVAS FUNCIONES PARA EL CERTIFICADO 🔥
+window.toggleBuscadorCertificado = function() {
+    const select = document.getElementById('tipo-informe-select');
+    const cajaBusqueda = document.getElementById('caja-buscador-certificado');
+    const inputCi = document.getElementById('cert-ci-input');
+    
+    if (select.value === 'certificado') {
+        cajaBusqueda.style.display = 'block';
+        inputCi.setAttribute('required', 'true');
+        cajaBusqueda.style.opacity = '0';
+        setTimeout(() => cajaBusqueda.style.opacity = '1', 50);
+        cajaBusqueda.style.transition = 'opacity 0.3s ease';
+    } else {
+        cajaBusqueda.style.display = 'none';
+        inputCi.removeAttribute('required');
+    }
+};
+
+window.procesarInformeActual = async function(e) {
+    e.preventDefault();
+    const tipo = document.getElementById('tipo-informe-select').value;
+    const btn = e.target.querySelector('button[type="submit"]');
+    const textoOriginal = btn.innerHTML;
+
+    if (tipo === 'certificado') {
+        const ci = document.getElementById('cert-ci-input').value.trim();
+        if (!ci) { alert("⚠️ Por favor, ingrese el CI del participante."); return; }
+        
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando y Generando...';
+        btn.disabled = true;
+
+        await window.generarCertificadoParticipacion(ci);
+        
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+        return;
+    }
+
+    // Si es un informe normal, llamamos a la función de impresión
+    window.imprimirInformeActual(e);
+};
+
+window.generarCertificadoParticipacion = async function(ci) {
+    try {
+        const res = await fetch(`/api/usuarios/${ci}`);
+        if (!res.ok) {
+            alert("❌ Usuario no encontrado en la base de datos. Verifique el C.I.");
+            return;
+        }
+        const data = await res.json();
+        const nombre = data.datos.nombre_completo || "Nombre del Participante";
+        const institucion = data.datos.institucion || "Universidad Autónoma del Beni";
+
+        const qrData = encodeURIComponent(`Certificado Oficial TecnoFeria 2026\nParticipante: ${nombre}\nCI: ${ci}\nInstitución: ${institucion}`);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+
+        const logoUab = `${window.location.origin}/assets/img/OIP (2).png`;
+        const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
+
+        const ventanaCertificado = window.open('', '_blank');
+        
+        ventanaCertificado.document.write(`
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Certificado - ${nombre}</title>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                <style>
+                    @media print {
+                        @page { size: A4 landscape; margin: 0; }
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; background: white !important; }
+                        .no-print { display: none !important; }
+                        .certificado-container { box-shadow: none !important; transform: scale(1) !important; margin: 0 !important; width: 297mm !important; height: 210mm !important; }
+                        .editable-name { border-bottom: none !important; background: transparent !important; }
+                    }
+                    
+                    body { font-family: 'Times New Roman', serif; background: #525659; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+
+                    .instruccion-flotante { position: fixed; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); color: white; padding: 20px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 0.95rem; max-width: 320px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; line-height: 1.5; }
+                    .btn-imprimir { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
+                    .btn-imprimir:hover { background: #218838; transform: scale(1.05); }
+
+                    .certificado-container {
+                        background: white; width: 297mm; height: 210mm; position: relative; padding: 50px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
+                        overflow: hidden; border: 12px solid #fff; outline: 3px solid #d4af37; outline-offset: -15px;
+                    }
+
+                    .esquina-decorativa { position: absolute; width: 300px; height: 300px; border-radius: 50%; z-index: 1; }
+                    .esquina-top-izq { top: -150px; left: -150px; background: rgba(0, 43, 92, 0.1); border: 2px solid rgba(212, 175, 55, 0.3); }
+                    .esquina-bottom-der { bottom: -150px; right: -150px; background: rgba(211, 47, 47, 0.05); border: 2px solid rgba(0, 43, 92, 0.2); }
+
+                    .contenido-certificado { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
+                    
+                    .header-logos { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 10px; }
+                    .header-logos img { height: 85px; object-fit: contain; }
+
+                    .qr-zone { position: absolute; top: 0; right: 0; text-align: center; }
+                    .qr-zone img { width: 90px; height: 90px; border: 2px solid #eee; padding: 5px; }
+                    .qr-zone span { display: block; font-size: 10px; color: #002b5c; margin-top: 5px; font-family: Arial, sans-serif; font-weight: bold; }
+
+                    .texto-institucional { font-family: Arial, sans-serif; font-size: 1.1rem; color: #333; margin: 10px 0 15px 0; }
+                    h1.titulo-cert { font-size: 3.5rem; color: #111; margin: 10px 0; font-weight: normal; letter-spacing: 2px; font-family: 'Georgia', serif; }
+
+                    .editable-name {
+                        font-size: 2.2rem; font-weight: bold; color: #000; border-bottom: 2px dashed #999; display: inline-block; min-width: 60%;
+                        padding: 5px 20px; outline: none; font-style: italic; margin: 15px 0; transition: 0.3s;
+                    }
+                    .editable-name:focus { border-bottom-color: #4db8ff; background: #f0f8ff; }
+
+                    .body-text { font-size: 1.3rem; color: #333; line-height: 1.6; max-width: 85%; margin: 10px auto; font-family: Arial, sans-serif; }
+                    .fecha { font-family: Arial, sans-serif; font-size: 1.1rem; color: #555; margin-top: 15px; text-align: center; }
+
+                    .firmas-container { display: flex; justify-content: space-around; align-items: flex-end; flex-grow: 1; margin-bottom: 20px; padding: 0 30px; }
+                    .firma-bloque { text-align: center; border-top: 1px solid #000; width: 220px; padding-top: 10px; font-family: Arial, sans-serif; position: relative; }
+                    .firma-bloque h4 { margin: 0; font-size: 0.85rem; color: #000; font-weight: bold; }
+                    .firma-bloque p { margin: 3px 0 0 0; font-size: 0.75rem; color: #555; }
+                </style>
+            </head>
+            <body>
+                <div class="instruccion-flotante no-print">
+                    <h3 style="margin-top: 0; color: #ffc107;"><i class="fas fa-edit"></i> Edición Inteligente</h3>
+                    <p>1. Si el nombre del participante está mal escrito, <b>haz clic sobre las letras en el certificado y corrígelo con el teclado</b> aquí mismo.</p>
+                    <p>2. Cuando esté listo, presiona el botón verde de imprimir.</p>
+                    <p style="color: #4db8ff; margin-bottom: 0;">⚠️ Configura tu impresora en modo <b>Horizontal (Landscape)</b> y "Márgenes en Ninguno" para un calce perfecto.</p>
+                </div>
+
+                <div class="certificado-container">
+                    <div class="esquina-decorativa esquina-top-izq"></div>
+                    <div class="esquina-decorativa esquina-bottom-der"></div>
+
+                    <div class="contenido-certificado">
+                        <div class="qr-zone">
+                            <img src="${qrUrl}" alt="QR Validacion">
+                            <span>ID: ${ci}</span>
+                        </div>
+
+                        <div class="header-logos">
+                            <img src="${logoUab}" alt="Escudo UABJB" onerror="this.style.display='none'">
+                            <img src="${logoCis}" alt="Escudo Carrera Sistemas" onerror="this.style.display='none'">
+                        </div>
+
+                        <p class="texto-institucional">La Facultad de Ingeniería y Tecnología de la UABJB a través de la<br>Carrera de Ingeniería de Sistemas confiere el presente:</p>
+                        <h1 class="titulo-cert">CERTIFICADO DE<br>PARTICIPACIÓN</h1>
+
+                        <div class="editable-name" contenteditable="true" spellcheck="false" title="Haz clic para corregir el nombre">${nombre}</div>
+
+                        <p class="body-text">
+                            Por su destacada participación en el evento de exposición académica y tecnológica<br>
+                            <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>,<br>
+                            desarrollado los días 25 y 26 de Octubre del presente año,<br>
+                            en el Campus Universitario de la UABJB.
+                        </p>
+
+                        <p class="fecha">Trinidad, Octubre de 2026.</p>
+
+                        <div class="firmas-container">
+                            <div class="firma-bloque">
+                                <h4>M.SC. SAUD YUJA GÓMEZ</h4>
+                                <p>DECANO F.I.T.</p>
+                            </div>
+                            <div class="firma-bloque">
+                                <h4>M.SC. EDUARDO S. MORALES BARROSO</h4>
+                                <p>DIRECTOR DE C.I.S.</p>
+                            </div>
+                            <div class="firma-bloque">
+                                <h4>COMITÉ ORGANIZADOR</h4>
+                                <p>I.I.S.P.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-imprimir no-print" onclick="window.print()"><i class="fas fa-print"></i> Imprimir Certificado</button>
+            </body>
+            </html>
+        `);
+        ventanaCertificado.document.close();
+        
+    } catch (error) {
+        console.error(error);
+        alert("❌ Ocurrió un error al intentar generar el certificado.");
+    }
+};
+
+// ==========================================
+// VISTA PREVIA DE INFORMES GENERALES
+// ==========================================
 window.generarVistaPrevia = async function() {
     const tipoSelect = document.getElementById('tipo-informe-select');
     const valor = tipoSelect.value;
@@ -124,6 +311,14 @@ window.generarVistaPrevia = async function() {
     const btn = document.querySelector('#informes .btn-save');
 
     if (!valor) return;
+
+    if (valor === "certificado") {
+        areaImpresion.style.display = 'block';
+        areaImpresion.innerHTML = '<div style="text-align: center; padding: 40px; color: #0056b3; background: #e8f4fd; border-radius: 8px; border: 2px dashed #4db8ff;"><i class="fas fa-award fa-4x" style="margin-bottom:15px;"></i><h3 style="margin-top: 0; color: #002b5c;">Modo Certificado Individual Activado</h3><p style="color: #333; font-size: 1.1rem;">Ingrese el C.I. del participante en el buscador de arriba y presione el botón <b>"Procesar Documento"</b>.<br>El certificado interactivo se abrirá en una pestaña nueva listo para imprimir.</p></div>';
+        if (btn) { btn.innerHTML = '<i class="fas fa-cogs"></i> Procesar Documento'; btn.disabled = false; }
+        return;
+    }
+
     if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando Vista Previa...'; btn.disabled = true; }
 
     areaImpresion.style.display = 'block';
@@ -159,43 +354,30 @@ window.generarVistaPrevia = async function() {
                     } catch(e) {}
                 }
 
-                if (!esCoExpositor && rawText.includes(ciStr)) {
-                    esCoExpositor = true;
-                }
-
-                if (!esCoExpositor && nomStr.length > 4 && rawText.includes(nomStr)) {
-                    esCoExpositor = true;
-                }
+                if (!esCoExpositor && rawText.includes(ciStr)) esCoExpositor = true;
+                if (!esCoExpositor && nomStr.length > 4 && rawText.includes(nomStr)) esCoExpositor = true;
 
                 if (!esCoExpositor && nomStr.length > 4) {
                     const partesNombre = nomStr.split(/\s+/);
                     if (partesNombre.length >= 2) {
                         const combo1 = partesNombre[0] + " " + partesNombre[1]; 
                         const combo2 = partesNombre[0] + " " + partesNombre[partesNombre.length - 1]; 
-                        // Solo confirma si el texto original realmente lo contiene
                         if (combo1.length > 5 && rawText.includes(combo1)) esCoExpositor = true;
                         if (combo2.length > 5 && rawText.includes(combo2)) esCoExpositor = true;
                     }
                 }
 
-                if (esCoExpositor) {
-                    roles.push({ tipo: 'CO-EXPOSITOR', proyecto: p });
-                }
+                if (esCoExpositor) roles.push({ tipo: 'CO-EXPOSITOR', proyecto: p });
             }
             return roles;
         };
 
-        // ==========================================
-        // 1. CUADRO DE HONOR Y RANKING
-        // ==========================================
         if (valor === "ranking") {
             const diccionarioProyectos = {}; 
 
             proyectos.forEach(p => {
                 if (p.estado_evaluacion === "Pre-seleccionado") {
-                    let catName = p.categoria.includes('estudiante') ? "proyectos_estudiantes" :
-                                  p.categoria.includes('docente') ? "proyectos_docentes" : "proyectos_emprendimientos";
-                    
+                    let catName = p.categoria.includes('estudiante') ? "proyectos_estudiantes" : p.categoria.includes('docente') ? "proyectos_docentes" : "proyectos_emprendimientos";
                     let nombreLiderReal = "Desconocido";
                     const expLider = expositores.find(e => e.ci === p.ci_propietario);
                     if(expLider) nombreLiderReal = expLider.nombre_completo;
@@ -274,9 +456,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         } 
 
-        // ==========================================
-        // 2. EJES TEMÁTICOS
-        // ==========================================
         else if (valor === "ejes") {
             const ejesOficiales = ["Sistemas de Información para el Desarrollo Regional", "Tecnologías Emergentes y Transformación Digital", "Ingeniería de Software y Aplicaciones Web/Móviles", "Gobierno Electrónico y Transparencia Pública", "TIC para la Gestión Ambiental y Agropecuaria"];
             const proyectosPorEje = {};
@@ -335,9 +514,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // ==========================================
-        // 3. ACTA DE TRIBUNALES
-        // ==========================================
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
@@ -395,9 +571,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
-        // ==========================================
-        // 4. VISITANTES Y AFLUENCIA
-        // ==========================================
         else if (valor === "visitantes") {
             const diccProyectos = {};
             proyectos.forEach(p => {
@@ -474,9 +647,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // ==========================================
-        // 5. REPORTES DE DOCUMENTOS RECIBIDOS
-        // ==========================================
         else if (valor === "documentos") {
             const ciConProy = new Set();
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
@@ -532,9 +702,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // ==========================================
-        // 6. EXPOSITORES (LIMPIO, SIN ETIQUETAS)
-        // ==========================================
         else if (valor === "expositores") {
             const grupos = { "1. Estudiantes (Pregrado)": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
 
@@ -578,9 +745,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // ==========================================
-        // 7. VISITANTES PADRON (CON ETIQUETAS)
-        // ==========================================
         else if (valor === "padron_visitantes") {
             const filtroSelect = document.getElementById('institucion-select');
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
@@ -660,9 +824,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
-        // ==========================================
-        // 8. PADRON TRIBUNALES
-        // ==========================================
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
                 n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
@@ -698,9 +859,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
         
-        // ==========================================
-        // 9. NO CLASIFICADOS
-        // ==========================================
         else if (valor === "9" || valor === "no_clasificados" || valor.includes("No Clasificados")) {
             let html = `<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; font-family: Arial, sans-serif;">
                 <thead><tr style="background-color: #002b5c; color: white;"><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 10px; border: 1px solid #ccc; width: 25%;">Título del Proyecto</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Categoría</th><th style="padding: 10px; border: 1px solid #ccc; width: 20%;">Integrantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Tribunal</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Ponderada (80%)</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Observaciones</th></tr></thead><tbody>`;
