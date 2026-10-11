@@ -119,7 +119,6 @@ document.addEventListener("input", async function(e) {
     }
 });
 
-// 🔥 BLINDAJE INQUEBRANTABLE TRIBUNAL 🔥
 window.sumarTribunal = function(elemento) {
     if (elemento) {
         let val = elemento.value.replace(/[^0-9]/g, '');
@@ -138,7 +137,6 @@ window.sumarTribunal = function(elemento) {
     if(evalNota) evalNota.value = total;
 };
 
-// 🔥 BLINDAJE INQUEBRANTABLE PÚBLICO 🔥
 window.sumarPublico = function(elemento) {
     if (elemento) {
         let val = elemento.value.replace(/[^0-9]/g, '');
@@ -176,14 +174,20 @@ window.sumarPublico = function(elemento) {
     }
 };
 
-// 🔥 VISOR DE PDFS PROTEGIDO CONTRA ERRORES 404 🔥
+// 🔥 CORRECCIÓN CRÍTICA: TRADUCTOR DE RUTAS ANTIGUAS 🔥
 window.abrirVisorPDF = function(url) {
     if (!url || url === "undefined" || url === "null" || url === "") {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
     
-    // Convertimos viejas rutas a la nueva estructura para que el servidor las encuentre
+    // 1. Reemplazamos la ruta antigua si existe
     let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
+    
+    // 2. PARCHE: Si la BD tiene espacios en el nombre de la carpeta, lo forzamos a guion bajo
+    urlLimpia = urlLimpia.replace('Docentes Investigadores', 'Docentes_Investigadores');
+    urlLimpia = urlLimpia.replace('Estudiantes Pregrado', 'Estudiantes_Pregrado');
+    
+    // 3. Generamos la URL final
     let urlAbsoluta = window.location.origin + urlLimpia + "?t=" + new Date().getTime();
 
     const modalViejo = document.getElementById('modal-visor-pdf-global');
@@ -224,7 +228,6 @@ window.abrirVisorPDF = function(url) {
             .then(res => {
                 if (!res.ok) throw new Error(`El documento no existe en el servidor. Puede que haya sido eliminado (Error ${res.status}).`);
                 
-                // Evitamos que el PDF intente dibujar una página HTML de Error 404
                 const contentType = res.headers.get("content-type");
                 if (contentType && !contentType.includes("application/pdf")) {
                      throw new Error("El archivo existe, pero está dañado o no es un PDF legítimo.");
