@@ -1,11 +1,11 @@
 // =========================================================================
 // ARCHIVO: features/proyecto/proyecto.js
-// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas Inteligentes
+// FUNCIÓN: Gestión de Proyectos con Tarjetas Dinámicas Inteligentes (Diseño Corregido)
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
 
-// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS (MODO EDICIÓN/VISTA) 🔥
+// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS 🔥
 window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
@@ -24,46 +24,46 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     const div = document.createElement('div');
     div.id = idUnico;
     div.className = "integrante-box"; 
-    div.style.cssText = "background: rgba(0,0,0,0.25); padding: 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
+    div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
     div.innerHTML = `
         <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                <h5 style="margin: 0; color: #4db8ff; font-size: 1rem;"><i class="fas fa-user-edit"></i> Datos del Compañero #${window.contadorIntegrantesProyecto}</h5>
-                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: transparent; color: #ff6b6b; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-times"></i></button>
+                <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: transparent; color: #ff6b6b; border: none; font-size: 1.2rem; cursor: pointer; transition: 0.2s;" onmouseover="this.style.color='#dc3545'" onmouseout="this.style.color='#ff6b6b'" title="Eliminar"><i class="fas fa-times-circle"></i></button>
             </div>
             
-            <div class="input-group" style="margin-bottom: 12px;">
-                <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
-                <input type="text" class="int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+            <div class="input-group" style="margin-bottom: 15px;">
+                <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Nombre Completo</label>
+                <input type="text" class="int-nombre" placeholder="Ej. Ana Soto" value="${nombre}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
-                    <input type="text" class="int-ci" placeholder="Ej. 1234567" value="${ci}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">C.I.</label>
+                    <input type="text" class="int-ci" placeholder="Ej. 1234567" value="${ci}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
-                    <input type="tel" class="int-celular" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Celular (Opcional)</label>
+                    <input type="tel" class="int-celular" placeholder="Ej. 71234567" value="${celular}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Correo Electrónico (Opcional)</label>
-                    <input type="email" class="int-correo" placeholder="ejemplo@correo.com" value="${correo}" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; transition: 0.2s;">
+                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Correo Electrónico (Opcional)</label>
+                    <input type="email" class="int-correo" placeholder="ejemplo@correo.com" value="${correo}" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: white; outline: none; box-sizing: border-box;">
                 </div>
                 <div class="input-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.8rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Institución</label>
-                    <select class="int-institucion" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none;">
+                    <label style="font-size: 0.85rem; color: #cbd5e1; display: block; margin-bottom: 5px;">Institución</label>
+                    <select class="int-institucion" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.6); color: white; outline: none; box-sizing: border-box;">
                         ${opcionesInst}
                     </select>
                 </div>
             </div>
 
-            <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 12px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; box-shadow: 0 4px 10px rgba(40,167,69,0.3);"><i class="fas fa-check"></i> Guardar Compañero</button>
+            <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 14px; cursor: pointer; font-weight: bold; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.2s;"><i class="fas fa-check-circle"></i> Confirmar y Guardar Compañero</button>
         </div>
 
         <!-- MODO VISTA (Tarjeta Resumen) -->
@@ -82,8 +82,8 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
-                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         </div>
@@ -94,11 +94,6 @@ window.agregarCasillaIntegranteProyecto = function(nombre = '', ci = '', celular
     if (institucion) {
         setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = institucion; }, 50);
     }
-    
-    div.querySelectorAll('input').forEach(inp => {
-        inp.addEventListener('focus', () => { inp.style.borderColor = '#4db8ff'; inp.style.boxShadow = '0 0 8px rgba(77,184,255,0.3)'; });
-        inp.addEventListener('blur', () => { inp.style.borderColor = 'rgba(255,255,255,0.3)'; inp.style.boxShadow = 'none'; });
-    });
 };
 
 window.guardarIntegranteProyecto = function(idUnico) {
@@ -461,7 +456,7 @@ window.subirProyectoFeria = async function(e) {
     });
 
     if (hayCajasAbiertas) {
-        alert("⚠️ Tienes compañeros sin guardar (en modo edición). Por favor, dale al botón verde 'Guardar Compañero' en cada tarjeta o bórralos antes de enviar el proyecto.");
+        alert("⚠️ Tienes compañeros sin guardar (en modo edición). Por favor, dale al botón verde 'Confirmar y Guardar Compañero' en cada tarjeta o bórralos antes de enviar el proyecto.");
         return;
     }
 
