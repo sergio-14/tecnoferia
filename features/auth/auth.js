@@ -142,12 +142,31 @@ window.iniciarMonitoreoSesion = function() {
 };
 
 // =========================================================================
-// AUTO-LOGIN UNIVERSAL
+// AUTO-LOGIN UNIVERSAL Y LECTOR DE QR DE CERTIFICADOS
 // =========================================================================
 window.addEventListener('DOMContentLoaded', () => {
     const parametros = new URLSearchParams(window.location.search);
     const accion = parametros.get('action');
     const idProy = parametros.get('idProy'); 
+
+    // 🔥 MAGIA DE VALIDACIÓN: Si alguien escaneó el QR del certificado 🔥
+    const validarCert = parametros.get('validar_certificado');
+    if (validarCert) {
+        fetch(`/api/usuarios/${validarCert}`)
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.datos) {
+                alert(`✅ CERTIFICADO AUTÉNTICO VERIFICADO\n\nNombre: ${data.datos.nombre_completo}\nC.I.: ${validarCert}\nInstitución: ${data.datos.institucion || 'No registrada'}\n\nEste documento es válido y fue emitido por el sistema oficial de la TecnoFeria 2026.`);
+            } else {
+                alert(`❌ ALERTA DE SEGURIDAD\n\nEste C.I. (${validarCert}) no se encuentra registrado en nuestra base de datos oficial. El certificado físico podría haber sido alterado.`);
+            }
+            // Limpiamos la URL después de mostrar el aviso para que la página siga normal
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }).catch(e => {
+            alert(`✅ CERTIFICADO ESCANEADO\nC.I. asociado al papel: ${validarCert}\n(Sistema de conexión offline momentáneo)`);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
 
     if (idProy) return;
 

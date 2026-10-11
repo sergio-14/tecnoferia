@@ -167,14 +167,13 @@ window.generarCertificadoParticipacion = async function(ci) {
         }
         const data = await res.json();
         const nombre = data.datos.nombre_completo || "Nombre del Participante";
-        const institucion = data.datos.institucion || "Universidad Autónoma del Beni";
-
-        const qrData = encodeURIComponent(`Certificado Oficial TecnoFeria 2026\nParticipante: ${nombre}\nCI: ${ci}\nInstitución: ${institucion}`);
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+        
+        // 🔥 MAGIA: Transformamos el QR en un enlace de validación oficial de tu sistema 🔥
+        const urlValidacion = `${window.location.origin}/?validar_certificado=${ci}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(urlValidacion)}`;
 
         const logoUab = `${window.location.origin}/assets/img/OIP (2).png`;
         const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
-        // 🔥 INCLUSIÓN DEL TERCER LOGO I.I.S.P. 🔥
         const logoIisp = `${window.location.origin}/assets/img/logo_iisp.png`;
 
         const ventanaCertificado = window.open('', '_blank');
@@ -213,7 +212,6 @@ window.generarCertificadoParticipacion = async function(ci) {
 
                     .contenido-certificado { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
                     
-                    /* 🔥 LOS 3 LOGOS ALINEADOS 🔥 */
                     .header-logos { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 10px; }
                     .header-logos img { height: 85px; object-fit: contain; }
 
@@ -233,7 +231,6 @@ window.generarCertificadoParticipacion = async function(ci) {
                     .body-text { font-size: 1.3rem; color: #333; line-height: 1.6; max-width: 85%; margin: 10px auto; font-family: Arial, sans-serif; }
                     .fecha { font-family: Arial, sans-serif; font-size: 1.1rem; color: #555; margin-top: 15px; text-align: center; }
 
-                    /* 🔥 AJUSTE: Firmas abajo y distribuidas uniformemente 🔥 */
                     .firmas-container { 
                         display: flex; justify-content: space-between; align-items: flex-end; width: 100%; 
                         margin-top: auto; margin-bottom: 5px; padding: 0 20px; box-sizing: border-box; 
@@ -273,7 +270,6 @@ window.generarCertificadoParticipacion = async function(ci) {
 
                         <div class="editable-name" contenteditable="true" spellcheck="false" title="Haz clic para corregir el nombre">${nombre}</div>
 
-                        <!-- FECHA ACTUALIZADA -->
                         <p class="body-text">
                             Por su destacada participación en el evento de exposición académica y tecnológica<br>
                             <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>,<br>
@@ -283,7 +279,6 @@ window.generarCertificadoParticipacion = async function(ci) {
 
                         <p class="fecha">Trinidad, Octubre de 2026.</p>
 
-                        <!-- FIRMAS EN EL EXTREMO INFERIOR -->
                         <div class="firmas-container">
                             <div class="firma-bloque">
                                 <h4>M.SC. SAUD YUJA GÓMEZ</h4>
