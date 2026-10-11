@@ -116,7 +116,7 @@ function inicializarFiltroVisitantes() {
 
 document.addEventListener('DOMContentLoaded', inicializarFiltroVisitantes);
 
-// 🔥 NUEVAS FUNCIONES PARA EL CERTIFICADO 🔥
+// 🔥 FUNCIONES PARA EL CERTIFICADO 🔥
 window.toggleBuscadorCertificado = function() {
     const select = document.getElementById('tipo-informe-select');
     const cajaBusqueda = document.getElementById('caja-buscador-certificado');
@@ -174,6 +174,8 @@ window.generarCertificadoParticipacion = async function(ci) {
 
         const logoUab = `${window.location.origin}/assets/img/OIP (2).png`;
         const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
+        // 🔥 INCLUSIÓN DEL TERCER LOGO I.I.S.P. 🔥
+        const logoIisp = `${window.location.origin}/assets/img/logo_iisp.png`;
 
         const ventanaCertificado = window.open('', '_blank');
         
@@ -202,6 +204,7 @@ window.generarCertificadoParticipacion = async function(ci) {
                     .certificado-container {
                         background: white; width: 297mm; height: 210mm; position: relative; padding: 50px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
                         overflow: hidden; border: 12px solid #fff; outline: 3px solid #d4af37; outline-offset: -15px;
+                        display: flex; flex-direction: column;
                     }
 
                     .esquina-decorativa { position: absolute; width: 300px; height: 300px; border-radius: 50%; z-index: 1; }
@@ -210,7 +213,8 @@ window.generarCertificadoParticipacion = async function(ci) {
 
                     .contenido-certificado { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
                     
-                    .header-logos { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 10px; }
+                    /* 🔥 LOS 3 LOGOS ALINEADOS 🔥 */
+                    .header-logos { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 10px; }
                     .header-logos img { height: 85px; object-fit: contain; }
 
                     .qr-zone { position: absolute; top: 0; right: 0; text-align: center; }
@@ -229,8 +233,12 @@ window.generarCertificadoParticipacion = async function(ci) {
                     .body-text { font-size: 1.3rem; color: #333; line-height: 1.6; max-width: 85%; margin: 10px auto; font-family: Arial, sans-serif; }
                     .fecha { font-family: Arial, sans-serif; font-size: 1.1rem; color: #555; margin-top: 15px; text-align: center; }
 
-                    .firmas-container { display: flex; justify-content: space-around; align-items: flex-end; flex-grow: 1; margin-bottom: 20px; padding: 0 30px; }
-                    .firma-bloque { text-align: center; border-top: 1px solid #000; width: 220px; padding-top: 10px; font-family: Arial, sans-serif; position: relative; }
+                    /* 🔥 AJUSTE: Firmas abajo y distribuidas uniformemente 🔥 */
+                    .firmas-container { 
+                        display: flex; justify-content: space-between; align-items: flex-end; width: 100%; 
+                        margin-top: auto; margin-bottom: 5px; padding: 0 20px; box-sizing: border-box; 
+                    }
+                    .firma-bloque { text-align: center; border-top: 1px solid #000; width: 260px; padding-top: 10px; font-family: Arial, sans-serif; position: relative; }
                     .firma-bloque h4 { margin: 0; font-size: 0.85rem; color: #000; font-weight: bold; }
                     .firma-bloque p { margin: 3px 0 0 0; font-size: 0.75rem; color: #555; }
                 </style>
@@ -253,9 +261,11 @@ window.generarCertificadoParticipacion = async function(ci) {
                             <span>ID: ${ci}</span>
                         </div>
 
+                        <!-- 3 LOGOS ALINEADOS -->
                         <div class="header-logos">
                             <img src="${logoUab}" alt="Escudo UABJB" onerror="this.style.display='none'">
                             <img src="${logoCis}" alt="Escudo Carrera Sistemas" onerror="this.style.display='none'">
+                            <img src="${logoIisp}" alt="Escudo IISP" onerror="this.style.display='none'">
                         </div>
 
                         <p class="texto-institucional">La Facultad de Ingeniería y Tecnología de la UABJB a través de la<br>Carrera de Ingeniería de Sistemas confiere el presente:</p>
@@ -263,15 +273,17 @@ window.generarCertificadoParticipacion = async function(ci) {
 
                         <div class="editable-name" contenteditable="true" spellcheck="false" title="Haz clic para corregir el nombre">${nombre}</div>
 
+                        <!-- FECHA ACTUALIZADA -->
                         <p class="body-text">
                             Por su destacada participación en el evento de exposición académica y tecnológica<br>
                             <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>,<br>
-                            desarrollado los días 25 y 26 de Octubre del presente año,<br>
+                            desarrollado el 14 de Octubre del presente año,<br>
                             en el Campus Universitario de la UABJB.
                         </p>
 
                         <p class="fecha">Trinidad, Octubre de 2026.</p>
 
+                        <!-- FIRMAS EN EL EXTREMO INFERIOR -->
                         <div class="firmas-container">
                             <div class="firma-bloque">
                                 <h4>M.SC. SAUD YUJA GÓMEZ</h4>
