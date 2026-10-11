@@ -119,6 +119,7 @@ document.addEventListener("input", async function(e) {
     }
 });
 
+// 🔥 BLINDAJE INQUEBRANTABLE TRIBUNAL 🔥
 window.sumarTribunal = function(elemento) {
     if (elemento) {
         let val = elemento.value.replace(/[^0-9]/g, '');
@@ -137,6 +138,7 @@ window.sumarTribunal = function(elemento) {
     if(evalNota) evalNota.value = total;
 };
 
+// 🔥 BLINDAJE INQUEBRANTABLE PÚBLICO 🔥
 window.sumarPublico = function(elemento) {
     if (elemento) {
         let val = elemento.value.replace(/[^0-9]/g, '');
@@ -174,25 +176,15 @@ window.sumarPublico = function(elemento) {
     }
 };
 
-// 🔥 CORRECCIÓN CRÍTICA: TRADUCTOR DE RUTAS ANTIGUAS 🔥
+// 🔥 VISOR DE PDFS PROTEGIDO CONTRA ERRORES 404 🔥
 window.abrirVisorPDF = function(url) {
     if (!url || url === "undefined" || url === "null" || url === "") {
         alert('⚠️ Este proyecto no tiene un documento PDF subido.'); return;
     }
     
-    // 1. Decodificar la URL por si internet la convirtió en texto con %20
-    let urlLimpia = decodeURIComponent(url);
-
-    // 2. Reemplazar la ruta base si era de la versión vieja del sistema
-    urlLimpia = urlLimpia.replace('/ver-pdf/', '/archivos_proyectos/');
-    
-    // 3. 🌟 EL SALVAVIDAS: Buscamos si la base de datos tenía espacios en las carpetas y le ponemos guion bajo 🌟
-    urlLimpia = urlLimpia.replace(/Docentes\s+Investigadores/gi, 'Docentes_Investigadores');
-    urlLimpia = urlLimpia.replace(/Estudiantes\s+Pregrado/gi, 'Estudiantes_Pregrado');
-    
-    // 4. Volver a codificar para que el servidor lo lea de forma segura
-    let urlFinalCodificada = encodeURI(urlLimpia);
-    let urlAbsoluta = window.location.origin + urlFinalCodificada + "?t=" + new Date().getTime();
+    // Convertimos viejas rutas a la nueva estructura para que el servidor las encuentre
+    let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
+    let urlAbsoluta = window.location.origin + urlLimpia + "?t=" + new Date().getTime();
 
     const modalViejo = document.getElementById('modal-visor-pdf-global');
     if (modalViejo) document.body.removeChild(modalViejo);
@@ -232,6 +224,7 @@ window.abrirVisorPDF = function(url) {
             .then(res => {
                 if (!res.ok) throw new Error(`El documento no existe en el servidor. Puede que haya sido eliminado (Error ${res.status}).`);
                 
+                // Evitamos que el PDF intente dibujar una página HTML de Error 404
                 const contentType = res.headers.get("content-type");
                 if (contentType && !contentType.includes("application/pdf")) {
                      throw new Error("El archivo existe, pero está dañado o no es un PDF legítimo.");
