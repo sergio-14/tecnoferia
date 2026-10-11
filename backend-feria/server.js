@@ -43,7 +43,6 @@ if (!fs.existsSync(dirArchivos)) { fs.mkdirSync(dirArchivos, { recursive: true }
 
 app.use(express.static(rutaFrontend, { maxAge: '1d' }));
 
-// 🔥 CARGA PRINCIPAL DE PDFs 🔥
 app.use('/archivos_proyectos', express.static(dirArchivos, {
     acceptRanges: true, 
     maxAge: '7d',       
@@ -56,7 +55,6 @@ app.use('/archivos_proyectos', express.static(dirArchivos, {
     }
 }));
 
-// 🔥 ALIAS PARA PROYECTOS ANTIGUOS (Evita Error 404) 🔥
 app.use('/ver-pdf', express.static(dirArchivos, {
     acceptRanges: true, 
     maxAge: '7d',       
@@ -293,6 +291,7 @@ app.post('/api/tribunales', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
 });
 
+// 🔥 CREACIÓN Y ACTUALIZACIÓN PROTEGIDA CON COALESCE (Anti-Sobreescritura) 🔥
 app.post('/api/proyectos', async (req, res) => {
     const { ciPropietario, titulo, categoria, integrantes, ejeTematico, enlacePdfExistente, nuevoIntento, integrantesData } = req.body;
     try {
@@ -302,7 +301,12 @@ app.post('/api/proyectos', async (req, res) => {
         const nombreLider = user.rows[0].nombre_completo;
         const ci = ciPropietario;
 
+        // SANITIZAR EL ENLACE PARA EVITAR QUE EL FRONTEND ENVÍE TEXTO 'NULL'
         let enlacePdfFinal = enlacePdfExistente || null;
+        if (enlacePdfFinal === 'null' || enlacePdfFinal === 'undefined' || enlacePdfFinal === '') {
+            enlacePdfFinal = null;
+        }
+
         let subcarpeta = 'otros';
         if (categoria.includes('estudiante')) subcarpeta = 'Estudiantes_Pregrado';
         else if (categoria.includes('docente')) subcarpeta = 'Docentes_Investigadores';
@@ -311,6 +315,7 @@ app.post('/api/proyectos', async (req, res) => {
         const dirDestino = path.join(__dirname, '../archivos_proyectos/', subcarpeta);
         if (!fs.existsSync(dirDestino)) { fs.mkdirSync(dirDestino, { recursive: true }); }
         
+        // Si hay un archivo nuevo subido, lo guardamos y actualizamos el enlace final
         if (req.files && req.files.proyArchivo) {
             const archivo = req.files.proyArchivo;
             const nombreSeguro = `${ci}_${Date.now()}.pdf`;
@@ -331,11 +336,14 @@ app.post('/api/proyectos', async (req, res) => {
             const check = await db.query('SELECT id, estado_evaluacion FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [ci]);
             if (check.rows.length > 0) {
                 const idProyecto = check.rows[0].id;
+                
+                // 🔥 APLICAMOS EL ESCUDO COALESCE EN LA BASE DE DATOS 🔥
+                // Si enlacePdfFinal viene vacío (null), PostgreSQL ignorará el null y conservará el enlace original que ya estaba guardado en 'enlace_pdf'.
                 if (check.rows[0].estado_evaluacion === 'Evaluado (No clasifica)') {
                     await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
-                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
                 } else {
-                    await db.query('UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=$5, fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6', [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
+                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
                 }
             } else {
                 await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal]);
@@ -551,19 +559,13 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
 app.get('/api/datos_informes', async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');
-        const proysLimpios = proyectos.rows.map(p => {
-            let infoLimpia = p.integrantes || "";
-            if(infoLimpia.includes('|||')) infoLimpia = infoLimpia.split('|||')[0].trim();
-            return { ...p, integrantes: infoLimpia };
-        });
-
         const expositores = await db.query('SELECT * FROM expositores');
         const tribunales = await db.query('SELECT * FROM tribunales');
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
 
-        res.json({ proyectos: proysLimpios, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
+        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
     } catch (error) { res.status(500).json({ error: "Error al empaquetar los datos" }); }
 });
 
