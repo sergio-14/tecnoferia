@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos con Lógica Inteligente de Expositores
+// FUNCIÓN: Generación de reportes dinámicos con Motor de Búsqueda Flexible
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -16,7 +16,6 @@ const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
     `;
 };
 
-// 🔥 FUNCIÓN SECRETA PARA OBTENER LOS NOMBRES LIMPIOS DESDE EL JSON 🔥
 const extraerNombresDeProyecto = (integrantesStringRaw) => {
     if (!integrantesStringRaw) return "No registrado";
     if (integrantesStringRaw.includes('|||')) {
@@ -28,7 +27,7 @@ const extraerNombresDeProyecto = (integrantesStringRaw) => {
             return `Líder: ${liderP}`;
         } catch(e) {}
     }
-    return integrantesStringRaw;
+    return integrantesStringRaw.replace('⭐ LÍDER:', 'Líder:').replace('| 👥 EQUIPO:', ', Equipo:');
 };
 
 function inicializarFiltroVisitantes() {
@@ -100,6 +99,56 @@ window.generarVistaPrevia = async function() {
         const res = await fetch('/api/datos_informes');
         const db = await res.json();
         const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones } = db;
+
+        // 🔥 MOTOR DE BÚSQUEDA FLEXIBLE (CI + TEXTO ANTIGUO) 🔥
+        const obtenerRolesDeProyectos = (ci, nombre) => {
+            const roles = [];
+            const ciStr = String(ci).trim();
+            const nomStr = (nombre || "").toLowerCase().trim();
+
+            for (const p of proyectos) {
+                if (p.estado_evaluacion === 'Evaluado (No clasifica)') continue; 
+                
+                // 1. ¿Es el líder principal?
+                if (String(p.ci_propietario).trim() === ciStr) {
+                    roles.push({ tipo: 'LIDER', proyecto: p });
+                    continue; 
+                }
+
+                // 2. ¿Es Co-expositor guardado modernamente con CI (JSON)?
+                let esCoExpositor = false;
+                if (p.integrantes && p.integrantes.includes('|||')) {
+                    try {
+                        const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
+                        if (arrInts.some(m => String(m.ci).trim() === ciStr)) {
+                            esCoExpositor = true;
+                        }
+                    } catch(e) {}
+                }
+
+                // 3. FALLBACK: ¿Es Co-expositor de la versión antigua (solo texto libre)?
+                if (!esCoExpositor && p.integrantes && nomStr.length > 4) {
+                    const rawText = p.integrantes.toLowerCase();
+                    if (rawText.includes(nomStr)) {
+                        esCoExpositor = true;
+                    } else {
+                        // Búsqueda cruzada (Ej. Si se llama "Juan Perez Gomez" buscamos "Juan Perez" o "Juan Gomez")
+                        const partesNombre = nomStr.split(/\s+/);
+                        if (partesNombre.length >= 2) {
+                            const combo1 = partesNombre[0] + " " + partesNombre[1]; 
+                            const combo2 = partesNombre[0] + " " + partesNombre[partesNombre.length - 1]; 
+                            if (combo1.length > 5 && rawText.includes(combo1)) esCoExpositor = true;
+                            if (combo2.length > 5 && rawText.includes(combo2)) esCoExpositor = true;
+                        }
+                    }
+                }
+
+                if (esCoExpositor) {
+                    roles.push({ tipo: 'CO-EXPOSITOR', proyecto: p });
+                }
+            }
+            return roles;
+        };
 
         // ==========================================
         // 1. CUADRO DE HONOR Y RANKING
@@ -384,30 +433,19 @@ window.generarVistaPrevia = async function() {
         // 5. REPORTES DE DOCUMENTOS RECIBIDOS
         // ==========================================
         else if (valor === "documentos") {
-            const ciConProy = new Set();
             const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
 
             proyectos.forEach(p => {
                 if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-                
-                ciConProy.add(p.ci_propietario); // Guardamos al Líder
-                
-                // Extraemos a los compañeros del JSON para excluirlos de los "Pendientes"
-                if (p.integrantes && p.integrantes.includes('|||')) {
-                    try {
-                        const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
-                        arrInts.forEach(miembro => {
-                            if(miembro.ci) ciConProy.add(miembro.ci);
-                        });
-                    } catch(e) {}
-                }
-
                 let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
                 grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
             });
 
             expositores.forEach(exp => {
-                if (!ciConProy.has(exp.ci)) grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
+                const roles = obtenerRolesDeProyectos(exp.ci, exp.nombre_completo);
+                if (roles.length === 0) {
+                    grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
+                }
             });
 
             Object.values(grupos).forEach(g => g.sort((a, b) => a.titulo.localeCompare(b.titulo)));
@@ -439,34 +477,43 @@ window.generarVistaPrevia = async function() {
 
             expositores.forEach(e => {
                 let cat = "4. Registrados sin Proyecto Subido (Pendientes)";
+                let etiquetasRoles = "";
                 
-                // Buscamos si es líder
-                let proy = proyectos.find(p => p.ci_propietario === e.ci && p.estado_evaluacion !== 'Evaluado (No clasifica)');
-                
-                // Si no es líder, buscamos si es compañero
-                if (!proy) {
-                    proy = proyectos.find(p => {
-                        if (p.estado_evaluacion === 'Evaluado (No clasifica)') return false;
-                        if (!p.integrantes || !p.integrantes.includes('|||')) return false;
-                        try {
-                            const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
-                            return arrInts.some(m => String(m.ci) === String(e.ci));
-                        } catch(err) { return false; }
-                    });
+                const roles = obtenerRolesDeProyectos(e.ci, e.nombre_completo);
+
+                if (roles.length > 0) {
+                    const proyPrincipal = roles.find(r => r.tipo === 'LIDER')?.proyecto || roles[0].proyecto;
+                    cat = proyPrincipal.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proyPrincipal.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
+                    
+                    etiquetasRoles = roles.map(r => {
+                        const iconColor = r.tipo === 'LIDER' ? '#0056b3' : '#008080';
+                        const textRole = r.tipo === 'LIDER' ? '🔵 <b>Líder de Proyecto</b>' : '🟢 <b>Co-Expositor</b>';
+                        return `<br><span style="color: ${iconColor}; font-size: 0.82rem;">${textRole} — <i>"${r.proyecto.titulo || "Sin título"}"</i></span>`;
+                    }).join('');
+                } else {
+                    etiquetasRoles = `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
                 }
 
-                if (proy) cat = proy.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proy.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
-                grupos[cat].push({ nombre: e.nombre_completo || "Sin Nombre", ci: e.ci || "N/A", institucion: e.institucion || "N/A", correo: (e.correo || "").toLowerCase(), celular: e.celular || "N/A" });
+                const nombreCapitalizado = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+
+                grupos[cat].push({ 
+                    nombre_html: nombreCapitalizado + etiquetasRoles, 
+                    ci: e.ci || "N/A", 
+                    institucion: e.institucion || "N/A", 
+                    correo: (e.correo || "").toLowerCase(), 
+                    celular: e.celular || "N/A",
+                    orden: e.nombre_completo 
+                });
             });
 
-            Object.values(grupos).forEach(g => g.sort((a, b) => a.nombre.localeCompare(b.nombre)));
+            Object.values(grupos).forEach(g => g.sort((a, b) => a.orden.localeCompare(b.orden)));
 
             const generarTablaE = (tCat, lista) => {
                 if(lista.length === 0) return ""; 
                 let html = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${tCat} (Total: ${lista.length})</h3>
                     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
                     <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;"><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 25%;">Nombre Completo</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 10%;">C.I.</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 25%;">Institución</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 20%;">Correo Electrónico</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th></tr></thead><tbody>`;
-                lista.forEach((e, i) => html += `<tr><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td><td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; text-transform: capitalize;">${e.nombre.toLowerCase()}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.ci}</td><td style="padding: 8px; border: 1px solid #ccc;">${e.institucion}</td><td style="padding: 8px; border: 1px solid #ccc; color: #0056b3;">${e.correo}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.celular}</td></tr>`);
+                lista.forEach((e, i) => html += `<tr><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td><td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${e.nombre_html}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.ci}</td><td style="padding: 8px; border: 1px solid #ccc;">${e.institucion}</td><td style="padding: 8px; border: 1px solid #ccc; color: #0056b3;">${e.correo}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.celular}</td></tr>`);
                 return html + `</tbody></table>`;
             };
 
@@ -486,31 +533,20 @@ window.generarVistaPrevia = async function() {
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
             const ciQueVotaron = new Set(votos.filter(v => v.ci_visitante).map(v => String(v.ci_visitante).trim()));
 
-            // Función para ver si alguien está en el JSON interno de algún proyecto
-            const buscarEnProyectosJSON = (ci) => {
-                for (const p of proyectos) {
-                    if (p.ci_propietario === ci) return { lider: true, p };
-                    if (p.integrantes && p.integrantes.includes('|||')) {
-                        try {
-                            const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
-                            if (arrInts.some(m => String(m.ci) === String(ci))) return { lider: false, p };
-                        } catch(e) {}
-                    }
-                }
-                return null;
-            };
-
             const lVis = [];
             
             visitantes.forEach(v => {
                 const i = (v.institucion || "N/A").trim();
                 const cel = v.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
-                    let n = v.nombre_completo || "Sin Nombre";
-                    const pF = buscarEnProyectosJSON(String(v.ci).trim());
-                    if (pF) {
-                        if (pF.lider) n += `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${pF.p.titulo}"</i></span>`;
-                        else n += `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.p.titulo}"</i></span>`;
+                    let n = (v.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                    const roles = obtenerRolesDeProyectos(v.ci, v.nombre_completo);
+                    
+                    if (roles.length > 0) {
+                        n += roles.map(r => {
+                            if (r.tipo === 'LIDER') return `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${r.proyecto.titulo}"</i></span>`;
+                            return `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${r.proyecto.titulo}"</i></span>`;
+                        }).join('');
                     }
                     lVis.push({ n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
                 }
@@ -521,18 +557,21 @@ window.generarVistaPrevia = async function() {
                 const cel = e.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     const c = String(e.ci).trim();
-                    let nb = e.nombre_completo || "Sin Nombre";
-                    const pF = buscarEnProyectosJSON(c);
+                    let n = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                    const roles = obtenerRolesDeProyectos(e.ci, e.nombre_completo);
                     
-                    let et = `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
-                    if (pF) {
-                        if (pF.lider) et = `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${pF.p.titulo}"</i></span>`;
-                        else et = `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${pF.p.titulo}"</i></span>`;
+                    if (roles.length > 0) {
+                        n += roles.map(r => {
+                            if (r.tipo === 'LIDER') return `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${r.proyecto.titulo}"</i></span>`;
+                            return `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${r.proyecto.titulo}"</i></span>`;
+                        }).join('');
+                    } else {
+                        n += `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
                     }
 
                     const idx = lVis.findIndex(v => v.ci === c);
-                    if (idx === -1) lVis.push({ n: nb + et, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                    else { lVis[idx].n = nb + et; lVis[idx].cel = cel; } 
+                    if (idx === -1) lVis.push({ n, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
+                    else { lVis[idx].n = n; lVis[idx].cel = cel; } 
                 }
             });
 
@@ -553,7 +592,7 @@ window.generarVistaPrevia = async function() {
             if (lVis.length === 0) htmlTabla += `<tr><td colspan="6" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay personas registradas en esta institución.</td></tr>`;
             else lVis.forEach((v, i) => htmlTabla += `<tr>
                 <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
-                <td style="padding: 8px; border: 1px solid #ccc; text-transform: capitalize;">${v.n}</td>
+                <td style="padding: 8px; border: 1px solid #ccc;">${v.n}</td>
                 <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.ci}</td>
                 <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.cel}</td>
                 <td style="padding: 8px; border: 1px solid #ccc;">${v.i}</td>
@@ -573,7 +612,7 @@ window.generarVistaPrevia = async function() {
         // ==========================================
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
-                n: t.nombre_completo || "Sin Nombre", 
+                n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
                 e: t.especialidad || "No especificada", 
                 c: t.correo || "No registrado",
                 cel: t.celular || "Sin número"
@@ -583,7 +622,7 @@ window.generarVistaPrevia = async function() {
             if (lTrib.length === 0) htmlF = `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
             else lTrib.forEach((t, i) => htmlF += `<tr>
                 <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
-                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold; text-transform: capitalize;">${t.n.toLowerCase()}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${t.n}</td>
                 <td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td>
                 <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.cel}</td>
                 <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
