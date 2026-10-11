@@ -4,9 +4,8 @@
 // =========================================================================
 
 window.contadorIntegrantesProyecto = 0;
-window.opcionesInstitucionesCache = null; // Memoria caché para que cargue súper rápido
+window.opcionesInstitucionesCache = null; 
 
-// 🔥 NUEVO: OBTENER INSTITUCIONES DIRECTO DE LA BASE DE DATOS 🔥
 window.cargarOpcionesInstituciones = async function() {
     if (window.opcionesInstitucionesCache) return window.opcionesInstitucionesCache;
     try {
@@ -31,7 +30,6 @@ window.cargarOpcionesInstituciones = async function() {
     }
 };
 
-// 🔥 1. FUNCIÓN PARA CREAR LAS TARJETAS (ASÍNCRONA PARA CARGAR COLEGIOS) 🔥
 window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', celular = '', correo = '', institucion = '', guardado = false) {
     if (window.contadorIntegrantesProyecto >= 8) {
         alert("El límite máximo por proyecto es de 9 personas (Tú como líder + 8 Compañeros).");
@@ -52,11 +50,10 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
     div.style.cssText = "background: rgba(0,0,0,0.25); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; position: relative; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);";
     
     div.innerHTML = `
-        <!-- MODO EDICIÓN -->
         <div class="edit-mode" style="display: ${guardado ? 'none' : 'block'};">
             <div style="margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; position: relative;">
                 <h5 style="margin: 0; color: #4db8ff; font-size: 1.1rem; padding-right: 40px;"><i class="fas fa-user-edit"></i> Compañero #${window.contadorIntegrantesProyecto}</h5>
-                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; right: 0; top: -5px; background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 4px 10px;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i> Quitar</button>
+                <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="position: absolute; right: 0; top: -5px; background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); font-size: 0.9rem; cursor: pointer; transition: 0.2s; border-radius: 6px; padding: 4px 10px;" title="Eliminar"><i class="fas fa-trash"></i> Quitar</button>
             </div>
             
             <div class="input-group" style="margin-bottom: 15px;">
@@ -91,7 +88,6 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
             <button type="button" onclick="window.guardarIntegranteProyecto('${idUnico}')" style="width: 100%; background: #28a745; color: white; border: none; border-radius: 6px; padding: 14px; cursor: pointer; font-weight: bold; font-size: 1.05rem; box-shadow: 0 4px 10px rgba(40,167,69,0.3); transition: 0.2s;"><i class="fas fa-check-circle"></i> Confirmar y Guardar Compañero</button>
         </div>
 
-        <!-- MODO VISTA (Tarjeta Resumen) -->
         <div class="view-mode" style="display: ${guardado ? 'block' : 'none'};">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 15px;">
@@ -107,8 +103,8 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'" title="Editar"><i class="fas fa-pencil-alt"></i></button>
-                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(220,53,69,0.3)'" onmouseout="this.style.background='rgba(220,53,69,0.15)'" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         </div>
@@ -120,15 +116,9 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
         setTimeout(() => { const sel = div.querySelector('.int-institucion'); if (sel) sel.value = institucion; }, 50);
     }
     
-    div.querySelectorAll('input, select').forEach(inp => {
-        inp.addEventListener('focus', () => { inp.style.borderColor = '#4db8ff'; inp.style.boxShadow = '0 0 8px rgba(77,184,255,0.3)'; });
-        inp.addEventListener('blur', () => { inp.style.borderColor = 'rgba(255,255,255,0.3)'; inp.style.boxShadow = 'none'; });
-    });
-
     return idUnico;
 };
 
-// 🔥 MANTENIMIENTO DE DATOS EN LA TARJETA VISUAL 🔥
 window.guardarIntegranteProyecto = function(idUnico) {
     const div = document.getElementById(idUnico);
     const nom = div.querySelector('.int-nombre').value.trim();
@@ -146,7 +136,6 @@ window.guardarIntegranteProyecto = function(idUnico) {
     div.querySelector('.view-ci').innerText = ci;
     div.querySelector('.view-inst').innerText = inst;
 
-    // Guardamos los datos ocultos para que el sistema los agarre al dar "Subir Proyecto"
     div.dataset.nombre = nom;
     div.dataset.ci = ci;
     div.dataset.celular = cel;
@@ -426,7 +415,11 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        // 🔥 CORRECCIÓN: Renderizar las tarjetas y rellenar sus Data-Attributes ocultos
+                        // Limpiamos tarjetas antiguas para que no se dupliquen al entrar y salir de editar
+                        const contInt = document.getElementById('contenedor-integrantes-proyecto');
+                        if (contInt) contInt.innerHTML = '';
+                        window.contadorIntegrantesProyecto = 0;
+
                         if (jsonIntegrantes && jsonIntegrantes.length > 0) {
                             for (const exp of jsonIntegrantes) {
                                 const divId = await window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
@@ -448,11 +441,34 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyEje').disabled = true;
                             window.habilitarCasillasIntegrantes(false);
                         } else {
+                            document.getElementById('proyTitulo').disabled = false;
+                            document.getElementById('proyEje').disabled = false;
                             window.habilitarCasillasIntegrantes(true);
                         }
 
-                        if(btnSubir) btnSubir.innerHTML = estadoActual === "Evaluado (No clasifica)" ? 'Re-enviar a Evaluación' : 'Actualizar Proyecto';
+                        // 🔥 FIX BLOQUEO: ASEGURAMOS QUE EL BOTÓN ESTÉ HABILITADO AL ENTRAR A EDITAR 🔥
+                        if(btnSubir) {
+                            btnSubir.innerHTML = estadoActual === "Evaluado (No clasifica)" ? 'Re-enviar a Evaluación' : 'Actualizar Proyecto';
+                            btnSubir.disabled = false; 
+                            btnSubir.style.cursor = 'pointer';
+                            btnSubir.style.opacity = '1';
+                        }
                         if(archivoInput) archivoInput.removeAttribute('required');
+
+                        // 🔥 BOTÓN CANCELAR: SOLUCIÓN UX 🔥
+                        let btnCancel = document.getElementById('btnCancelarEdicion');
+                        if (!btnCancel) {
+                            btnCancel = document.createElement('button');
+                            btnCancel.id = 'btnCancelarEdicion';
+                            btnCancel.type = 'button';
+                            btnCancel.innerHTML = '<i class="fas fa-times-circle"></i> Cancelar y Volver';
+                            btnCancel.style.cssText = 'width: 100%; margin-top: 10px; padding: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s;';
+                            btnCancel.onmouseover = () => { btnCancel.style.background = 'rgba(255,255,255,0.2)'; };
+                            btnCancel.onmouseout = () => { btnCancel.style.background = 'rgba(255,255,255,0.1)'; };
+                            btnCancel.onclick = () => window.cargarDatosProyecto(); // Te devuelve a la pantalla verde
+                            
+                            btnSubir.parentNode.insertBefore(btnCancel, btnSubir.nextSibling);
+                        }
                     });
                 }
 
@@ -469,6 +485,10 @@ window.cargarDatosProyecto = async function() {
                             document.getElementById('proyEje').value = "";
                             document.getElementById('proyEje').disabled = false;
 
+                            const contInt = document.getElementById('contenedor-integrantes-proyecto');
+                            if (contInt) contInt.innerHTML = '';
+                            window.contadorIntegrantesProyecto = 0;
+
                             if (jsonIntegrantes && jsonIntegrantes.length > 0) {
                                 for (const exp of jsonIntegrantes) {
                                     await window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
@@ -477,8 +497,14 @@ window.cargarDatosProyecto = async function() {
 
                             window.habilitarCasillasIntegrantes(true);
 
-                            if(btnSubir) btnSubir.innerHTML = 'Enviar Nuevo Proyecto';
+                            if(btnSubir) {
+                                btnSubir.innerHTML = 'Enviar Nuevo Proyecto';
+                                btnSubir.disabled = false;
+                            }
                             if(archivoInput) archivoInput.setAttribute('required', 'true');
+
+                            let btnCancel = document.getElementById('btnCancelarEdicion');
+                            if (btnCancel) btnCancel.remove(); // No cancelar en nuevo proyecto
                         }
                     });
                 }
@@ -521,7 +547,6 @@ window.cargarDatosProyecto = async function() {
     } catch (error) { console.error("Error al cargar datos:", error); }
 };
 
-// 🔥 MEJORA DE EFICACIA Y VELOCIDAD DE RESPUESTA AL GUARDAR 🔥
 window.subirProyectoFeria = async function(e) {
     e.preventDefault();
     if (await window.verificarFechaLimite()) {
@@ -547,7 +572,6 @@ window.subirProyectoFeria = async function(e) {
 
     const btn = document.getElementById('btnSubirProyecto');
     const textoOriginal = btn.innerHTML;
-    // Retroalimentación instantánea para el usuario
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo al Servidor (Por favor, no cierre esta ventana)...';
     btn.disabled = true;
 
@@ -571,7 +595,6 @@ window.subirProyectoFeria = async function(e) {
             let cor = box.querySelector('.int-correo').value.trim() || correoLider;
             let inst = box.querySelector('.int-institucion').value;
             
-            // Si el input está vacío porque nunca lo abrieron, recuperamos la info de la BD
             if (!nom && box.dataset.nombre) {
                 nom = box.dataset.nombre;
                 ced = box.dataset.ci;
@@ -601,8 +624,6 @@ window.subirProyectoFeria = async function(e) {
         if (window.esNuevoIntentoProyecto) {
             formData.append('nuevoIntento', 'true');
         } else if (proyectoExistente && proyectoExistente.data.enlacePDF && archivoInput.files.length === 0) {
-            // 🔥 REGLA DE ORO DE SEGURIDAD DEL PDF 🔥
-            // Si el usuario no selecciona un archivo nuevo, le reenviamos al servidor el PDF viejo para que NUNCA lo borre.
             formData.append('enlacePdfExistente', window.enlacePdfExistente || proyectoExistente.data.enlacePDF);
         }
 
@@ -616,7 +637,6 @@ window.subirProyectoFeria = async function(e) {
         const res = await fetch('/api/proyectos', { method: 'POST', body: formData });
         if (!res.ok) throw new Error("Error guardando en el servidor.");
 
-        // Éxito visual rápido
         btn.innerHTML = '<i class="fas fa-check-circle"></i> ¡Guardado Exitoso!';
         btn.style.backgroundColor = '#28a745';
         
@@ -624,6 +644,7 @@ window.subirProyectoFeria = async function(e) {
             window.esNuevoIntentoProyecto = false; 
             await window.cargarDatosProyecto();
             btn.style.backgroundColor = ''; 
+            btn.disabled = false; // Aseguramos reset visual
         }, 1000);
 
     } catch (error) {
