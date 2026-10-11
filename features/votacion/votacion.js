@@ -1,13 +1,13 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Lógica de Votación por Estrellas y Escudo Anti-Incógnito
+// FUNCIÓN: Lógica de Votación por Estrellas (Estricto por C.I. Registrado)
 // =========================================================================
 
-// 🔥 CAPTURA NINJA EN EL TECLADO 🔥
+// 🔥 CAPTURA NINJA EN EL TECLADO (Por si es un expositor) 🔥
 document.addEventListener('input', function(e) {
     if (e.target && (e.target.id === 'userInput' || e.target.id === 'regCI' || e.target.id === 'voto-ci')) {
         const val = e.target.value.trim();
-        if (val.length >= 5 && !val.startsWith('DEV-')) {
+        if (val.length >= 5) {
             localStorage.setItem('feria_ninja_ci', val);
             document.cookie = "feria_ninja_ci=" + val + "; max-age=31536000; path=/";
         }
@@ -19,12 +19,6 @@ window.obtenerCiNinja = function() {
     if (!ciNinja) {
         let match = document.cookie.match(new RegExp('(^| )feria_ninja_ci=([^;]+)'));
         if (match) ciNinja = match[2];
-    }
-    // Destruimos el ninja si se guardó un DEV- por accidente, solo queremos CIs reales
-    if (ciNinja && ciNinja.startsWith('DEV-')) {
-        localStorage.removeItem('feria_ninja_ci');
-        document.cookie = "feria_ninja_ci=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-        return null;
     }
     return ciNinja ? String(ciNinja).replace(/['"]+/g, '').trim() : null;
 };
@@ -77,96 +71,7 @@ window.ingresarComoPublico = async function() {
     }
 };
 
-window.cargarInstitucionesParaVoto = async function() {
-    try {
-        const res = await fetch('/api/instituciones');
-        const instituciones = await res.json();
-        const selVoto = document.getElementById('voto-institucion');
-
-        if (!selVoto) return;
-
-        const grupos = {};
-        instituciones.forEach(inst => {
-            if (!grupos[inst.tipo]) grupos[inst.tipo] = [];
-            grupos[inst.tipo].push(inst);
-        });
-
-        let htmlOpciones = '<option value="" disabled selected>Seleccione su colegio...</option>';
-        for (const [tipo, lista] of Object.entries(grupos)) {
-            htmlOpciones += `<optgroup label="${tipo}" style="background: #fff; color: #000;">`;
-            lista.forEach(inst => { htmlOpciones += `<option value="${inst.nombre}" style="background: #fff; color: #000;">${inst.nombre}</option>`; });
-            htmlOpciones += `</optgroup>`;
-        }
-        htmlOpciones += `<optgroup label="Otros" style="background: #fff; color: #000;"><option value="Visitante Particular / Otro" style="background: #fff; color: #000;">Visitante Particular / Otro</option></optgroup>`;
-        selVoto.innerHTML = htmlOpciones;
-    } catch (e) { console.error("Error al cargar colegios", e); }
-};
-
-// 🔥 NUEVO ESCUDO: HUELLA DIGITAL DE HARDWARE ANTI-INCÓGNITO 🔥
-window.generarIdFuerte = function() {
-    let id = localStorage.getItem('feria_device_id');
-    if (!id) {
-        let match = document.cookie.match(new RegExp('(^| )feria_device_id=([^;]+)'));
-        if (match) id = match[2];
-    }
-    if (id) {
-        localStorage.setItem('feria_device_id', id);
-        document.cookie = "feria_device_id=" + id + "; max-age=31536000; path=/";
-        return id;
-    }
-
-    // Leemos los componentes físicos e inmutables del dispositivo
-    const nav = window.navigator;
-    const screen = window.screen;
-    const hardwareData = [
-        nav.userAgent,
-        nav.language,
-        screen.height,
-        screen.width,
-        screen.colorDepth,
-        nav.hardwareConcurrency || '1',
-        new Date().getTimezoneOffset()
-    ].join('|');
-
-    // Algoritmo Hash para convertir el hardware en un código corto
-    let hash = 0;
-    for (let i = 0; i < hardwareData.length; i++) {
-        let char = hardwareData.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; 
-    }
-    
-    // Generamos el C.I. Virtual basado exclusivamente en su hardware
-    const finalId = 'DEV-' + Math.abs(hash).toString(16).toUpperCase();
-    
-    localStorage.setItem('feria_device_id', finalId);
-    document.cookie = "feria_device_id=" + finalId + "; max-age=31536000; path=/";
-    return finalId;
-};
-
-window.activarModoExpositor = function(e) {
-    if(e) e.preventDefault();
-    
-    document.getElementById('toggle-expositor-container').style.display = 'none';
-    const cajaInst = document.getElementById('caja-institucion-visitante');
-    if(cajaInst) cajaInst.style.display = 'none';
-    
-    const cajaCi = document.getElementById('caja-ci-oculta');
-    cajaCi.style.display = 'block';
-    
-    const inputCi = document.getElementById('voto-ci');
-    inputCi.value = ''; 
-    inputCi.readOnly = false;
-    inputCi.focus();
-    
-    document.getElementById('mensaje-validacion-ci').innerHTML = '<span style="color: #ffc107; font-size: 0.9rem;"><i class="fas fa-info-circle"></i> Escriba su C.I. para verificar su identidad...</span>';
-    
-    const btn = document.getElementById('btnEnviarVoto');
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    btn.style.cursor = "not-allowed";
-};
-
+// 🔥 CARGA DE PROYECTO Y CAJA DE C.I. 🔥
 window.cargarProyectoParaVotar = async function() {
     const params = new URLSearchParams(window.location.search);
     const idProy = params.get('idProy');
@@ -188,23 +93,23 @@ window.cargarProyectoParaVotar = async function() {
 
         const inputCi = document.getElementById('voto-ci');
         let savedNinja = window.obtenerCiNinja();
-        let deviceId = window.generarIdFuerte(); 
         
-        // Si tiene ninja y NO es anónimo (DEV-), es un usuario logueado en la plataforma
-        let isKnownUser = savedNinja && !savedNinja.startsWith('DEV-');
+        // 1. Mostrar obligatoriamente la caja de identidad
+        document.getElementById('caja-ci-oculta').style.display = 'block';
+        
+        // Explicación amigable en el label
+        const lblCi = document.querySelector('#caja-ci-oculta label');
+        if(lblCi) lblCi.innerHTML = "Tu Carnet de Identidad (CI)";
+        if(inputCi) inputCi.placeholder = "Ej. 1234567";
 
-        if (inputCi) {
-            if (isKnownUser) {
-                document.getElementById('caja-ci-oculta').style.display = 'none';
-                document.getElementById('caja-institucion-visitante').style.display = 'none';
-                inputCi.value = savedNinja; 
-            } else {
-                document.getElementById('caja-ci-oculta').style.display = 'none';
-                document.getElementById('caja-institucion-visitante').style.display = 'block';
-                window.cargarInstitucionesParaVoto();
-                inputCi.value = deviceId;
-            }
-        }
+        // Asegurarnos de que el cajón de institución esté oculto
+        const cajaInst = document.getElementById('caja-institucion-visitante');
+        if (cajaInst) cajaInst.style.display = 'none';
+
+        // 2. Si el sistema ya conoce al usuario, pre-llenar
+        if (savedNinja && inputCi) {
+            inputCi.value = savedNinja; 
+        } 
 
         try {
             const res = await fetch(`/api/proyectos_qr/${idProy}`);
@@ -213,34 +118,35 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                try {
-                    const idParaVerificar = isKnownUser ? savedNinja : deviceId;
-                    const resVerif = await fetch(`/api/verificar_voto_duplicado/${idParaVerificar}/${idProy}`);
-                    const dataVerif = await resVerif.json();
-                    
-                    if (dataVerif.yaVoto) {
-                        formEl.style.display = 'none'; 
-                        if(document.getElementById('toggle-expositor-container')) document.getElementById('toggle-expositor-container').style.display = 'none';
-                        tituloEl.style.border = 'none';
-                        tituloEl.style.background = 'transparent';
-                        tituloEl.innerHTML = `
-                            <div style="text-align: center; padding: 20px 10px;">
-                                <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
-                                <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Voto Registrado!</h3>
-                                <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
-                                    Tu dispositivo ya emitió un voto válido para la innovación:<br>
-                                    <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
-                                </p>
-                                <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
-                                    <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
-                                </button>
-                            </div>
-                        `;
-                        return; 
-                    }
-                } catch(e) {}
+                // Si ya sabemos quién es (tiene cookie ninja)
+                if (savedNinja) {
+                    try {
+                        const resVerif = await fetch(`/api/verificar_voto_duplicado/${savedNinja}/${idProy}`);
+                        const dataVerif = await resVerif.json();
+                        
+                        if (dataVerif.yaVoto) {
+                            formEl.style.display = 'none'; 
+                            tituloEl.style.border = 'none';
+                            tituloEl.style.background = 'transparent';
+                            tituloEl.innerHTML = `
+                                <div style="text-align: center; padding: 20px 10px;">
+                                    <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
+                                    <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Voto Registrado!</h3>
+                                    <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
+                                        Ya emitiste un voto válido para la innovación:<br>
+                                        <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
+                                    </p>
+                                    <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px 20px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: 0.3s; font-weight: bold; width: 100%; margin-bottom: 15px;">
+                                        <i class="fas fa-qrcode"></i> Escanear Otro Proyecto
+                                    </button>
+                                </div>
+                            `;
+                            return; 
+                        }
+                    } catch(e) {}
+                }
 
-                // VALIDACIÓN SILENCIOSA DE FRAUDE
+                // VALIDACIÓN DE FRAUDE: ¿Es su propio proyecto?
                 const integrsRaw = proyecto.integrantes || "";
                 let esAutor = false;
                 
@@ -251,14 +157,10 @@ window.cargarProyectoParaVotar = async function() {
                     return false;
                 };
 
-                // Comprobamos la identidad anónima Y la oculta real
-                if (checkCI(deviceId) || checkCI(savedNinja)) esAutor = true;
+                if (checkCI(savedNinja)) esAutor = true;
 
                 if (esAutor) {
                     formEl.style.display = 'none'; 
-                    if(document.getElementById('toggle-expositor-container')) {
-                        document.getElementById('toggle-expositor-container').style.display = 'none';
-                    }
                     tituloEl.style.border = 'none';
                     tituloEl.style.background = 'transparent';
                     tituloEl.innerHTML = `
@@ -266,7 +168,7 @@ window.cargarProyectoParaVotar = async function() {
                             <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
                             <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px; border:none; padding:0;">¡Acción Bloqueada!</h3>
                             <p style="color: #e2e8f0; font-size: 1rem; font-weight: normal; line-height: 1.5; margin-bottom: 20px;">
-                                Este dispositivo pertenece al equipo responsable del proyecto:<br>
+                                Usted pertenece al equipo responsable de este proyecto:<br>
                                 <b style="color: #4db8ff; font-size: 1.15rem; display: inline-block; margin-top: 10px;">"${proyecto.titulo}"</b>
                             </p>
                             <p style="color: #ffc107; font-size: 0.95rem; font-weight: bold; margin-bottom: 30px;">
@@ -280,22 +182,11 @@ window.cargarProyectoParaVotar = async function() {
                     return; 
                 }
 
-                if (!isKnownUser && !document.getElementById('toggle-expositor-container')) {
-                    const toggleHtml = `
-                        <div id="toggle-expositor-container" style="text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <a href="#" onclick="window.activarModoExpositor(event)" style="color: #ffc107; font-size: 0.95rem; text-decoration: underline; font-weight: bold; padding: 10px; display: inline-block;">
-                                <i class="fas fa-id-badge"></i> ¿Eres Expositor? Vota con tu C.I. aquí
-                            </a>
-                        </div>
-                    `;
-                    tituloEl.parentElement.insertAdjacentHTML('afterend', toggleHtml);
-                }
-
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
                 document.getElementById('voto-cat').value = proyecto.categoria;
 
-                setTimeout(() => { window.simularVerificacionCI(); }, 300);
+                if (savedNinja) setTimeout(() => { window.simularVerificacionCI(); }, 300);
 
             } else {
                 document.getElementById('votar-titulo').innerText = "Proyecto no encontrado en la Base de Datos.";
@@ -328,46 +219,15 @@ window.marcarEstrellas = function(cantidad) {
     window.simularVerificacionCI(); 
 };
 
+// 🔥 VERIFICACIÓN ESTRICTA EN BD 🔥
 window.simularVerificacionCI = async function() {
     const ciInput = document.getElementById('voto-ci').value.trim();
     const idProy = document.getElementById('voto-idProy').value;
     const msj = document.getElementById('mensaje-validacion-ci');
     const btn = document.getElementById('btnEnviarVoto');
 
-    const cajaInst = document.getElementById('caja-institucion-visitante');
-    const selInst = document.getElementById('voto-institucion');
-    
-    let instSeleccionada = true;
-    if (cajaInst && cajaInst.style.display !== 'none' && (!selInst || selInst.value === "")) {
-        instSeleccionada = false;
-    }
-
     if (!ciInput) {
         btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-        return;
-    }
-
-    msj.innerHTML = '<span style="color: #666;"><i class="fas fa-spinner fa-spin"></i> Verificando conexión...</span>';
-
-    if (ciInput.startsWith('DEV-')) {
-        try {
-            const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
-            const dataVerif = await resVerif.json();
-            
-            if (dataVerif.yaVoto) {
-                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Bloqueado: Este celular ya votó por este proyecto.</span>`;
-                btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-                return;
-            }
-        } catch(e) {}
-
-        msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-mobile-alt"></i> Dispositivo Habilitado</span>`;
-        
-        if (window.calificacionActual > 0 && instSeleccionada) {
-            btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-        } else {
-            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-        }
         return;
     }
 
@@ -377,16 +237,32 @@ window.simularVerificacionCI = async function() {
         return;
     }
 
-    localStorage.setItem('feria_ninja_ci', ciInput);
-    document.cookie = "feria_ninja_ci=" + ciInput + "; max-age=31536000; path=/";
-
-    msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando en Base de Datos...</span>';
+    msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Verificando habilitación...</span>';
 
     try {
         const res = await fetch(`/api/usuarios/${ciInput}`);
         if (res.ok) {
             const data = await res.json();
             if (data && data.datos) {
+                // Doble chequeo antifraude (Expositor)
+                try {
+                    const resProy = await fetch(`/api/proyectos_qr/${idProy}`);
+                    if (resProy.ok) {
+                        const proyecto = await resProy.json();
+                        const integrsRaw = proyecto.integrantes || "";
+                        let esAutor = false;
+                        if (String(proyecto.ci_propietario).trim() === ciInput) esAutor = true;
+                        if (integrsRaw.includes(`"ci":"${ciInput}"`) || integrsRaw.includes(`CI: ${ciInput}`)) esAutor = true;
+                        
+                        if (esAutor) {
+                            msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Fraude detectado: Perteneces a este proyecto.</span>`;
+                            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+                            return;
+                        }
+                    }
+                } catch(e) {}
+
+                // Chequeo de voto duplicado
                 try {
                     const resVerif = await fetch(`/api/verificar_voto_duplicado/${ciInput}/${idProy}`);
                     const dataVerif = await resVerif.json();
@@ -397,7 +273,10 @@ window.simularVerificacionCI = async function() {
                     }
                 } catch(e) {}
 
-                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-user-check"></i> Hola ${data.datos.nombre_completo} (${data.rol})</span>`;
+                localStorage.setItem('feria_ninja_ci', ciInput);
+                document.cookie = "feria_ninja_ci=" + ciInput + "; max-age=31536000; path=/";
+
+                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-user-check"></i> Habilitado: ${data.datos.nombre_completo} (${data.rol})</span>`;
 
                 if (window.calificacionActual > 0) {
                     btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
@@ -406,7 +285,8 @@ window.simularVerificacionCI = async function() {
                 }
             }
         } else {
-            msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-times-circle"></i> C.I. no encontrado. Acérquese a ventanilla para habilitarse.</span>`;
+            // SI NO ESTÁ REGISTRADO, BLOQUEO TOTAL
+            msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-times-circle"></i> C.I. no encontrado. Acérquese a ventanilla para registrarse.</span>`;
             btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
         }
     } catch(e) {
@@ -439,20 +319,11 @@ window.enviarCalificacion = async function(e) {
     const btn = document.getElementById('btnEnviarVoto');
     
     const idProy = document.getElementById('voto-idProy').value;
-    const ci = document.getElementById('voto-ci').value.trim();
+    const ciInput = document.getElementById('voto-ci').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
-    const ciNinja = window.obtenerCiNinja(); 
-    
-    const cajaInst = document.getElementById('caja-institucion-visitante');
-    const selInst = document.getElementById('voto-institucion');
-    let institucionVisitante = "Visitante Anónimo (Dispositivo)";
-    
-    if (cajaInst && cajaInst.style.display !== 'none' && selInst && selInst.value) {
-        institucionVisitante = selInst.value;
-    }
 
-    if (!idProy || !nota || !ci) {
-        alert("⚠️ Completa todos los campos y dale tu calificación con las estrellas.");
+    if (!idProy || !nota || !ciInput) {
+        alert("⚠️ Escriba su C.I. y dale tu calificación con las estrellas.");
         return;
     }
 
@@ -508,12 +379,11 @@ window.enviarCalificacion = async function(e) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 idProyecto: idProy,
-                ci: ci,
-                ciNinja: ciNinja || null,
+                ci: ciInput,
+                ciNinja: ciInput, // Enviamos el CI ingresado para chequeo final en BD
                 nota: nota,
                 lat: userLat,
-                lon: userLon,
-                institucionVisitante: institucionVisitante
+                lon: userLon
             })
         });
         
