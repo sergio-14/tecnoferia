@@ -106,10 +106,12 @@ window.darAccesoAlSistema = function(rol, nombreMostrar, ciUsuario, tokenUsuario
     window.iniciarMonitoreoSesion();
 }
 
+// 🔥 CORRECCIÓN CRÍTICA: LIMPIEZA DE URL AL CERRAR SESIÓN 🔥
 window.logout = function() { 
     localStorage.clear();
     if (window.intervaloMonitoreo) clearInterval(window.intervaloMonitoreo);
-    window.location.reload();
+    // Redirigir a la ruta principal, eliminando cualquier rastro de "?idProy="
+    window.location.href = window.location.pathname; 
 }
 
 // =========================================================================
