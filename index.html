@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V102">
     <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V102">
     <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V102">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V103">
     <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V102">
     <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V102">
 
@@ -803,53 +803,59 @@
                         </div>
 
                         <div id="tab-fechas" class="tab-content section-animate" style="display: none;">
-                            <div class="form-card">
-                                <h3 style="color: var(--azul-uab); margin-bottom: 20px;"><i class="fas fa-cogs"></i> Configuración Global del Sistema</h3>
-                                <p style="color: #666; margin-bottom: 25px; font-size: 0.9rem;">Modifique los plazos y parámetros de seguridad. Los cambios afectarán inmediatamente al sistema.</p>
+                            <div class="form-card" style="background: rgba(25, 40, 60, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); padding: 35px;">
+                                <h3 style="color: #4db8ff; margin-bottom: 10px; border-bottom: none;"><i class="fas fa-cogs"></i> Configuración Global del Sistema</h3>
+                                <p style="color: #cbd5e1; margin-bottom: 30px; font-size: 0.95rem;">Modifique los plazos y parámetros de seguridad. Los cambios afectarán inmediatamente al sistema.</p>
                                 
-                                <h4 style="color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 2px solid #ccc; padding-bottom: 5px;"><i class="fas fa-calendar-alt"></i> Límites de Tiempo</h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                                    <div class="form-group">
-                                        <label>Cierre de Registro de Expositores:</label>
-                                        <input type="datetime-local" id="confFechaRegistro" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
+                                <h4 style="color: #ffffff; margin-top: 10px; margin-bottom: 20px; border-bottom: 2px solid rgba(255,255,255,0.2); padding-bottom: 8px;"><i class="fas fa-calendar-alt"></i> Límites de Tiempo</h4>
+                                
+                                <!-- Bloque 1: Registro y Subida -->
+                                <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px;">
+                                    <div class="form-group" style="flex: 1; min-width: 250px;">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Cierre de Registro de Expositores:</label>
+                                        <input type="datetime-local" id="confFechaRegistro" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: inherit;">
                                     </div>
-                                    <div class="form-group">
-                                        <label>Cierre de Subida de Proyectos:</label>
-                                        <input type="datetime-local" id="confFechaSubida" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
-                                    </div>
-                                </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                                    <div class="form-group">
-                                        <label style="color: var(--azul-uab); font-weight: bold;">Apertura de Evaluación (Tribunal):</label>
-                                        <input type="datetime-local" id="confFechaAperturaTribunal" required style="padding: 10px; border-radius: 5px; width: 100%; border: 2px solid var(--azul-uab); font-family: inherit;">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Apertura Oficial de Resultados:</label>
-                                        <input type="datetime-local" id="confFechaResultados" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
-                                    </div>
-                                    <div class="form-group">
-                                        <label style="color: var(--rojo-uab); font-weight: bold;">Cierre de Votación del Público:</label>
-                                        <input type="datetime-local" id="confFechaCierreVotacion" required style="padding: 10px; border-radius: 5px; width: 100%; border: 2px solid var(--rojo-uab); font-family: inherit;">
+                                    <div class="form-group" style="flex: 1; min-width: 250px;">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Cierre de Subida de Proyectos:</label>
+                                        <input type="datetime-local" id="confFechaSubida" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: inherit;">
                                     </div>
                                 </div>
-
-                                <h4 style="color: #333; margin-top: 20px; margin-bottom: 15px; border-bottom: 2px solid #ccc; padding-bottom: 5px;"><i class="fas fa-map-marker-alt"></i> Seguridad Anti-Fraude (GPS Público)</h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 30px;">
+                        
+                                <!-- Bloque 2: Evaluaciones (3 columnas en PC, 1 en celular) -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 35px;">
                                     <div class="form-group">
-                                        <label>Latitud de la Feria:</label>
-                                        <input type="text" id="confGpsLat" placeholder="Ej. -14.833917" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                        <label style="color: #4db8ff; font-weight: bold; font-size: 0.95rem;">Apertura de Evaluación (Tribunal):</label>
+                                        <input type="datetime-local" id="confFechaAperturaTribunal" required style="padding: 12px; border-radius: 6px; width: 100%; border: 2px solid #4db8ff; background: rgba(77, 184, 255, 0.1); color: #fff; font-family: inherit;">
                                     </div>
                                     <div class="form-group">
-                                        <label>Longitud de la Feria:</label>
-                                        <input type="text" id="confGpsLon" placeholder="Ej. -64.899652" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Apertura Oficial de Resultados:</label>
+                                        <input type="datetime-local" id="confFechaResultados" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: inherit;">
                                     </div>
                                     <div class="form-group">
-                                        <label>Radio Permitido (metros):</label>
-                                        <input type="number" id="confGpsRadio" placeholder="Ej. 5000" min="10" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc;">
+                                        <label style="color: #ff6b6b; font-weight: bold; font-size: 0.95rem;">Cierre Votación Público (Etapa 2):</label>
+                                        <input type="datetime-local" id="confFechaCierreVotacion" required style="padding: 12px; border-radius: 6px; width: 100%; border: 2px solid #ff6b6b; background: rgba(220, 53, 69, 0.1); color: #fff; font-family: inherit;">
                                     </div>
                                 </div>
-
-                                <button onclick="window.guardarNuevasFechas()" class="btn-save" style="background-color: #28a745;">
+                        
+                                <h4 style="color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-bottom: 2px solid rgba(255,255,255,0.2); padding-bottom: 8px;"><i class="fas fa-map-marker-alt"></i> Seguridad Anti-Fraude (GPS Público)</h4>
+                                
+                                <!-- Bloque 3: GPS (3 columnas) -->
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 35px;">
+                                    <div class="form-group">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Latitud de la Feria:</label>
+                                        <input type="text" id="confGpsLat" placeholder="Ej. -14.83172974" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Longitud de la Feria:</label>
+                                        <input type="text" id="confGpsLon" placeholder="Ej. -64.89320615" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label style="color: #e2e8f0; font-size: 0.95rem;">Radio Permitido (metros):</label>
+                                        <input type="number" id="confGpsRadio" placeholder="Ej. 150" min="10" required style="padding: 12px; border-radius: 6px; width: 100%; border: 1px solid #475569; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace;">
+                                    </div>
+                                </div>
+                        
+                                <button onclick="window.guardarNuevasFechas()" class="btn-save" style="background-color: var(--azul-uab); font-size: 1.1rem; padding: 15px;">
                                     <i class="fas fa-save"></i> Guardar Configuraciones
                                 </button>
                             </div>
@@ -916,29 +922,55 @@
                             </div>
 
                             <div style="background: rgba(0, 0, 0, 0.25); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 20px;">
-                                <h4 style="margin-top:0; color: #ffffff; font-size:1.1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom:5px; margin-bottom: 15px;">Rúbrica Oficial</h4>
+                                <h4 style="margin-top:0; color: #ffffff; font-size:1.1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom:5px; margin-bottom: 15px;">
+                                    Rúbrica Oficial
+                                </h4>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">1. Pertinencia y alineación (Máx 15)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        1. Pertinencia y alineación (Máx 15)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nCorrespondencia con la línea de investigación y los ODS; pertinencia para el Beni.')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">2. Innovación y creatividad (Máx 15)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        2. Innovación y creatividad (Máx 15)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nOriginalidad de la solución y grado de novedad tecnológica (diferencia destacada descrita en el documento).')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">3. Calidad técnica (Máx 20)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        3. Calidad técnica (Máx 20)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nSolidez de la arquitectura, las tecnologías y el diseño de la solución.')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="20" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">4. Funcionalidad y demostración (Máx 20)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        4. Funcionalidad y demostración (Máx 20)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nEl prototipo funciona y la demostración evidencia sus resultados.')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="20" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">5. Impacto (Máx 15)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        5. Impacto (Máx 15)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nImpacto social, ambiental o productivo para el departamento del Beni.')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
+                                
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px;">
-                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%;">6. Presentación y dominio (Máx 15)</label>
+                                    <label style="margin:0; font-size:0.9rem; color:#ffffff; width: 75%; display: flex; align-items: center;">
+                                        6. Presentación y dominio (Máx 15)
+                                        <i class="fas fa-info-circle" style="color: #4db8ff; margin-left: 8px; cursor: pointer; font-size: 1.1rem;" title="Ver qué se valora" onclick="alert('QUÉ SE VALORA:\\n\\nClaridad de la exposición y del póster; solidez al responder al jurado.')"></i>
+                                    </label>
                                     <input type="text" inputmode="numeric" class="trib-nota" max="15" required onkeypress="return event.charCode >= 48 && event.charCode <= 57" onpaste="return false;" oninput="window.sumarTribunal(this)" style="width: 70px; padding: 8px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 4px; text-align:center; color: #ffffff;">
                                 </div>
                                 
@@ -1098,23 +1130,41 @@
     </div>
     
     <!-- Modal de Edición de Usuario -->
-<div id="modal-edicion-usuario" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
-    <div style="background: white; border-radius: 8px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden;">
-        <div style="background: var(--azul-uab); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.2rem; border: none;"><i class="fas fa-user-edit"></i> Editar Datos del Usuario</h3>
-            <button onclick="document.getElementById('modal-edicion-usuario').style.display='none'" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+<!-- Modal de Edición de Usuario (Diseño Oscuro) -->
+<div id="modal-edicion-usuario" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: #0f172a; border-radius: 12px; max-width: 500px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.8); overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+        <div style="background: var(--azul-uab); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #004a99;">
+            <h3 style="margin: 0; font-size: 1.3rem; border: none; color: white !important;"><i class="fas fa-user-edit"></i> Editar Datos de Usuario</h3>
+            <button onclick="document.getElementById('modal-edicion-usuario').style.display='none'" style="background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
         </div>
-        <form id="form-editar-usuario" onsubmit="window.guardarEdicionUsuario(event)" style="padding: 20px; text-align: left;">
+        <form id="form-editar-usuario" onsubmit="window.guardarEdicionUsuario(event)" style="padding: 25px; text-align: left;">
             <input type="hidden" id="edit-rol">
             <input type="hidden" id="edit-idOriginal">
             
-            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">CI / Usuario:</label><input type="text" id="edit-ci" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
-            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Nombre Completo:</label><input type="text" id="edit-nombre" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
-            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Celular:</label><input type="tel" id="edit-celular" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
-            <div class="form-group" id="caja-edit-correo" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Correo Electrónico:</label><input type="email" id="edit-correo" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
-            <div class="form-group" id="caja-edit-institucion" style="margin-bottom: 25px;"><label style="color: #333; font-size: 0.9rem;">Institución / Especialidad:</label><input type="text" id="edit-institucion" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="color: #cbd5e1; font-size: 0.95rem; font-weight: bold; margin-bottom: 5px; display: block;">CI / Usuario:</label>
+                <input type="text" id="edit-ci" required style="width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; background: #1e293b; font-size: 1.05rem; outline: none;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="color: #cbd5e1; font-size: 0.95rem; font-weight: bold; margin-bottom: 5px; display: block;">Nombre Completo:</label>
+                <input type="text" id="edit-nombre" required style="width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; background: #1e293b; font-size: 1.05rem; outline: none;">
+            </div>
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="color: #cbd5e1; font-size: 0.95rem; font-weight: bold; margin-bottom: 5px; display: block;">Celular:</label>
+                <input type="tel" id="edit-celular" style="width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; background: #1e293b; font-size: 1.05rem; outline: none;">
+            </div>
+            <div class="form-group" id="caja-edit-correo" style="margin-bottom: 15px;">
+                <label style="color: #cbd5e1; font-size: 0.95rem; font-weight: bold; margin-bottom: 5px; display: block;">Correo Electrónico:</label>
+                <input type="email" id="edit-correo" style="width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; background: #1e293b; font-size: 1.05rem; outline: none;">
+            </div>
+            <div class="form-group" id="caja-edit-institucion" style="margin-bottom: 30px;">
+                <label style="color: #cbd5e1; font-size: 0.95rem; font-weight: bold; margin-bottom: 5px; display: block;">Institución / Especialidad:</label>
+                <input type="text" id="edit-institucion" style="width: 100%; padding: 12px; border: 1px solid #334155; border-radius: 6px; color: #f8fafc; background: #1e293b; font-size: 1.05rem; outline: none;">
+            </div>
             
-            <button type="submit" id="btnGuardarEdicion" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1.05rem;"><i class="fas fa-save"></i> Guardar Cambios</button>
+            <button type="submit" id="btnGuardarEdicion" style="width: 100%; padding: 14px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.3s;">
+                <i class="fas fa-save"></i> Guardar Cambios
+            </button>
         </form>
     </div>
 </div>
@@ -1130,14 +1180,14 @@
     <script src="core/router.js?v=FERIA_V102"></script>
     <script src="features/auth/auth.js?v=FERIA_V102"></script>
     <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V102"></script>
-    <script src="features/admin/admin.js?v=FERIA_V105"></script>
+    <script src="features/admin/admin.js?v=FERIA_V106"></script>
     <script src="features/votacion/votacion.js?v=FERIA_V102"></script>
     <script src="features/habilitacion/habilitacion.js?v=FERIA_V102"></script>
     <script src="features/registro/registro.js?v=FERIA_V102"></script>
     <script src="features/proyecto/proyecto.js?v=FERIA_V102"></script>
     <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V102"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V103"></script>
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V104"></script>
     <script src="features/resultados/resultados.js?v=FERIA_V102"></script>
-    <script src="features/informes/informes.js?v=FERIA_V103"></script>
+    <script src="features/informes/informes.js?v=FERIA_V104"></script>
 </body>
 </html>

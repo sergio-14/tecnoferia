@@ -391,7 +391,7 @@ window.generarVistaPrevia = async function() {
                 html += `<p style="text-align:center; color:red; font-weight:bold;">Aún no se han asignado proyectos a ningún tribunal.</p>`;
             } else {
                 const categorias = [
-                    { id: 'estudiante', nombre: '1. ESTUDIANTES UNIVERSITARIOS' },
+                    { id: 'estudiante', nombre: '1. ESTUDIANTES (Pregrado)' },
                     { id: 'docente', nombre: '2. DOCENTES INVESTIGADORES' },
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];

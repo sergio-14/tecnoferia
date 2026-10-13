@@ -11,12 +11,14 @@ window.cargarProyectosParaEvaluar = async function() {
     select.innerHTML = '<option value="" disabled selected>Buscando proyectos asignados a su perfil...</option>';
     
     try {
-        const correoTribunal = localStorage.getItem("feria_correo");
-        if (!correoTribunal) { 
+        // 🔥 CORRECCIÓN: Buscamos por CI en lugar del correo por si acaso el navegador lo borró 🔥
+        const idTribunal = localStorage.getItem("feria_ci") || localStorage.getItem("feria_correo");
+        
+        if (!idTribunal) { 
             select.innerHTML = '<option value="" disabled selected>Sesión inválida</option>'; return; 
         }
 
-        const resTribunal = await fetch(`/api/tribunal_correo/${correoTribunal}`);
+        const resTribunal = await fetch(`/api/tribunal_id/${idTribunal}`);
         const datosTribunal = await resTribunal.json();
         
         if (!datosTribunal) {
@@ -104,14 +106,14 @@ window.guardarEvaluacionTribunal = async function(e) {
     btn.disabled = true;
 
     try {
-        const correo = localStorage.getItem("feria_correo");
+        const idTribunal = localStorage.getItem("feria_ci") || localStorage.getItem("feria_correo");
 
         const respuesta = await fetch('/api/evaluar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 idProyecto: select.value,
-                correoTribunal: correo,
+                identificadorTribunal: idTribunal,
                 notaTribunal: nota,
                 observaciones: observaciones || "El tribunal no dejó comentarios adicionales."
             })

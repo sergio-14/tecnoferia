@@ -876,6 +876,18 @@ window.registrarNuevoTribunalBase = async function(e) {
         const resData = await res.json();
         if (!res.ok) throw new Error(resData.error || "Error al crear tribunal");
         
+        // 🔥 MAGIA: ENVIAR CORREO AUTOMÁTICO DE NOTIFICACIÓN DE CUENTA AL TRIBUNAL 🔥
+        try {
+            if (typeof emailjs !== 'undefined') {
+                emailjs.init({ publicKey: "njcIu3KNPNiVrfy9f" }); 
+                await emailjs.send("service_m4ueyce", "template_0a9gr2t", {
+                    to_email: data.correo,
+                    to_name: data.nombre, 
+                    message: `¡Bienvenido al Comité Evaluador de la TecnoFeria 2026!\n\nSe ha creado su cuenta de Tribunal.\n\nUsuario o CI: ${data.ci}\nContraseña: ${data.password}\n\nPor favor, ingrese al sistema para visualizar los proyectos asignados.`
+                }, "njcIu3KNPNiVrfy9f"); 
+            }
+        } catch(err) { console.warn("Error al enviar correo", err); }
+
         alert(resData.mensaje);
         e.target.reset();
         window.cargarTribunalesParaAsignacion(); 

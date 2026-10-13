@@ -82,7 +82,6 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS sesiones_activas (ci_usuario VARCHAR(50) PRIMARY KEY, token VARCHAR(255) NOT NULL);`);
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP, fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59', gps_latitud DECIMAL(15,8) DEFAULT -14.83391721, gps_longitud DECIMAL(15,8) DEFAULT -64.89965234, gps_radio INTEGER DEFAULT 5000);`);
         
-        // 1. Agregamos la nueva fecha de apertura de tribunal
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_apertura_tribunal TIMESTAMP DEFAULT '2026-01-01 00:00:00';`); } catch(e) {}
 
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
@@ -99,7 +98,6 @@ db.connect()
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
 
-        // 🔥 2. MIGRACIÓN AUTOMÁTICA: Mudamos todos los proyectos de Emprendimiento a Estudiantes 🔥
         try {
             await db.query(`UPDATE proyectos SET categoria = REPLACE(categoria, 'emprendimiento', 'estudiante') WHERE categoria LIKE '%emprendimiento%';`);
             console.log('✅ Base de datos verificada. Proyectos mudados correctamente.');
@@ -206,6 +204,7 @@ app.delete('/api/instituciones/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar institución" }); }
 });
 
+// 🔥 CORRECCIÓN: Evitar Cierre de Sesión Fantasma 🔥
 app.post('/api/login', async (req, res) => {
     const { identificador, password } = req.body;
     try {
@@ -213,7 +212,7 @@ app.post('/api/login', async (req, res) => {
         const queries = [
             { rol: 'ADMIN', query: 'SELECT * FROM administradores WHERE ci = $1 OR correo = $1' },
             { rol: 'EXPOSITOR', query: 'SELECT * FROM expositores WHERE ci = $1 OR correo = $1' },
-            { rol: 'TRIBUNAL', query: 'SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1' }
+            { rol: 'TRIBUNAL', query: 'SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1 OR ci = $1' }
         ];
 
         for (let q of queries) {
@@ -235,10 +234,12 @@ app.post('/api/login', async (req, res) => {
             if (!hashBd || !(await bcrypt.compare(password, hashBd))) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
         }
 
-        const ciUsuario = datosEncontrados.ci || datosEncontrados.usuario_tribunal;
+        let idReal = datosEncontrados.ci || datosEncontrados.usuario_tribunal || identificador;
+        datosEncontrados.ci = idReal; 
+
         const nuevoToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
         
-        await db.query(`INSERT INTO sesiones_activas (ci_usuario, token) VALUES ($1, $2) ON CONFLICT (ci_usuario) DO UPDATE SET token = EXCLUDED.token`, [ciUsuario, nuevoToken]);
+        await db.query(`INSERT INTO sesiones_activas (ci_usuario, token) VALUES ($1, $2) ON CONFLICT (ci_usuario) DO UPDATE SET token = EXCLUDED.token`, [idReal, nuevoToken]);
         res.json({ rol: rolEncontrado, datos: datosEncontrados, token: nuevoToken });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor al procesar el login." }); }
 });
@@ -246,8 +247,16 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/verificar_sesion/:identificador/:token', async (req, res) => {
     try {
         const { identificador, token } = req.params;
-        const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1', [identificador]);
+        
+        let idReal = identificador;
+        const searchTrib = await db.query('SELECT ci, usuario_tribunal FROM tribunales WHERE ci=$1 OR usuario_tribunal=$1 OR correo=$1', [identificador]);
+        if (searchTrib.rows.length > 0) {
+            idReal = searchTrib.rows[0].ci || searchTrib.rows[0].usuario_tribunal || identificador;
+        }
+
+        const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1 OR ci_usuario = $2', [identificador, idReal]);
         if (result.rows.length === 0) return res.json({ valida: false });
+        
         res.json({ valida: result.rows[0].token === token }); 
     } catch (error) { res.status(500).json({ valida: true }); }
 });
@@ -689,24 +698,24 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación." }); }
 });
 
-app.get('/api/tribunal_correo/:correo', async (req, res) => {
+// 🔥 NUEVA RUTA PARA BUSCAR TRIBUNAL POR CI O USUARIO 🔥
+app.get('/api/tribunal_id/:id', async (req, res) => {
     try {
-        const tribunal = await db.query('SELECT * FROM tribunales WHERE correo = $1', [req.params.correo]);
+        const tribunal = await db.query('SELECT * FROM tribunales WHERE ci = $1 OR usuario_tribunal = $1 OR correo = $1', [req.params.id]);
         res.json(tribunal.rows[0] || null);
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
-// 🔥 ACTUALIZADO: VALIDACIÓN DE FECHA PARA TRIBUNALES 🔥
+// 🔥 VALIDACIÓN DE FECHA Y USO DEL ID CORRECTO 🔥
 app.post('/api/evaluar', async (req, res) => {
-    const { idProyecto, correoTribunal, notaTribunal, observaciones } = req.body;
+    const { idProyecto, identificadorTribunal, notaTribunal, observaciones } = req.body;
     try {
-        // Validación de bloqueo temporal
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_apertura_tribunal) as tribunal_bloqueado FROM configuraciones WHERE id = 1`);
         if (checkTime.rows[0].tribunal_bloqueado) {
             return res.status(403).json({ error: "⛔ El periodo oficial de evaluación aún no ha comenzado. Solo puede revisar los documentos técnicos." });
         }
 
-        const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE correo = $1', [correoTribunal]);
+        const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE ci = $1 OR usuario_tribunal = $1 OR correo = $1', [identificadorTribunal]);
         if (tribunalData.rows.length === 0) return res.status(404).json({ error: "Tribunal no encontrado." });
         const usuarioTribunal = tribunalData.rows[0].usuario_tribunal;
 
