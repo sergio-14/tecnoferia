@@ -661,6 +661,7 @@
                                     <p style="color: #666; font-size: 0.85rem; margin-bottom: 20px;">Cree el usuario y contraseña del jurado. (Sin asignarle proyectos aún).</p>
                                     <form onsubmit="window.registrarNuevoTribunalBase(event)">
                                         <div class="form-group"><label>Nombre del Evaluador</label><input type="text" id="tribNombre" placeholder="Ing. Nombre Apellido" required></div>
+                                        <div class="form-group"><label>Carnet de Identidad (CI)</label><input type="text" id="tribCI" placeholder="Ej. 1234567" required></div>
                                         <div class="form-group"><label>Correo Electrónico</label><input type="email" id="tribCorreo" placeholder="ejemplo@correo.com" required></div>
                                         <div class="form-group"><label>Número de Celular</label><input type="tel" id="tribCelular" placeholder="Ej. 71234567" required></div>
                                         <div class="form-group"><label>Usuario Asignado</label><input type="text" id="tribUsuario" placeholder="ej. tribunal_1" oninput="this.value = this.value.toLowerCase().replace(/\s/g, '')" required></div>
@@ -807,7 +808,7 @@
                                 <p style="color: #666; margin-bottom: 25px; font-size: 0.9rem;">Modifique los plazos y parámetros de seguridad. Los cambios afectarán inmediatamente al sistema.</p>
                                 
                                 <h4 style="color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 2px solid #ccc; padding-bottom: 5px;"><i class="fas fa-calendar-alt"></i> Límites de Tiempo</h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                                     <div class="form-group">
                                         <label>Cierre de Registro de Expositores:</label>
                                         <input type="datetime-local" id="confFechaRegistro" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
@@ -817,13 +818,17 @@
                                         <input type="datetime-local" id="confFechaSubida" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
                                     </div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                                    <div class="form-group">
+                                        <label style="color: var(--azul-uab); font-weight: bold;">Apertura de Evaluación (Tribunal):</label>
+                                        <input type="datetime-local" id="confFechaAperturaTribunal" required style="padding: 10px; border-radius: 5px; width: 100%; border: 2px solid var(--azul-uab); font-family: inherit;">
+                                    </div>
                                     <div class="form-group">
                                         <label>Apertura Oficial de Resultados:</label>
                                         <input type="datetime-local" id="confFechaResultados" required style="padding: 10px; border-radius: 5px; width: 100%; border: 1px solid #ccc; font-family: inherit;">
                                     </div>
                                     <div class="form-group">
-                                        <label style="color: var(--rojo-uab); font-weight: bold;">Cierre de Votación del Público (Etapa 2):</label>
+                                        <label style="color: var(--rojo-uab); font-weight: bold;">Cierre de Votación del Público:</label>
                                         <input type="datetime-local" id="confFechaCierreVotacion" required style="padding: 10px; border-radius: 5px; width: 100%; border: 2px solid var(--rojo-uab); font-family: inherit;">
                                     </div>
                                 </div>
@@ -1073,13 +1078,15 @@
                                 <option value="padron_tribunales">8. Padrón Oficial de Tribunales Evaluadores</option>
                                 <option value="no_clasificados">9. Reporte de Proyectos No Clasificados (Pre-selección)</option>
                                 <option value="certificado" style="background: #e8f4fd; font-weight: bold; color: #0056b3;">🏆 10. Generar Certificado de Participación</option>
+                                <option value="terna" style="font-weight: bold; color: #28a745;">📋 Terna Asignada (Tribunales y Proyectos Numerados)</option>
                             </select>
                         </div>
                         
                         <div id="caja-buscador-certificado" style="display: none; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #4db8ff;">
-                            <label style="color: #4db8ff; font-weight: bold; margin-bottom: 8px; display: block;"><i class="fas fa-search"></i> Ingrese el CI del Participante a certificar:</label>
-                            <input type="text" id="cert-ci-input" placeholder="Ej. 1234567" style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.4); color: white; outline: none; font-size: 1.05rem;">
-                            <p style="color: #cbd5e1; font-size: 0.8rem; margin-top: 8px;"><i class="fas fa-info-circle"></i> Se buscará en la base de datos y se creará un certificado editable.</p>
+                            <label style="color: #4db8ff; font-weight: bold; margin-bottom: 8px; display: block;"><i class="fas fa-search"></i> Busque el nombre o ingrese el CI del Participante:</label>
+                            <input type="text" id="cert-ci-input" list="lista-usuarios-cert" placeholder="Buscar nombre o CI..." style="width: 100%; padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.4); color: white; outline: none; font-size: 1.05rem;">
+                            <datalist id="lista-usuarios-cert"></datalist>
+                            <p style="color: #cbd5e1; font-size: 0.8rem; margin-top: 8px;"><i class="fas fa-magic"></i> Escriba para buscar en la base de datos automáticamente.</p>
                         </div>
 
                         <button type="submit" class="btn-save" style="background-color: var(--azul-uab);"><i class="fas fa-cogs"></i> Procesar Documento</button>
@@ -1090,24 +1097,27 @@
         </section>
     </div>
     
-    <!-- Modal de Políticas de Privacidad -->
-    <div id="modal-privacidad" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
-        <div style="background: white; border-radius: 8px; max-width: 600px; width: 100%; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-            <div style="background: var(--azul-uab); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1.2rem;"><i class="fas fa-shield-alt"></i> Políticas de Privacidad y Uso</h3>
-                <button onclick="document.getElementById('modal-privacidad').style.display='none'" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
-            </div>
-            <div style="padding: 20px; overflow-y: auto; color: #333; font-size: 0.9rem; line-height: 1.6;">
-                <p><strong>1. Recopilación de Datos Personales:</strong> Para participar en la TecnoFeria, el sistema recopila los siguientes datos: Nombre Completo, Carnet de Identidad (C.I.), Número de Celular, Correo Electrónico e Institución de procedencia.</p>
-                <p><strong>2. Datos de Geolocalización (GPS):</strong> Durante el proceso de votación del público, el sistema solicita acceso temporal a la ubicación GPS del dispositivo del visitante. Estos datos se utilizan de manera algorítmica <b>únicamente en el instante del voto</b> para verificar que el usuario se encuentre dentro del recinto ferial, como medida de seguridad anti-fraude. La ubicación exacta queda registrada en la base de datos vinculada al voto.</p>
-                <p><strong>3. Uso de la Información:</strong> Los datos recopilados tienen un fin única y exclusivamente académico y administrativo para la gestión de la feria (certificaciones, cuadros de honor y estadísticas de afluencia). <b>En ningún caso estos datos serán vendidos, cedidos o comercializados a entidades externas.</b></p>
-                <p><strong>4. Seguridad:</strong> Las contraseñas son encriptadas bajo protocolos criptográficos antes de ser almacenadas. El Comité Organizador se reserva el derecho de eliminar registros que presenten anomalías o intentos de vulneración al sistema.</p>
-            </div>
-            <div style="padding: 15px 20px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
-                <button onclick="document.getElementById('modal-privacidad').style.display='none'" style="background: var(--rojo-uab); color: white; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer;">Entendido</button>
-            </div>
+    <!-- Modal de Edición de Usuario -->
+<div id="modal-edicion-usuario" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
+    <div style="background: white; border-radius: 8px; max-width: 500px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); overflow: hidden;">
+        <div style="background: var(--azul-uab); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.2rem; border: none;"><i class="fas fa-user-edit"></i> Editar Datos del Usuario</h3>
+            <button onclick="document.getElementById('modal-edicion-usuario').style.display='none'" style="background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
         </div>
+        <form id="form-editar-usuario" onsubmit="window.guardarEdicionUsuario(event)" style="padding: 20px; text-align: left;">
+            <input type="hidden" id="edit-rol">
+            <input type="hidden" id="edit-idOriginal">
+            
+            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">CI / Usuario:</label><input type="text" id="edit-ci" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Nombre Completo:</label><input type="text" id="edit-nombre" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            <div class="form-group" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Celular:</label><input type="tel" id="edit-celular" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            <div class="form-group" id="caja-edit-correo" style="margin-bottom: 15px;"><label style="color: #333; font-size: 0.9rem;">Correo Electrónico:</label><input type="email" id="edit-correo" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            <div class="form-group" id="caja-edit-institucion" style="margin-bottom: 25px;"><label style="color: #333; font-size: 0.9rem;">Institución / Especialidad:</label><input type="text" id="edit-institucion" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; color: #000; background: #fff;"></div>
+            
+            <button type="submit" id="btnGuardarEdicion" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1.05rem;"><i class="fas fa-save"></i> Guardar Cambios</button>
+        </form>
     </div>
+</div>
     
     <script type="text/javascript">
         (function(){
@@ -1120,14 +1130,14 @@
     <script src="core/router.js?v=FERIA_V102"></script>
     <script src="features/auth/auth.js?v=FERIA_V102"></script>
     <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V102"></script>
-    <script src="features/admin/admin.js?v=FERIA_V103"></script>
+    <script src="features/admin/admin.js?v=FERIA_V105"></script>
     <script src="features/votacion/votacion.js?v=FERIA_V102"></script>
     <script src="features/habilitacion/habilitacion.js?v=FERIA_V102"></script>
     <script src="features/registro/registro.js?v=FERIA_V102"></script>
     <script src="features/proyecto/proyecto.js?v=FERIA_V102"></script>
     <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V102"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V102"></script>
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V103"></script>
     <script src="features/resultados/resultados.js?v=FERIA_V102"></script>
-    <script src="features/informes/informes.js?v=FERIA_V102"></script>
+    <script src="features/informes/informes.js?v=FERIA_V103"></script>
 </body>
 </html>

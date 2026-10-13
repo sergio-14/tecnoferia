@@ -41,9 +41,7 @@ window.cargarProyectosParaEvaluar = async function() {
         let proyectosEncontrados = 0;
 
         todosLosProyectos.forEach(p => {
-            //  FILTRO: OCULTAR PROYECTOS QUE FUERON RECHAZADOS Y REEMPLAZADOS 
             if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-
             if (palabraClaveCategoria !== "" && !p.categoria.includes(palabraClaveCategoria)) return;
             if (Array.isArray(proyectosAsignadosArray) && !proyectosAsignadosArray.includes(String(p.id))) return;
 
@@ -168,3 +166,39 @@ window.guardarEvaluacionTribunal = async function(e) {
         btn.disabled = false;
     }
 };
+
+// 🔥 BLOQUEO DE TRIBUNAL SEGÚN CONFIGURACIÓN DE HORA 🔥
+async function verificarBloqueoTribunal() {
+    try {
+        const res = await fetch('/api/configuraciones');
+        const conf = await res.json();
+        
+        if (!conf.fecha_apertura_tribunal || conf.fecha_apertura_tribunal.includes('2026-01-01')) return; 
+
+        const fechaAperturaStr = conf.fecha_apertura_tribunal.replace('T', ' ');
+        const fechaApertura = new Date(fechaAperturaStr);
+        const ahora = new Date();
+        
+        if (ahora < fechaApertura) {
+            document.querySelectorAll('.trib-nota, #eval-obs').forEach(el => {
+                el.disabled = true;
+                el.style.backgroundColor = "rgba(0,0,0,0.5)";
+                el.style.cursor = "not-allowed";
+            });
+            
+            const btnSubmit = document.querySelector('.btn-tribunal');
+            if(btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<i class="fas fa-lock"></i> Evaluación bloqueada hasta: ' + fechaAperturaStr;
+                btnSubmit.style.background = '#6c757d';
+                btnSubmit.style.cursor = 'not-allowed';
+            }
+        }
+    } catch(e) {}
+}
+
+document.addEventListener("click", function(e) {
+    if (e.target.innerText && e.target.innerText.includes('EVALUACIÓN')) {
+        setTimeout(verificarBloqueoTribunal, 500);
+    }
+});

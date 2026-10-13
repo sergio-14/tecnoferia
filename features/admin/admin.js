@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/admin/admin.js
-// FUNCIÓN: Gestión de Proyectos, Buscador, QRs, Descargas, Monitoreo y Tribunales
+// FUNCIÓN: Gestión de Proyectos, Buscador, Numeración de Asignaciones y Mantenimiento
 // =========================================================================
 
 // Variable para almacenar proyectos en memoria y filtrarlos rápido
@@ -284,9 +284,17 @@ window.imprimirTicketQRGen = function(subtitulo, tituloProyecto, urlImg, mensaje
     ventanaImpresion.document.close();
 };
 
-window.imprimirEsteQR = function(titulo, urlImg) { window.imprimirTicketQRGen("U.A.B.J.B.", `STAND: ${titulo}`, urlImg, "Escanee este código con su celular para registrar su calificación.", "#002b5c"); };
-window.imprimirQRHabilitacion = function() { const url = `${window.location.origin}${window.location.pathname}?action=registro_visitante`; window.imprimirTicketQRGen("Registro Oficial de Visitantes", "PUNTO DE HABILITACIÓN", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código en la entrada para registrar su C.I. y quedar habilitado.", "#d93025"); };
-window.imprimirQRExpositor = function() { const url = `${window.location.origin}${window.location.pathname}?action=registro_expositor`; window.imprimirTicketQRGen("U.A.B.J.B.", "REGISTRO DE EXPOSITOR", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código para crear su cuenta y subir la documentación.", "#002b5c"); };
+window.imprimirEsteQR = function(titulo, urlImg) { 
+    window.imprimirTicketQRGen("U.A.B.J.B.", `STAND: ${titulo}`, urlImg, "Escanee este código con su celular para registrar su calificación.", "#002b5c"); 
+};
+window.imprimirQRHabilitacion = function() { 
+    const url = `${window.location.origin}${window.location.pathname}?action=registro_visitante`; 
+    window.imprimirTicketQRGen("Registro Oficial de Visitantes", "PUNTO DE HABILITACIÓN", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código en la entrada para registrar su C.I. y quedar habilitado.", "#d93025"); 
+};
+window.imprimirQRExpositor = function() { 
+    const url = `${window.location.origin}${window.location.pathname}?action=registro_expositor`; 
+    window.imprimirTicketQRGen("U.A.B.J.B.", "REGISTRO DE EXPOSITOR", `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`, "Escanee este código para crear su cuenta y subir la documentación.", "#002b5c"); 
+};
 
 window.cargarVotosPublico = async function() {
     const tbodyEst = document.getElementById('tabla-votos-est');
@@ -459,6 +467,10 @@ window.cargarFechasActuales = async function() {
         
         document.getElementById('confFechaRegistro').value = data.fecha_registro ? data.fecha_registro.substring(0, 16) : '';
         document.getElementById('confFechaSubida').value = data.fecha_subida ? data.fecha_subida.substring(0, 16) : '';
+        
+        const inAperturaTribunal = document.getElementById('confFechaAperturaTribunal');
+        if(inAperturaTribunal) inAperturaTribunal.value = data.fecha_apertura_tribunal ? data.fecha_apertura_tribunal.substring(0, 16) : '';
+
         document.getElementById('confFechaResultados').value = data.fecha_resultados ? data.fecha_resultados.substring(0, 16) : '';
         document.getElementById('confFechaCierreVotacion').value = data.fecha_cierre_votacion ? data.fecha_cierre_votacion.substring(0, 16) : '';
         
@@ -472,13 +484,14 @@ window.cargarFechasActuales = async function() {
 window.guardarNuevasFechas = async function() {
     const reg = document.getElementById('confFechaRegistro').value;
     const sub = document.getElementById('confFechaSubida').value;
+    const apeTrib = document.getElementById('confFechaAperturaTribunal') ? document.getElementById('confFechaAperturaTribunal').value : '2026-01-01T00:00';
     const res = document.getElementById('confFechaResultados').value;
     const cierreVot = document.getElementById('confFechaCierreVotacion').value;
     const lat = document.getElementById('confGpsLat').value;
     const lon = document.getElementById('confGpsLon').value;
     const rad = document.getElementById('confGpsRadio').value;
 
-    if (!reg || !sub || !res || !cierreVot || !lat || !lon || !rad) { 
+    if (!reg || !sub || !res || !cierreVot || !lat || !lon || !rad || !apeTrib) { 
         alert("⚠️ Por favor, complete todos los campos de configuración antes de guardar."); 
         return; 
     }
@@ -489,11 +502,12 @@ window.guardarNuevasFechas = async function() {
             body: JSON.stringify({ 
                 fechaRegistro: reg, 
                 fechaSubida: sub, 
-                fechaResultados: res,
-                fechaCierreVotacion: cierreVot,
-                gpsLatitud: lat,
-                gpsLongitud: lon,
-                gpsRadio: rad
+                fechaAperturaTribunal: apeTrib, 
+                fechaResultados: res, 
+                fechaCierreVotacion: cierreVot, 
+                gpsLatitud: lat, 
+                gpsLongitud: lon, 
+                gpsRadio: rad 
             })
         });
         if (!respuesta.ok) throw new Error("Error del servidor");
@@ -654,16 +668,25 @@ window.cargarUsuariosGlobal = async function() {
     const tbody = document.getElementById('tabla-usuarios-global');
     if (!tbody) return;
     
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Obteniendo usuarios desde la Base de Datos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b;"><i class="fas fa-spinner fa-spin"></i> Obteniendo usuarios...</td></tr>';
     
     try {
         const res = await fetch('/api/usuarios_admin');
         const data = await res.json();
-        
         window.usuariosCargadosBD = data;
+        
+        // 🔥 MAGIA: Llenar el buscador de certificados con todos los usuarios 🔥
+        const datalist = document.getElementById('lista-usuarios-cert');
+        if (datalist) {
+            datalist.innerHTML = '';
+            [...data.expositores, ...data.tribunales, ...data.visitantes].forEach(u => {
+                datalist.innerHTML += `<option value="${u.id}">${u.nombre_completo} (${u.institucion || 'S/I'})</option>`;
+            });
+        }
+        
         window.filtrarUsuariosGlobal();
     } catch (error) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Error al cargar los usuarios.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: #ef4444;"><i class="fas fa-exclamation-triangle"></i> Error al cargar.</td></tr>';
     }
 };
 
@@ -702,40 +725,101 @@ window.filtrarUsuariosGlobal = function() {
     tbody.innerHTML = '';
     
     if (listaMostrar.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b; font-style: italic;">No se encontraron usuarios en esta categoría.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px; color: #64748b; font-style: italic;">No se encontraron usuarios.</td></tr>`;
         return;
     }
 
     listaMostrar.forEach(u => {
         const idUnico = u.id;
+        const ciTribunal = u.ci || u.id; 
         const instOEspec = u.institucion || "<span style='color:#94a3b8; font-size:0.8rem;'>Sin asignar</span>";
-        const btnEliminar = `
-            <button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${u.nombre_completo.replace(/'/g, "\\'")}')" 
-                    style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem; transition: 0.2s;"
-                    onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'" title="Borrar cuenta y datos">
-                <i class="fas fa-trash-alt"></i> Eliminar
-            </button>
-        `;
+        
+        // 🔥 BOTÓN EDITAR Y ELIMINAR 🔥
+        const btnEditar = `<button onclick="window.abrirModalEdicion('${window.subTabUsuariosActual}', '${idUnico}', '${ciTribunal}', '${u.nombre_completo.replace(/'/g, "\\'")}', '${u.celular || ''}', '${u.correo || ''}', '${u.institucion || ''}')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-right: 5px;" title="Editar"><i class="fas fa-edit"></i></button>`;
+        const btnEliminar = `<button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${u.nombre_completo.replace(/'/g, "\\'")}')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
 
+        // 🔥 DISEÑO ARREGLADO Y SEPARADO 🔥
         tbody.innerHTML += `
             <tr style="border-bottom: 1px solid #e2e8f0 !important; background-color: #ffffff !important;">
                 <td style="padding: 12px !important; color: #0f172a !important;">
-                    <strong style="font-size: 0.95rem;">${u.nombre_completo}</strong><br>
-                    <span style="color: #64748b; font-size: 0.8rem;"><i class="fas fa-phone-alt"></i> ${u.celular || 'S/N'}</span>
+                    <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
+                        <strong style="font-size: 1.05rem; color: #002b5c;"><i class="fas fa-user-circle" style="color: #4db8ff; margin-right:5px;"></i> ${u.nombre_completo || 'Sin Nombre'}</strong>
+                        <span style="color: #475569; font-size: 0.85rem;"><i class="fas fa-phone-alt" style="color: #28a745; margin-right:5px;"></i> ${u.celular || 'S/N'}</span>
+                    </div>
                 </td>
                 <td style="padding: 12px !important; color: #0f172a !important;">
-                    <span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 0.9rem;">${idUnico}</span>
+                    <span style="background: #f1f5f9; padding: 6px 10px; border-radius: 4px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 0.95rem; font-weight:bold;">${idUnico}</span>
                 </td>
                 <td style="padding: 12px !important; color: #334155 !important; font-size: 0.9rem !important;">
                     ${instOEspec}<br>
                     <span style="color: #3b82f6; font-size: 0.8rem;">${u.correo || ''}</span>
                 </td>
-                <td style="padding: 12px !important; text-align: center !important;">
-                    ${btnEliminar}
+                <td style="padding: 12px !important; text-align: center !important; white-space: nowrap;">
+                    ${btnEditar} ${btnEliminar}
                 </td>
             </tr>
         `;
     });
+};
+
+// 🔥 LÓGICA DE LA VENTANA DE EDICIÓN 🔥
+window.abrirModalEdicion = function(rol, idOriginal, ciActual, nombre, celular, correo, institucion) {
+    document.getElementById('edit-rol').value = rol;
+    document.getElementById('edit-idOriginal').value = idOriginal;
+    document.getElementById('edit-ci').value = ciActual;
+    document.getElementById('edit-nombre').value = nombre;
+    document.getElementById('edit-celular').value = celular;
+    document.getElementById('edit-correo').value = correo;
+    document.getElementById('edit-institucion').value = institucion;
+
+    if (rol === 'visitante') {
+        document.getElementById('caja-edit-correo').style.display = 'none';
+    } else {
+        document.getElementById('caja-edit-correo').style.display = 'block';
+    }
+
+    if (rol === 'tribunal') {
+        document.getElementById('caja-edit-institucion').style.display = 'none';
+    } else {
+        document.getElementById('caja-edit-institucion').style.display = 'block';
+    }
+
+    document.getElementById('modal-edicion-usuario').style.display = 'flex';
+};
+
+window.guardarEdicionUsuario = async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnGuardarEdicion');
+    const originalTxt = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    btn.disabled = true;
+
+    const data = {
+        rol: document.getElementById('edit-rol').value,
+        idOriginal: document.getElementById('edit-idOriginal').value,
+        ci: document.getElementById('edit-ci').value.trim(),
+        nombre: document.getElementById('edit-nombre').value.trim(),
+        celular: document.getElementById('edit-celular').value.trim(),
+        correo: document.getElementById('edit-correo').value.trim(),
+        institucion: document.getElementById('edit-institucion').value.trim()
+    };
+
+    try {
+        const res = await fetch('/api/editar_usuario', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        const resData = await res.json();
+        if (!res.ok) throw new Error(resData.error);
+        
+        alert(resData.mensaje);
+        document.getElementById('modal-edicion-usuario').style.display = 'none';
+        window.cargarUsuariosGlobal();
+    } catch (error) {
+        alert("❌ Ocurrió un error: " + error.message);
+    } finally {
+        btn.innerHTML = originalTxt;
+        btn.disabled = false;
+    }
 };
 
 window.eliminarUsuarioTotal = async function(rol, idUsuario, nombre) {
@@ -777,6 +861,7 @@ window.registrarNuevoTribunalBase = async function(e) {
     btn.disabled = true;
 
     const data = {
+        ci: document.getElementById('tribCI').value.trim(),
         usuario: document.getElementById('tribUsuario').value.trim(),
         nombre: document.getElementById('tribNombre').value.trim(),
         correo: document.getElementById('tribCorreo').value.trim(),
@@ -856,6 +941,7 @@ window.alSeleccionarTribunal = function() {
     }
 };
 
+// 🔥 LA LÓGICA DE NUMERACIÓN (Del 1 al N por categoría) 🔥
 window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPreviamente = "[]") {
     const contenedor = document.getElementById('contenedor-lista-proyectos-check');
     const checkboxesCat = document.querySelectorAll('.check-cat-trib:checked');
@@ -890,18 +976,31 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
         asignadosArr = asignadosArr.map(id => String(id));
 
         let html = '';
+        // Contadores independientes por categoría
+        let cEst = 1, cDoc = 1, cEmp = 1;
+
         proyectosFiltrados.forEach(p => {
             const estaMarcado = asignadosArr.includes(String(p.id)) ? 'checked' : '';
-            let insignia = '';
-            if(p.categoria.includes('estudiante')) insignia = '<span style="background:rgba(77, 184, 255, 0.15); color:#4db8ff; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(77, 184, 255, 0.3);">ESTUDIANTE</span>';
-            if(p.categoria.includes('docente')) insignia = '<span style="background:rgba(40, 167, 69, 0.15); color:#2ecc71; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(46, 204, 113, 0.3);">DOCENTE</span>';
-            if(p.categoria.includes('emprendimiento')) insignia = '<span style="background:rgba(255, 193, 7, 0.15); color:#ffc107; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(255, 193, 7, 0.3);">EMPRENDIMIENTO</span>';
+            let insignia = ''; let numeracion = 0;
+            
+            if(p.categoria.includes('estudiante')) { 
+                numeracion = cEst++; 
+                insignia = '<span style="background:rgba(77, 184, 255, 0.15); color:#4db8ff; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(77, 184, 255, 0.3);">ESTUDIANTE UNIV.</span>'; 
+            }
+            if(p.categoria.includes('docente')) { 
+                numeracion = cDoc++; 
+                insignia = '<span style="background:rgba(40, 167, 69, 0.15); color:#2ecc71; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(46, 204, 113, 0.3);">DOCENTE</span>'; 
+            }
+            if(p.categoria.includes('emprendimiento')) { 
+                numeracion = cEmp++; 
+                insignia = '<span style="background:rgba(255, 193, 7, 0.15); color:#ffc107; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(255, 193, 7, 0.3);">EMPRENDIMIENTO</span>'; 
+            }
 
             html += `
                 <label style="display: flex; align-items: flex-start; justify-content: flex-start; gap: 12px; margin-bottom: 12px; cursor: pointer; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; width: 100%;">
                     <input type="checkbox" class="check-proy-trib" value="${p.id}" style="width: 20px !important; height: 20px !important; margin: 2px 0 0 0 !important; padding: 0 !important; flex-shrink: 0; display: inline-block;" ${estaMarcado}>
                     <div style="flex: 1; line-height: 1.4; text-align: left;">
-                        <strong style="color: #ffffff; font-size: 0.95rem;">${p.titulo}</strong><br>
+                        <strong style="color: #ffffff; font-size: 0.95rem;">#${numeracion} - ${p.titulo}</strong><br>
                         <div style="margin-top: 6px;">${insignia}</div>
                     </div>
                 </label>

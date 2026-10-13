@@ -81,30 +81,67 @@ db.connect()
         
         await db.query(`CREATE TABLE IF NOT EXISTS sesiones_activas (ci_usuario VARCHAR(50) PRIMARY KEY, token VARCHAR(255) NOT NULL);`);
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP, fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59', gps_latitud DECIMAL(15,8) DEFAULT -14.83391721, gps_longitud DECIMAL(15,8) DEFAULT -64.89965234, gps_radio INTEGER DEFAULT 5000);`);
+        
+        // 1. Agregamos la nueva fecha de apertura de tribunal
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_apertura_tribunal TIMESTAMP DEFAULT '2026-01-01 00:00:00';`); } catch(e) {}
+
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
         await db.query(`CREATE TABLE IF NOT EXISTS instituciones (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL, tipo VARCHAR(100) NOT NULL);`);
         
         await db.query(`CREATE TABLE IF NOT EXISTS administradores (ci VARCHAR(50) PRIMARY KEY, nombre_completo VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50), contrasena VARCHAR(255))`);
         await db.query(`CREATE TABLE IF NOT EXISTS expositores (ci VARCHAR(50) PRIMARY KEY, nombre_completo VARCHAR(255), institucion VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50), contrasena VARCHAR(255))`);
-        await db.query(`CREATE TABLE IF NOT EXISTS tribunales (usuario_tribunal VARCHAR(100) PRIMARY KEY, nombre_completo VARCHAR(255), especialidad VARCHAR(255), categoria_asignada VARCHAR(255), proyectos_asignados TEXT, correo VARCHAR(255), celular VARCHAR(50), contrasena VARCHAR(255))`);
+        await db.query(`CREATE TABLE IF NOT EXISTS tribunales (usuario_tribunal VARCHAR(100) PRIMARY KEY, ci VARCHAR(50), nombre_completo VARCHAR(255), especialidad VARCHAR(255), categoria_asignada VARCHAR(255), proyectos_asignados TEXT, correo VARCHAR(255), celular VARCHAR(50), contrasena VARCHAR(255))`);
         await db.query(`CREATE TABLE IF NOT EXISTS visitantes (ci VARCHAR(50) PRIMARY KEY, nombre_completo VARCHAR(255), institucion VARCHAR(255), celular VARCHAR(50))`);
         await db.query(`CREATE TABLE IF NOT EXISTS proyectos (id SERIAL PRIMARY KEY, ci_propietario VARCHAR(50) REFERENCES expositores(ci), titulo VARCHAR(500), categoria VARCHAR(255), integrantes TEXT, eje_tematico VARCHAR(255), enlace_pdf TEXT, fecha_ultima_edicion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, estado_evaluacion VARCHAR(100), nota_tribunal NUMERIC, nota_ponderada NUMERIC, observaciones_tribunal TEXT)`);
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
 
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
 
-        console.log('✅ Base de datos verificada y optimizada.');
+        // 🔥 2. MIGRACIÓN AUTOMÁTICA: Mudamos todos los proyectos de Emprendimiento a Estudiantes 🔥
+        try {
+            await db.query(`UPDATE proyectos SET categoria = REPLACE(categoria, 'emprendimiento', 'estudiante') WHERE categoria LIKE '%emprendimiento%';`);
+            console.log('✅ Base de datos verificada. Proyectos mudados correctamente.');
+        } catch(e) {
+            console.log('✅ Base de datos verificada.');
+        }
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
 
 app.get('/api/usuarios_admin', async (req, res) => {
     try {
         const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
-        const tribunales = await db.query('SELECT usuario_tribunal as id, nombre_completo, especialidad as institucion, celular, correo FROM tribunales ORDER BY nombre_completo ASC');
+        const tribunales = await db.query('SELECT usuario_tribunal as id, ci, nombre_completo, especialidad as institucion, celular, correo, categoria_asignada, proyectos_asignados FROM tribunales ORDER BY nombre_completo ASC');
         const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
         res.json({ expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows });
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
+});
+
+app.post('/api/editar_usuario', async (req, res) => {
+    const { rol, idOriginal, ci, nombre, celular, correo, institucion } = req.body;
+    try {
+        if (rol === 'expositor') {
+            if (idOriginal !== ci) {
+                await db.query('INSERT INTO expositores (ci, nombre_completo, institucion, correo, celular, contrasena) SELECT $1, nombre_completo, institucion, correo, celular, contrasena FROM expositores WHERE ci=$2', [ci, idOriginal]);
+                await db.query('UPDATE proyectos SET ci_propietario=$1 WHERE ci_propietario=$2', [ci, idOriginal]);
+                await db.query('DELETE FROM expositores WHERE ci=$1', [idOriginal]);
+            }
+            await db.query('UPDATE expositores SET nombre_completo=$1, celular=$2, correo=$3, institucion=$4 WHERE ci=$5', [nombre, celular, correo, institucion, ci]);
+        } else if (rol === 'tribunal') {
+            await db.query('UPDATE tribunales SET nombre_completo=$1, celular=$2, correo=$3, ci=$4 WHERE usuario_tribunal=$5', [nombre, celular, correo, ci, idOriginal]);
+        } else if (rol === 'visitante') {
+            if (idOriginal !== ci) {
+                await db.query('INSERT INTO visitantes (ci, nombre_completo, institucion, celular) SELECT $1, nombre_completo, institucion, celular FROM visitantes WHERE ci=$2', [ci, idOriginal]);
+                await db.query('UPDATE votos_publico SET ci_visitante=$1 WHERE ci_visitante=$2', [ci, idOriginal]);
+                await db.query('DELETE FROM visitantes WHERE ci=$1', [idOriginal]);
+            }
+            await db.query('UPDATE visitantes SET nombre_completo=$1, celular=$2, institucion=$3 WHERE ci=$4', [nombre, celular, institucion, ci]);
+        }
+        res.json({ mensaje: "✅ Datos actualizados correctamente en el sistema." });
+    } catch (err) {
+        res.status(500).json({ error: "Error al actualizar. Verifique que el nuevo CI/Usuario no esté en uso." });
+    }
 });
 
 app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
@@ -133,16 +170,16 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
 
 app.get('/api/configuraciones', async (req, res) => {
     try {
-        const query = `SELECT TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro, TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida, TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados, TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`;
+        const query = `SELECT TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro, TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida, TO_CHAR(fecha_apertura_tribunal, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_apertura_tribunal, TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados, TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`;
         const conf = await db.query(query);
         res.json(conf.rows[0] || {});
     } catch (error) { res.status(500).json({ error: "Error al obtener configuraciones" }); }
 });
 
 app.post('/api/configuraciones', async (req, res) => {
-    const { fechaRegistro, fechaSubida, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio } = req.body;
+    const { fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio } = req.body;
     try {
-        await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_resultados=$3, fecha_cierre_votacion=$4, gps_latitud=$5, gps_longitud=$6, gps_radio=$7 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio]);
+        await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_apertura_tribunal=$3, fecha_resultados=$4, fecha_cierre_votacion=$5, gps_latitud=$6, gps_longitud=$7, gps_radio=$8 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio]);
         res.json({ mensaje: "Configuraciones actualizadas correctamente" });
     } catch (error) { res.status(500).json({ error: "Error al actualizar fechas" }); }
 });
@@ -237,7 +274,6 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
 });
 
-// 🔥 NUEVO: AUTO-LLENADO BUSCANDO POR NÚMERO DE CELULAR 🔥
 app.get('/api/usuario_por_celular/:celular', async (req, res) => {
     const { celular } = req.params;
     try {
@@ -300,22 +336,19 @@ app.post('/api/expositores', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar expositor." }); }
 });
 
-// 🔥 NUEVO: PASO 1 - CREAR CUENTA DE TRIBUNAL (Sin Asignaciones Iniciales) 🔥
 app.post('/api/tribunales', async (req, res) => {
-    const { usuario, nombre, correo, celular, password } = req.body;
+    const { ci, usuario, nombre, correo, celular, password } = req.body;
     try {
+        try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
         const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
-        // Se crea el usuario en blanco (sin especialidad, sin categorías y sin proyectos)
-        await db.query(`INSERT INTO tribunales (usuario_tribunal, nombre_completo, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5)`, [usuario, nombre, correo, celular, hash]);
+        await db.query(`INSERT INTO tribunales (ci, usuario_tribunal, nombre_completo, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6)`, [ci, usuario, nombre, correo, celular, hash]);
         res.status(201).json({ mensaje: "✅ Cuenta de Tribunal creada exitosamente.\n\nAhora dirígete al Paso 2 para asignarle los proyectos." });
-    } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
+    } catch (error) { res.status(500).json({ error: "Error al guardar. Verifique que el usuario o CI no exista." }); }
 });
 
-// 🔥 NUEVO: PASO 2 - ASIGNAR CATEGORÍAS Y PROYECTOS AL TRIBUNAL 🔥
 app.post('/api/tribunales/asignar', async (req, res) => {
     const { usuario, categorias, proyectos } = req.body;
     try {
-        // Guardamos las múltiples categorías y proyectos como listas JSON en la Base de Datos
         await db.query(`UPDATE tribunales SET categoria_asignada = $1, proyectos_asignados = $2 WHERE usuario_tribunal = $3`, [JSON.stringify(categorias), JSON.stringify(proyectos), usuario]);
         res.json({ mensaje: "✅ Asignaciones de evaluación guardadas correctamente." });
     } catch (error) { res.status(500).json({ error: "Error al guardar asignaciones en el servidor." }); }
@@ -663,9 +696,16 @@ app.get('/api/tribunal_correo/:correo', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
+// 🔥 ACTUALIZADO: VALIDACIÓN DE FECHA PARA TRIBUNALES 🔥
 app.post('/api/evaluar', async (req, res) => {
     const { idProyecto, correoTribunal, notaTribunal, observaciones } = req.body;
     try {
+        // Validación de bloqueo temporal
+        const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_apertura_tribunal) as tribunal_bloqueado FROM configuraciones WHERE id = 1`);
+        if (checkTime.rows[0].tribunal_bloqueado) {
+            return res.status(403).json({ error: "⛔ El periodo oficial de evaluación aún no ha comenzado. Solo puede revisar los documentos técnicos." });
+        }
+
         const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE correo = $1', [correoTribunal]);
         if (tribunalData.rows.length === 0) return res.status(404).json({ error: "Tribunal no encontrado." });
         const usuarioTribunal = tribunalData.rows[0].usuario_tribunal;

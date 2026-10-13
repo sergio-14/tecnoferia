@@ -168,7 +168,6 @@ window.generarCertificadoParticipacion = async function(ci) {
         const data = await res.json();
         const nombre = data.datos.nombre_completo || "Nombre del Participante";
         
-        // 🔥 MAGIA: Transformamos el QR en un enlace de validación oficial de tu sistema 🔥
         const urlValidacion = `${window.location.origin}/?validar_certificado=${ci}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(urlValidacion)}`;
 
@@ -379,7 +378,95 @@ window.generarVistaPrevia = async function() {
             return roles;
         };
 
-        if (valor === "ranking") {
+        // 🔥 NUEVO INFORME DE TERNAS ASIGNADAS 🔥
+        if (valor === 'terna') {
+            let html = `<div style="text-align:center; margin-bottom:20px;">
+                            <h2 style="color:#002b5c; margin-bottom:5px;">ACTA DE ASIGNACIÓN DE TERNAS Y TRIBUNALES</h2>
+                            <p style="font-size:0.9rem; color:#666;">Distribución oficial de proyectos por jurado evaluador.</p>
+                        </div>`;
+                        
+            const tribunalesActivos = tribunales.filter(t => t.proyectos_asignados && t.proyectos_asignados !== "[]");
+            
+            if (tribunalesActivos.length === 0) {
+                html += `<p style="text-align:center; color:red; font-weight:bold;">Aún no se han asignado proyectos a ningún tribunal.</p>`;
+            } else {
+                const categorias = [
+                    { id: 'estudiante', nombre: '1. ESTUDIANTES UNIVERSITARIOS' },
+                    { id: 'docente', nombre: '2. DOCENTES INVESTIGADORES' },
+                    { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
+                ];
+
+                categorias.forEach(cat => {
+                    html += `<h3 style="background:#002b5c; color:white; padding:10px; margin-top:30px; border-radius:4px;">${cat.nombre}</h3>`;
+                    
+                    // Proyectos de esta categoría con su numeración oficial
+                    const proyectosCat = proyectos.filter(p => p.categoria.includes(cat.id));
+                    let mapeoNumeracion = {};
+                    proyectosCat.forEach((p, index) => { mapeoNumeracion[String(p.id)] = index + 1; });
+
+                    let hayTribunalesEnEstaCat = false;
+
+                    tribunalesActivos.forEach(trib => {
+                        let catAsignadas = [];
+                        let proyAsignados = [];
+                        try { catAsignadas = JSON.parse(trib.categoria_asignada || "[]"); } catch(e){}
+                        try { proyAsignados = JSON.parse(trib.proyectos_asignados || "[]"); } catch(e){}
+                        
+                        if (catAsignadas.includes(cat.id)) {
+                            hayTribunalesEnEstaCat = true;
+                            html += `
+                                <div style="margin-top: 20px; padding: 15px; border: 2px solid #ddd; border-radius: 8px;">
+                                    <h4 style="color:#d32f2f; margin-bottom:5px; border-bottom:1px solid #ccc; padding-bottom:5px;">
+                                        <i class="fas fa-gavel"></i> Tribunal: ${trib.nombre_completo}
+                                    </h4>
+                                    <p style="font-size:0.85rem; color:#555; margin-bottom:15px;"><strong>Correo:</strong> ${trib.correo} | <strong>Celular:</strong> ${trib.celular}</p>
+                                    
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                        <thead>
+                                            <tr style="background:#f1f1f1; text-align:left;">
+                                                <th style="padding:8px; border:1px solid #ccc; width:10%;">Nº Asignado</th>
+                                                <th style="padding:8px; border:1px solid #ccc; width:45%;">Título del Proyecto</th>
+                                                <th style="padding:8px; border:1px solid #ccc; width:45%;">Líder y Equipo</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            let contoProyectosTribunal = 0;
+                            proyAsignados.forEach(idProy => {
+                                const proyectoDetalle = proyectosCat.find(p => String(p.id) === String(idProy));
+                                if (proyectoDetalle) {
+                                    contoProyectosTribunal++;
+                                    let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
+                                                                                    .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
+                                                                                    .replace(/\|\|\|.*/g, ''); 
+                                    html += `
+                                        <tr>
+                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1rem; color:#002b5c;">#${mapeoNumeracion[String(idProy)]}</td>
+                                            <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
+                                            <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
+                                        </tr>
+                                    `;
+                                }
+                            });
+
+                            if (contoProyectosTribunal === 0) {
+                                html += `<tr><td colspan="3" style="padding:8px; border:1px solid #ccc; text-align:center; font-style:italic; color:#777;">No se le han marcado proyectos específicos en esta categoría.</td></tr>`;
+                            }
+
+                            html += `</tbody></table></div>`;
+                        }
+                    });
+
+                    if (!hayTribunalesEnEstaCat) {
+                        html += `<p style="padding:15px; font-style:italic; color:#666;">No hay tribunales asignados a esta categoría todavía.</p>`;
+                    }
+                });
+            }
+            areaImpresion.innerHTML = generarCabeceraOficial("ACTA OFICIAL DE TERNA ASIGNADA") + html + `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;"><div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div><div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div></div>`;
+        }
+
+        else if (valor === "ranking") {
             const diccionarioProyectos = {}; 
 
             proyectos.forEach(p => {
@@ -454,7 +541,7 @@ window.generarVistaPrevia = async function() {
             };
 
             areaImpresion.innerHTML = generarCabeceraOficial("CUADRO DE HONOR Y RANKING GENERAL") + 
-                generarTablaHTML("1. ESTUDIANTES (PREGRADO)", topEstudiantes) +
+                generarTablaHTML("1. ESTUDIANTES UNIVERSITARIOS", topEstudiantes) +
                 generarTablaHTML("2. DOCENTES INVESTIGADORES", topDocentes) +
                 generarTablaHTML("3. EMPRENDIMIENTOS TECNOLÓGICOS", topEmprendimientos) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
@@ -471,7 +558,7 @@ window.generarVistaPrevia = async function() {
 
             proyectos.forEach(p => {
                 const eje = p.eje_tematico ? p.eje_tematico.trim() : "Sin Línea Definida"; 
-                let tipo = p.categoria.includes('docente') ? "Docentes Investigadores" : p.categoria.includes('emprendimiento') ? "Emprendimientos Tecnológicos" : "Estudiantes (Pregrado)";
+                let tipo = p.categoria.includes('docente') ? "Docentes Investigadores" : p.categoria.includes('emprendimiento') ? "Emprendimientos Tecnológicos" : "Estudiantes Universitarios";
                 
                 let nombreLiderReal = "Desconocido";
                 const expLider = expositores.find(e => e.ci === p.ci_propietario);
@@ -522,7 +609,7 @@ window.generarVistaPrevia = async function() {
         }
 
         else if (valor === "tribunales") {
-            const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
+            const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
             evaluaciones.forEach(ev => { 
                 const proy = proyectos.find(p => p.id === ev.id_proyecto);
@@ -531,7 +618,7 @@ window.generarVistaPrevia = async function() {
                 let cat = "OTRAS EVALUACIONES (Registros sin categoría)";
                 
                 if (proy) {
-                    cat = proy.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : proy.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+                    cat = proy.categoria.includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : proy.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
                 }
                 grupos[cat].push({ tituloProyecto: proy ? proy.titulo : "Proyecto Desconocido", nombreTribunal: nombreTribunalReal, notaTribunal: ev.nota, observaciones: ev.observaciones });
             });
@@ -571,7 +658,7 @@ window.generarVistaPrevia = async function() {
             };
 
             areaImpresion.innerHTML = generarCabeceraOficial("ACTA DETALLADA DE CALIFICACIONES DE TRIBUNALES", "El puntaje aquí reflejado representa únicamente la valoración técnica del Tribunal Evaluador, la cual equivale al 80% de la calificación final del proyecto.") + 
-                generarTabla("1. ESTUDIANTES (PREGRADO)", grupos["1. ESTUDIANTES (PREGRADO)"]) + generarTabla("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTabla("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTabla("OTRAS EVALUACIONES (Registros sin categoría)", grupos["OTRAS EVALUACIONES (Registros sin categoría)"]) +
+                generarTabla("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + generarTabla("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTabla("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTabla("OTRAS EVALUACIONES (Registros sin categoría)", grupos["OTRAS EVALUACIONES (Registros sin categoría)"]) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Representante del Tribunal</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. Instituto de Investigación</p></div>
@@ -581,7 +668,7 @@ window.generarVistaPrevia = async function() {
         else if (valor === "visitantes") {
             const diccProyectos = {};
             proyectos.forEach(p => {
-                let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+                let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
                 diccProyectos[p.id] = { titulo: p.titulo || "Sin Título", categoria: cat, visitas: 0, sumaNotas: 0 };
             });
 
@@ -642,7 +729,7 @@ window.generarVistaPrevia = async function() {
                     <div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Promedio de Votos/Proyecto</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${promVotosProyecto}</p></div>
                 </div>
                 <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 30px;">A. Desglose de Votación por Proyecto (20% de la Nota Final)</h3>
-                ${generarTablaV("1. ESTUDIANTES (PREGRADO)") + generarTablaV("2. DOCENTES INVESTIGADORES") + generarTablaV("3. EMPRENDIMIENTOS TECNOLÓGICOS")}
+                ${generarTablaV("1. ESTUDIANTES UNIVERSITARIOS") + generarTablaV("2. DOCENTES INVESTIGADORES") + generarTablaV("3. EMPRENDIMIENTOS TECNOLÓGICOS")}
                 <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 40px;">B. Afluencia por Instituciones Externas</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
                     <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;"><th style="padding: 10px; border: 1px solid #ccc; text-align: left;">Nombre de la Institución</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center;">Cantidad de Visitantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center;">Porcentaje del Total</th></tr></thead>
@@ -656,7 +743,7 @@ window.generarVistaPrevia = async function() {
 
         else if (valor === "documentos") {
             const ciConProy = new Set();
-            const grupos = { "1. ESTUDIANTES (PREGRADO)": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
+            const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
 
             proyectos.forEach(p => {
                 if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
@@ -672,7 +759,7 @@ window.generarVistaPrevia = async function() {
                     } catch(e) {}
                 }
 
-                let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES (PREGRADO)" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+                let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
                 
                 let nombreLiderReal = "Desconocido";
                 const expLider = expositores.find(e => e.ci === p.ci_propietario);
@@ -702,7 +789,7 @@ window.generarVistaPrevia = async function() {
             };
 
             areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE INSCRIPCIÓN Y CONTROL DE DOCUMENTACIÓN", `Fecha de auditoría: ${new Date().toLocaleDateString()} — Estado: Concluido`) + 
-                generarTablaD("1. ESTUDIANTES (PREGRADO)", grupos["1. ESTUDIANTES (PREGRADO)"]) + generarTablaD("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTablaD("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTablaD("4. PENDIENTES (SIN PROYECTO REGISTRADO)", grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"]) +
+                generarTablaD("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + generarTablaD("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTablaD("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTablaD("4. PENDIENTES (SIN PROYECTO REGISTRADO)", grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"]) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Recibido y Verificado por:<br>Encargado de Soporte Técnico</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Sello de Conformidad<br>Instituto de Investigación</p></div>
@@ -710,7 +797,7 @@ window.generarVistaPrevia = async function() {
         }
 
         else if (valor === "expositores") {
-            const grupos = { "1. Estudiantes (Pregrado)": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
+            const grupos = { "1. Estudiantes Universitarios": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
 
             expositores.forEach(e => {
                 let cat = "4. Registrados sin Proyecto Subido (Pendientes)";
@@ -718,7 +805,7 @@ window.generarVistaPrevia = async function() {
 
                 if (roles.length > 0) {
                     const proyPrincipal = roles.find(r => r.tipo === 'LIDER')?.proyecto || roles[0].proyecto;
-                    cat = proyPrincipal.categoria.includes('estudiante') ? "1. Estudiantes (Pregrado)" : proyPrincipal.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
+                    cat = proyPrincipal.categoria.includes('estudiante') ? "1. Estudiantes Universitarios" : proyPrincipal.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
                 }
 
                 const nombreCapitalizado = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -745,7 +832,7 @@ window.generarVistaPrevia = async function() {
             };
 
             areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE EXPOSITORES REGISTRADOS") +
-                generarTablaE("1. Estudiantes (Pregrado)", grupos["1. Estudiantes (Pregrado)"]) + generarTablaE("2. Docentes Investigadores", grupos["2. Docentes Investigadores"]) + generarTablaE("3. Emprendimientos Tecnológicos", grupos["3. Emprendimientos Tecnológicos"]) + generarTablaE("4. Registrados sin Proyecto Subido (Pendientes)", grupos["4. Registrados sin Proyecto Subido (Pendientes)"]) +
+                generarTablaE("1. Estudiantes Universitarios", grupos["1. Estudiantes Universitarios"]) + generarTablaE("2. Docentes Investigadores", grupos["2. Docentes Investigadores"]) + generarTablaE("3. Emprendimientos Tecnológicos", grupos["3. Emprendimientos Tecnológicos"]) + generarTablaE("4. Registrados sin Proyecto Subido (Pendientes)", grupos["4. Registrados sin Proyecto Subido (Pendientes)"]) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador</p></div>
