@@ -468,6 +468,39 @@ app.get('/api/proyectos_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar proyectos" }); }
 });
 
+// 🔥 NUEVA RUTA: RESCATE MANUAL DE PDF POR PARTE DEL ADMINISTRADOR 🔥
+app.post('/api/admin_resubir_pdf', async (req, res) => {
+    try {
+        const { idProyecto, ciPropietario, categoria } = req.body;
+        
+        if (!req.files || !req.files.proyArchivo) {
+            return res.status(400).json({ error: "No se seleccionó ningún archivo." });
+        }
+
+        let subcarpeta = 'otros';
+        if (categoria.includes('estudiante')) subcarpeta = 'Estudiantes_Pregrado';
+        else if (categoria.includes('docente')) subcarpeta = 'Docentes_Investigadores';
+        else if (categoria.includes('emprendimiento')) subcarpeta = 'Emprendimientos';
+
+        const dirDestino = path.join(__dirname, '../archivos_proyectos/', subcarpeta);
+        if (!fs.existsSync(dirDestino)) { fs.mkdirSync(dirDestino, { recursive: true }); }
+        
+        const archivo = req.files.proyArchivo;
+        // Mantenemos el mismo formato de nombre seguro
+        const nombreSeguro = `${ciPropietario}_${Date.now()}.pdf`;
+        await archivo.mv(path.join(dirDestino, nombreSeguro));
+        const enlacePdfFinal = `/archivos_proyectos/${subcarpeta}/${nombreSeguro}`;
+
+        // Solo actualizamos la columna del PDF, no tocamos nada más
+        await db.query(`UPDATE proyectos SET enlace_pdf = $1 WHERE id = $2`, [enlacePdfFinal, idProyecto]);
+
+        res.status(200).json({ mensaje: "PDF resubido y enlazado correctamente al proyecto.", nuevoEnlace: enlacePdfFinal });
+    } catch (error) {
+        console.error("Error al resubir PDF admin:", error);
+        res.status(500).json({ error: "Error interno al intentar guardar el archivo." });
+    }
+});
+
 app.get('/api/proyectos_qr/:id', async (req, res) => {
     try {
         const proy = await db.query('SELECT * FROM proyectos WHERE id = $1', [req.params.id]);

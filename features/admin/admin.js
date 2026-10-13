@@ -49,16 +49,15 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
         let btnView = '';
         let btnDownload = '';
         
-        // Verificamos si realmente existe un PDF subido
         if (proyecto.enlace_pdf && proyecto.enlace_pdf !== 'null' && proyecto.enlace_pdf !== '') {
             btnView = `<button type="button" onclick="window.abrirVisorPDF('${proyecto.enlace_pdf}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: white; color: #002b5c; border: 1px solid #002b5c; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Ver PDF en línea"><i class="fas fa-eye"></i> Ver</button>`;
             
-            // 🔥 NUEVO BOTÓN DE DESCARGA DIRECTA 🔥
             btnDownload = `<button type="button" onclick="window.descargarPDFLocal(event, '${proyecto.enlace_pdf}', '${proyecto.ci_propietario}', '${nombreColeccion}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #28a745; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;" title="Descargar el documento a tu computadora"><i class="fas fa-download"></i> Bajar</button>`;
         } else {
             btnView = `<button type="button" disabled style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #ccc; color: #666; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; cursor: not-allowed;" title="Este proyecto no tiene PDF"><i class="fas fa-eye-slash"></i> N/A</button>`;
         }
 
+        // 🔥 NUEVO: Botón oculto tipo FILE y botón visual morado para Rescatar PDF 🔥
         fila.innerHTML = `
             <td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>${proyecto.titulo}</strong></td>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">${proyecto.integrantes}</td>
@@ -68,6 +67,12 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
                 <button onclick="window.crearQRProyecto('${idUnicoProyecto}', '${nombreColeccion}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #002b5c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Generar QR del Proyecto">
                     <i class="fas fa-qrcode"></i> QR
                 </button>
+                
+                <input type="file" id="file-rescate-${idUnicoProyecto}" accept=".pdf" style="display: none;" onchange="window.resubirPDFAdmin(event, '${idUnicoProyecto}', '${proyecto.ci_propietario}', '${proyecto.categoria}')">
+                <button onclick="document.getElementById('file-rescate-${idUnicoProyecto}').click()" style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #6f42c1; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Resubir PDF manual en caso de pérdida">
+                    <i class="fas fa-upload"></i> Resubir
+                </button>
+
                 <button onclick="window.eliminarProyectoAdmin('${idUnicoProyecto}', '${proyecto.titulo.replace(/'/g, "\\'")}')" style="display: inline-block; padding: 6px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Eliminar proyecto de forma definitiva">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -81,7 +86,47 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
     });
 }
 
-// 🔥 NUEVA FUNCIÓN PARA FORZAR LA DESCARGA CON NOMBRE INTELIGENTE 🔥
+// 🔥 NUEVA FUNCIÓN: Envía el PDF de rescate al servidor 🔥
+window.resubirPDFAdmin = async function(e, idProyecto, ciPropietario, categoria) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf")) {
+        alert("🛑 Solo se permiten archivos en formato .PDF");
+        e.target.value = "";
+        return;
+    }
+
+    if (!confirm("⚠️ ¿Estás seguro de resubir este PDF?\n\nEl documento se enlazará a este proyecto sin modificar a sus integrantes ni su puntaje.")) {
+        e.target.value = "";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('proyArchivo', file);
+    formData.append('idProyecto', idProyecto);
+    formData.append('ciPropietario', ciPropietario);
+    formData.append('categoria', categoria);
+
+    try {
+        const respuesta = await fetch('/api/admin_resubir_pdf', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await respuesta.json();
+        if (!respuesta.ok) throw new Error(data.error || "Error al subir");
+
+        alert("✅ " + data.mensaje);
+        window.cargarProyectosAdmin(); // Refresca la tabla para que el botón de "Ver" vuelva a funcionar
+
+    } catch (error) {
+        alert("❌ Ocurrió un error al intentar resubir el documento: " + error.message);
+    }
+    
+    e.target.value = ""; // Resetea el input file
+};
+
 window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {
     e.preventDefault();
     const btn = e.currentTarget;
@@ -97,7 +142,6 @@ window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {
 
         let urlLimpia = url.replace('/ver-pdf/', '/archivos_proyectos/');
         
-        // Usamos fetch para traer el archivo binario
         const response = await fetch(urlLimpia);
         if (!response.ok) throw new Error("El archivo no está disponible en el servidor.");
         
@@ -108,7 +152,6 @@ window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {
         a.style.display = 'none';
         a.href = blobUrl;
         
-        // Le damos un nombre organizado para que el administrador no se confunda al descargarlo
         a.download = `TecnoFeria_${catName}_CI_${ci}.pdf`;
         
         document.body.appendChild(a);
@@ -117,7 +160,6 @@ window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {
         window.URL.revokeObjectURL(blobUrl);
         a.remove();
         
-        // Efecto visual de éxito
         btn.innerHTML = '<i class="fas fa-check"></i> Listo';
         setTimeout(() => { btn.innerHTML = originalHTML; btn.disabled = false; }, 2000);
         
@@ -638,7 +680,6 @@ window.registrarNuevoAdmin = async function(e) {
     }
 };
 
-//  NUEVAS FUNCIONES: PADRÓN GLOBAL DE USUARIOS 
 window.usuariosCargadosBD = { expositores: [], tribunales: [], visitantes: [] };
 window.subTabUsuariosActual = 'expositor';
 
