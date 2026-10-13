@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Votación por Celular, Huella Digital y Congelamiento de Datos
+// FUNCIÓN: Votación por Celular, Huella Digital y Seguridad GPS Estricta
 // =========================================================================
 
 // Generación de Huella Única de Dispositivo
@@ -103,7 +103,7 @@ window.cargarProyectoParaVotar = async function() {
                             <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
                             <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px;">¡Voto Registrado!</h3>
                             <p style="color: #e2e8f0; font-size: 1rem; margin-bottom: 20px;">Tu dispositivo ya emitió un voto válido para la innovación:<br><b style="color: #4db8ff;">"${proyecto.titulo}"</b></p>
-                            <button onclick="window.location.href = window.location.pathname;" style="padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;">Escanea Otro Proyecto</button>
+                            <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;">Escanea Otro Proyecto</button>
                         </div>
                     `;
                     return;
@@ -112,8 +112,7 @@ window.cargarProyectoParaVotar = async function() {
                 // 2. Verificación de Fraude del Expositor Logueado
                 const rolActivo = localStorage.getItem('feria_rol');
                 if (rolActivo === 'EXPOSITOR') {
-                    // Si es expositor y está con la sesión abierta, bloqueamos su número real para que no lo cambie
-                    // Como quitamos el C.I. de registro de visitante, usamos el celular.
+                    // Si es expositor y está con la sesión abierta, usamos el número de su cuenta para evitar trampa
                     savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
                 }
 
@@ -134,7 +133,6 @@ window.cargarProyectoParaVotar = async function() {
                     inputCel.style.backgroundColor = "rgba(0,0,0,0.5)";
                     inputCel.style.color = "#94a3b8";
                     
-                    // Doble validación en backend de manera silenciosa
                     window.validarFormularioVoto();
                 }
 
@@ -217,7 +215,7 @@ function obtenerUbicacionGPS() {
             (error) => {
                 let msg = "Error al obtener ubicación.";
                 if (error.code === 1) msg = "DENEGADO: Debes darle 'Permitir' a la ubicación GPS para poder votar.";
-                if (error.code === 2) msg = "NO DISPONIBLE: No se pudo conectar al satélite GPS.";
+                if (error.code === 2) msg = "NO DISPONIBLE: No se pudo conectar al satélite GPS. Verifica que tu GPS/Ubicación esté encendido.";
                 if (error.code === 3) msg = "TIEMPO AGOTADO: El GPS tardó demasiado.";
                 reject(new Error(msg));
             }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -251,6 +249,7 @@ window.enviarCalificacion = async function(e) {
 
         const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
 
+        // 🔥 SEGURIDAD GPS 100% GENUINA - SIN TRUCOS 🔥
         if (distanciaMetros > RADIO_FERIA) {
             alert(`⛔ ALERTA: ESTÁS DEMASIADO LEJOS\n\nEstás a ${distanciaMetros.toFixed(0)} metros.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la feria.`);
             btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
