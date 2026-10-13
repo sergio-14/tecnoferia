@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- 🔥 VERSIÓN V101: ACTUALIZACIÓN DE DISEÑO TRIBUNALES 🔥 -->
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V101">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V101">
+    <!-- 🔥 VERSIÓN V102: CORRECCIÓN DE CHECKBOXES TRIBUNALES 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V102">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V102">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -651,6 +651,7 @@
                             </div>
                         </div>
 
+                        <!-- 🔥 PESTAÑA CORREGIDA DE TRIBUNALES 🔥 -->
                         <div id="tab-tribunales" class="tab-content section-animate" style="display: none;">
                             <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: start;">
                                 
@@ -673,7 +674,7 @@
                                     <h3 style="color: #28a745; border-bottom: 2px solid #ccc; padding-bottom: 10px;"><i class="fas fa-tasks"></i> 2. Asignar Categorías y Proyectos</h3>
                                     <p style="color: #666; font-size: 0.85rem; margin-bottom: 20px;">Seleccione un tribunal existente para asignarle trabajo y áreas de evaluación.</p>
                                     <form onsubmit="window.guardarAsignacionTribunal(event)">
-                                        <div class="form-group" style="display: flex; gap: 10px;">
+                                        <div class="form-group" style="display: flex; gap: 10px; text-align: left;">
                                             <div style="flex: 1;">
                                                 <label>1. Seleccionar Tribunal</label>
                                                 <select id="asigTribunalSel" required onchange="window.alSeleccionarTribunal()">
@@ -683,28 +684,31 @@
                                             <button type="button" onclick="window.cargarTribunalesParaAsignacion()" style="margin-top: 25px; padding: 10px; height: 42px; background: #002b5c; color: white; border: none; border-radius: 5px; cursor: pointer;" title="Actualizar lista de tribunales"><i class="fas fa-sync-alt"></i></button>
                                         </div>
                                         
-                                        <div class="form-group">
+                                        <div class="form-group" style="text-align: left;">
                                             <label>2. Categorías a Evaluar (Puede elegir varias)</label>
                                             <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); text-align: left;">
-                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-bottom: 12px; cursor: pointer; color: #ffffff; font-size: 0.95rem;">
-                                                    <input type="checkbox" class="check-cat-trib" value="estudiante" onchange="window.cargarProyectosParaAsignarCheckbox()" style="margin: 0; width: 16px; height: 16px; flex-shrink: 0;"> Estudiantes (Pregrado)
+                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 12px; cursor: pointer; color: #ffffff; font-size: 0.95rem; width: 100%; text-align: left;">
+                                                    <input type="checkbox" class="check-cat-trib" value="estudiante" onchange="window.cargarProyectosParaAsignarCheckbox()" style="width: 20px !important; height: 20px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0; display: inline-block;">
+                                                    <span style="flex: 1; text-align: left; display: block;">Estudiantes (Pregrado)</span>
                                                 </label>
-                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin-bottom: 12px; cursor: pointer; color: #ffffff; font-size: 0.95rem;">
-                                                    <input type="checkbox" class="check-cat-trib" value="docente" onchange="window.cargarProyectosParaAsignarCheckbox()" style="margin: 0; width: 16px; height: 16px; flex-shrink: 0;"> Docentes Investigadores
+                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 12px; margin-bottom: 12px; cursor: pointer; color: #ffffff; font-size: 0.95rem; width: 100%; text-align: left;">
+                                                    <input type="checkbox" class="check-cat-trib" value="docente" onchange="window.cargarProyectosParaAsignarCheckbox()" style="width: 20px !important; height: 20px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0; display: inline-block;">
+                                                    <span style="flex: 1; text-align: left; display: block;">Docentes Investigadores</span>
                                                 </label>
-                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 10px; cursor: pointer; color: #ffffff; font-size: 0.95rem;">
-                                                    <input type="checkbox" class="check-cat-trib" value="emprendimiento" onchange="window.cargarProyectosParaAsignarCheckbox()" style="margin: 0; width: 16px; height: 16px; flex-shrink: 0;"> Emprendimientos Tecnológicos
+                                                <label style="display: flex; align-items: center; justify-content: flex-start; gap: 12px; cursor: pointer; color: #ffffff; font-size: 0.95rem; width: 100%; text-align: left;">
+                                                    <input type="checkbox" class="check-cat-trib" value="emprendimiento" onchange="window.cargarProyectosParaAsignarCheckbox()" style="width: 20px !important; height: 20px !important; margin: 0 !important; padding: 0 !important; flex-shrink: 0; display: inline-block;">
+                                                    <span style="flex: 1; text-align: left; display: block;">Emprendimientos Tecnológicos</span>
                                                 </label>
                                             </div>
                                         </div>
                                         
-                                        <div class="form-group">
+                                        <div class="form-group" style="text-align: left;">
                                             <label style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                                 <span>3. Proyectos Específicos Asignados</span>
                                                 <a href="#" onclick="window.seleccionarTodosLosProyectos(event)" style="color: #4db8ff; font-size: 0.85rem; text-decoration: none; font-weight: bold;"><i class="fas fa-check-square"></i> Marcar/Desmarcar Todos</a>
                                             </label>
                                             <div id="contenedor-lista-proyectos-check" style="max-height: 250px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); text-align: left;">
-                                                <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: center;">Seleccione un tribunal y al menos una categoría arriba.</p>
+                                                <p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: left;">Seleccione un tribunal y al menos una categoría arriba.</p>
                                             </div>
                                         </div>
                                         <button type="submit" id="btnGuardarAsignacion" class="btn-save" style="background-color: #28a745;"><i class="fas fa-check-double"></i> Guardar Asignaciones</button>
@@ -712,6 +716,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div id="tab-visitantes" class="tab-content section-animate" style="display: none;">
                             <div class="form-card">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
@@ -1111,18 +1116,18 @@
             }
         })();
     </script>
-    <script src="core/utils.js?v=FERIA_V101"></script>
-    <script src="core/router.js?v=FERIA_V101"></script>
-    <script src="features/auth/auth.js?v=FERIA_V101"></script>
-    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V101"></script>
-    <script src="features/admin/admin.js?v=FERIA_V101"></script>
-    <script src="features/votacion/votacion.js?v=FERIA_V101"></script>
-    <script src="features/habilitacion/habilitacion.js?v=FERIA_V101"></script>
-    <script src="features/registro/registro.js?v=FERIA_V101"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V101"></script>
-    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V101"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V101"></script>
-    <script src="features/resultados/resultados.js?v=FERIA_V101"></script>
-    <script src="features/informes/informes.js?v=FERIA_V101"></script>
+    <script src="core/utils.js?v=FERIA_V102"></script>
+    <script src="core/router.js?v=FERIA_V102"></script>
+    <script src="features/auth/auth.js?v=FERIA_V102"></script>
+    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V102"></script>
+    <script src="features/admin/admin.js?v=FERIA_V103"></script>
+    <script src="features/votacion/votacion.js?v=FERIA_V102"></script>
+    <script src="features/habilitacion/habilitacion.js?v=FERIA_V102"></script>
+    <script src="features/registro/registro.js?v=FERIA_V102"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V102"></script>
+    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V102"></script> 
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V102"></script>
+    <script src="features/resultados/resultados.js?v=FERIA_V102"></script>
+    <script src="features/informes/informes.js?v=FERIA_V102"></script>
 </body>
 </html>

@@ -821,7 +821,7 @@ window.cargarTribunalesParaAsignacion = async function() {
         
         // Limpiamos los checks al recargar
         document.querySelectorAll('.check-cat-trib').forEach(chk => chk.checked = false);
-        document.getElementById('contenedor-lista-proyectos-check').innerHTML = '<p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: center;">Seleccione un tribunal y al menos una categoría arriba.</p>';
+        document.getElementById('contenedor-lista-proyectos-check').innerHTML = '<p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: left;">Seleccione un tribunal y al menos una categoría arriba.</p>';
         
     } catch (error) {
         select.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
@@ -862,7 +862,7 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
     const categoriasSeleccionadas = Array.from(checkboxesCat).map(chk => chk.value);
     
     if (categoriasSeleccionadas.length === 0) {
-        contenedor.innerHTML = '<p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: center;">Seleccione al menos una categoría arriba para ver los proyectos.</p>';
+        contenedor.innerHTML = '<p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: left;">Seleccione al menos una categoría arriba para ver los proyectos.</p>';
         return;
     }
 
@@ -881,7 +881,7 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
         });
 
         if (proyectosFiltrados.length === 0) {
-            contenedor.innerHTML = '<p style="color: #ff6b6b; font-size: 0.9rem; margin: 0; text-align: center;">No hay proyectos inscritos en las categorías seleccionadas.</p>';
+            contenedor.innerHTML = '<p style="color: #ff6b6b; font-size: 0.9rem; margin: 0; text-align: left;">No hay proyectos inscritos en las categorías seleccionadas.</p>';
             return;
         }
 
@@ -898,9 +898,9 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
             if(p.categoria.includes('emprendimiento')) insignia = '<span style="background:rgba(255, 193, 7, 0.15); color:#ffc107; padding:3px 8px; border-radius:4px; font-size:0.7rem; font-weight:bold; border: 1px solid rgba(255, 193, 7, 0.3);">EMPRENDIMIENTO</span>';
 
             html += `
-                <label style="display: flex; align-items: flex-start; justify-content: flex-start; gap: 12px; margin-bottom: 12px; cursor: pointer; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left;">
-                    <input type="checkbox" class="check-proy-trib" value="${p.id}" style="margin: 3px 0 0 0; width: 16px; height: 16px; flex-shrink: 0;" ${estaMarcado}>
-                    <div style="flex: 1; line-height: 1.4;">
+                <label style="display: flex; align-items: flex-start; justify-content: flex-start; gap: 12px; margin-bottom: 12px; cursor: pointer; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; width: 100%;">
+                    <input type="checkbox" class="check-proy-trib" value="${p.id}" style="width: 20px !important; height: 20px !important; margin: 2px 0 0 0 !important; padding: 0 !important; flex-shrink: 0; display: inline-block;" ${estaMarcado}>
+                    <div style="flex: 1; line-height: 1.4; text-align: left;">
                         <strong style="color: #ffffff; font-size: 0.95rem;">${p.titulo}</strong><br>
                         <div style="margin-top: 6px;">${insignia}</div>
                     </div>
@@ -911,7 +911,7 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
         contenedor.innerHTML = html;
 
     } catch (error) {
-        contenedor.innerHTML = '<p style="color: #ff6b6b; font-size: 0.9rem; margin: 0; text-align: center;">Error al cargar proyectos.</p>';
+        contenedor.innerHTML = '<p style="color: #ff6b6b; font-size: 0.9rem; margin: 0; text-align: left;">Error al cargar proyectos.</p>';
     }
 };
 
