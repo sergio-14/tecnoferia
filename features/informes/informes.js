@@ -116,7 +116,6 @@ function inicializarFiltroVisitantes() {
 
 document.addEventListener('DOMContentLoaded', inicializarFiltroVisitantes);
 
-// 🔥 FUNCIONES PARA EL CERTIFICADO 🔥
 window.toggleBuscadorCertificado = function() {
     const select = document.getElementById('tipo-informe-select');
     const cajaBusqueda = document.getElementById('caja-buscador-certificado');
@@ -305,9 +304,6 @@ window.generarCertificadoParticipacion = async function(ci) {
     }
 };
 
-// ==========================================
-// VISTA PREVIA DE INFORMES GENERALES
-// ==========================================
 window.generarVistaPrevia = async function() {
     const tipoSelect = document.getElementById('tipo-informe-select');
     const valor = tipoSelect.value;
@@ -376,7 +372,6 @@ window.generarVistaPrevia = async function() {
             return roles;
         };
 
-        // 🔥 NUEVA LÓGICA DE TERNA ASIGNADA (Sincronizada con el Admin y numerada correctamente) 🔥
         if (valor === 'terna') {
             let html = `<div style="text-align:center; margin-bottom:20px;">
                             <h2 style="color:#002b5c; margin-bottom:5px;">ACTA DE ASIGNACIÓN DE TERNAS Y TRIBUNALES</h2>
@@ -394,12 +389,10 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
-                // 1. Filtramos y ordenamos igual que en admin.js para asegurar que los números coincidan
                 const proyectosValidosGlobales = proyectos
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => b.id - a.id); // Orden DESCendente por ID (Igual que admin)
+                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
-                // 2. Creamos el mapeo oficial de numeración por categoría
                 let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
                 proyectosValidosGlobales.forEach(p => {
@@ -422,13 +415,13 @@ window.generarVistaPrevia = async function() {
                         if (catAsignadas.includes(cat.id)) {
                             hayTribunalesEnEstaCat = true;
                             html += `
-                                <div style="margin-top: 20px; padding: 15px; border: 2px solid #ddd; border-radius: 8px;">
+                                <div style="margin-top: 20px; padding: 15px; border: 2px solid #ddd; border-radius: 8px; page-break-inside: avoid;">
                                     <h4 style="color:#d32f2f; margin-bottom:5px; border-bottom:1px solid #ccc; padding-bottom:5px;">
                                         <i class="fas fa-gavel"></i> Tribunal: ${trib.nombre_completo}
                                     </h4>
                                     <p style="font-size:0.85rem; color:#555; margin-bottom:15px;"><strong>Correo:</strong> ${trib.correo} | <strong>Celular:</strong> ${trib.celular}</p>
                                     
-                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; page-break-inside: auto;">
                                         <thead>
                                             <tr style="background:#f1f1f1; text-align:left;">
                                                 <th style="padding:8px; border:1px solid #ccc; width:10%; text-align:center;">Nº Asignado</th>
@@ -439,7 +432,6 @@ window.generarVistaPrevia = async function() {
                                         <tbody>
                             `;
                             
-                            // 3. ORDENAMOS los proyectos asignados de menor a mayor (basado en su número oficial)
                             proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
 
                             let contoProyectosTribunal = 0;
@@ -451,7 +443,7 @@ window.generarVistaPrevia = async function() {
                                                                                     .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
                                                                                     .replace(/\|\|\|.*/g, ''); 
                                     html += `
-                                        <tr>
+                                        <tr style="page-break-inside: avoid;">
                                             <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(idProy)]}</td>
                                             <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
                                             <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
@@ -849,85 +841,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        else if (valor === "padron_visitantes") {
-            const filtroSelect = document.getElementById('institucion-select');
-            const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
-            const ciQueVotaron = new Set(votos.filter(v => v.ci_visitante).map(v => String(v.ci_visitante).trim()));
-
-            const lVis = [];
-            
-            visitantes.forEach(v => {
-                const i = (v.institucion || "N/A").trim();
-                const cel = v.celular || "Sin número"; 
-                if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
-                    let n = (v.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                    const roles = obtenerRolesDeProyectos(v.ci, v.nombre_completo);
-                    
-                    if (roles.length > 0) {
-                        n += roles.map(r => {
-                            if (r.tipo === 'LIDER') return `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${r.proyecto.titulo}"</i></span>`;
-                            return `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${r.proyecto.titulo}"</i></span>`;
-                        }).join('');
-                    }
-                    lVis.push({ n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                }
-            });
-
-            expositores.forEach(e => {
-                const i = (e.institucion || "N/A").trim();
-                const cel = e.celular || "Sin número"; 
-                if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
-                    const c = String(e.ci).trim();
-                    let n = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-                    const roles = obtenerRolesDeProyectos(e.ci, e.nombre_completo);
-                    
-                    if (roles.length > 0) {
-                        n += roles.map(r => {
-                            if (r.tipo === 'LIDER') return `<br><span style="color: #0056b3; font-size: 0.82rem;">🔵 <b>Líder de Proyecto</b> — <i>"${r.proyecto.titulo}"</i></span>`;
-                            return `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${r.proyecto.titulo}"</i></span>`;
-                        }).join('');
-                    } else {
-                        n += `<br><span style="color: #dc3545; font-size: 0.82rem;">🔴 <b>Expositor</b> — <i style="color: #dc3545;">No subió proyecto</i></span>`;
-                    }
-
-                    const idx = lVis.findIndex(v => v.ci === c);
-                    if (idx === -1) lVis.push({ n, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                    else { lVis[idx].n = n; lVis[idx].cel = cel; } 
-                }
-            });
-
-            lVis.sort((a, b) => a.n.localeCompare(b.n));
-            let titTab = institucionElegida === "TODOS" ? "Padrón General (Visitantes y Expositores)" : (/colegio|unidad|escuela|uab|universidad|instituto/i.test(institucionElegida)) ? `Lista de Asistencia: ${institucionElegida}` : `Visitantes Externos: ${institucionElegida}`;
-
-            let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${titTab} (Total: ${lVis.length})</h3>
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
-                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre Completo</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 12%;">C.I.</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 28%;">Institución</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 10%;">Votos</th>
-                </tr></thead><tbody>`;
-
-            if (lVis.length === 0) htmlTabla += `<tr><td colspan="6" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay personas registradas en esta institución.</td></tr>`;
-            else lVis.forEach((v, i) => htmlTabla += `<tr>
-                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
-                <td style="padding: 8px; border: 1px solid #ccc;">${v.n}</td>
-                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.ci}</td>
-                <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${v.cel}</td>
-                <td style="padding: 8px; border: 1px solid #ccc;">${v.i}</td>
-                <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-size: 12px;">${v.v}</td>
-            </tr>`);
-            htmlTabla += `</tbody></table>`;
-
-            areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE VISITANTES Y ESTADO DE VOTACIÓN", `Filtro aplicado: ${institucionElegida === "TODOS" ? "Padrón General (Todas las Instituciones)" : institucionElegida}`) + htmlTabla +
-                `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador</p></div>
-                </div>`;
-        }
-        
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
                 n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
@@ -972,6 +885,7 @@ window.generarVistaPrevia = async function() {
     } 
 };
 
+// 🔥 FUNCIÓN DE IMPRESIÓN LIMPIA Y PROFESIONAL 🔥
 window.imprimirInformeActual = function(event) {
     if (event) event.preventDefault(); 
     const areaImpresion = document.getElementById('informe-impresion');
@@ -1021,6 +935,7 @@ window.imprimirInformeActual = function(event) {
                     -webkit-print-color-adjust: exact; 
                     print-color-adjust: exact; 
                 }
+                /* 🔥 Forzamos al navegador a respetar las hojas en PDF 🔥 */
                 @page { 
                     size: A4 portrait; 
                     margin: 15mm; 

@@ -243,34 +243,43 @@ window.cargarDatosProyecto = async function() {
             divEstado.innerHTML = '<div style="text-align:center; padding:50px; color:#fff;"><i class="fas fa-spinner fa-spin fa-3x"></i><p style="margin-top:15px; font-size:1.1rem;">Cargando tu proyecto...</p></div>';
         }
 
+        const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
         let categoriaObligatoria = "estudiantes"; 
-        try {
-            const resUsu = await fetch(`/api/usuarios/${ciLocal}`);
-            if (resUsu.ok) {
-                const dataUsu = await resUsu.json();
-                if (dataUsu && dataUsu.datos && dataUsu.datos.institucion) {
-                    const inst = dataUsu.datos.institucion.toLowerCase();
-                    if (inst.includes('docente')) categoriaObligatoria = "docentes";
-                    else if (inst.includes('titulado') || inst.includes('universi') || inst.includes('uabjb')) categoriaObligatoria = "emprendimientos";
+
+        if (proyectoExistente && proyectoExistente.data.tipoExpositor) {
+            categoriaObligatoria = proyectoExistente.data.tipoExpositor;
+        } else {
+            try {
+                const resUsu = await fetch(`/api/usuarios/${ciLocal}`);
+                if (resUsu.ok) {
+                    const dataUsu = await resUsu.json();
+                    if (dataUsu && dataUsu.datos && dataUsu.datos.institucion) {
+                        const inst = dataUsu.datos.institucion.toLowerCase();
+                        if (inst.includes('docente')) categoriaObligatoria = "docentes";
+                        else if (inst.includes('titulado') || inst.includes('uabjb')) categoriaObligatoria = "emprendimientos";
+                    }
                 }
-            }
-        } catch(e){}
+            } catch(e){}
+        }
 
         const selectTipo = document.getElementById('proyTipo');
         if (selectTipo) {
-            selectTipo.value = categoriaObligatoria;
+            if (categoriaObligatoria.includes('estudiante')) selectTipo.value = "estudiantes";
+            else if (categoriaObligatoria.includes('docente')) selectTipo.value = "docentes";
+            else if (categoriaObligatoria.includes('emprendimiento')) selectTipo.value = "emprendimientos";
+            else selectTipo.value = categoriaObligatoria;
+            
             selectTipo.disabled = true; 
             let cartelCat = document.getElementById('aviso-cat-bloqueada');
             if (!cartelCat) {
                 cartelCat = document.createElement('small');
                 cartelCat.id = 'aviso-cat-bloqueada';
                 cartelCat.style.cssText = 'color: #4db8ff; display: block; margin-top: 5px; font-size: 0.85rem;';
-                cartelCat.innerHTML = '<i class="fas fa-lock"></i> Categoría asignada automáticamente según su institución.';
+                cartelCat.innerHTML = '<i class="fas fa-lock"></i> Categoría asignada y protegida automáticamente.';
                 selectTipo.parentNode.appendChild(cartelCat);
             }
         }
 
-        const proyectoExistente = await window.buscarProyectoUsuario(ciLocal);
         const btnSubir = document.getElementById('btnSubirProyecto');
         const archivoInput = document.getElementById('proyArchivo');
         const tiempoAgotado = await window.verificarFechaLimite(); 
@@ -339,10 +348,8 @@ window.cargarDatosProyecto = async function() {
             } else {
                 mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo de modificaciones ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes editar los datos hasta el <b>${fechaFormateada}</b>.</div>`;
                 
-                // 🔥 AQUÍ ESTÁ EL CAMBIO DE LÓGICA PARA PERMITIR EDICIÓN POST-EVALUACIÓN 🔥
                 if (!tiempoAgotado) {
                     if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
-                        // Muestra un botón diferente si ya fue evaluado
                         botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #17a2b8; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;"><i class="fas fa-file-pdf"></i> Actualizar Documento Final</button>`;
                     } else {
                         botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
@@ -426,18 +433,15 @@ window.cargarDatosProyecto = async function() {
                             }
                         }
 
-                        // 🔥 LÓGICA DE BLOQUEO PARCIAL SI YA FUE EVALUADO 🔥
                         const formInterno = tarjetaBlanca.querySelector('form');
                         const oldAlert = document.getElementById('aviso-bloqueo-parcial');
                         if(oldAlert) oldAlert.remove();
 
                         if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
-                            // Bloquear campos de texto
                             document.getElementById('proyTitulo').disabled = true;
                             document.getElementById('proyEje').disabled = true;
                             window.habilitarCasillasIntegrantes(false);
                             
-                            // Mostrar cartel azul explicativo
                             const alertaPDF = document.createElement('div');
                             alertaPDF.id = 'aviso-bloqueo-parcial';
                             alertaPDF.style.cssText = 'background: rgba(23, 162, 184, 0.15); color: #4db8ff; padding: 15px; border-radius: 6px; border: 1px solid rgba(23, 162, 184, 0.3); margin-bottom: 20px; font-size: 0.95rem;';
@@ -445,7 +449,6 @@ window.cargarDatosProyecto = async function() {
                             if (formInterno) formInterno.insertBefore(alertaPDF, formInterno.firstChild);
 
                         } else {
-                            // Si no ha sido evaluado, todo desbloqueado
                             document.getElementById('proyTitulo').disabled = false;
                             document.getElementById('proyEje').disabled = false;
                             window.habilitarCasillasIntegrantes(true);
@@ -549,12 +552,10 @@ window.subirProyectoFeria = async function(e) {
     const inputTipo = document.getElementById('proyTipo');
     const inputEje = document.getElementById('proyEje');
     
-    // Almacenamos si estaban bloqueados para restaurarlos luego
     const estabaTituloBloqueado = inputTitulo.disabled;
     const estabaTipoBloqueado = inputTipo.disabled;
     const estabaEjeBloqueado = inputEje.disabled;
     
-    // Los desbloqueamos por 1 milisegundo para que FormData pueda leer su contenido interno
     inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
 
     try {
@@ -625,7 +626,6 @@ window.subirProyectoFeria = async function(e) {
         btn.innerHTML = textoOriginal; 
         btn.disabled = false;
     } finally {
-        // Restauramos los bloqueos a como estaban por seguridad
         inputTitulo.disabled = estabaTituloBloqueado;
         inputTipo.disabled = estabaTipoBloqueado;
         inputEje.disabled = estabaEjeBloqueado;

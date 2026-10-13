@@ -101,15 +101,16 @@ db.connect()
         try { await db.query(`ALTER TABLE evaluaciones_tribunal ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
         try { await db.query(`ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
 
+        // 🔥 PARCHE DE RESCATE: Devuelve los proyectos mencionados a la categoría de Estudiantes 🔥
         try {
-            await db.query(`UPDATE proyectos SET categoria = REPLACE(categoria, 'emprendimiento', 'estudiante') WHERE categoria LIKE '%emprendimiento%';`);
+            await db.query(`UPDATE proyectos SET categoria = 'estudiantes' WHERE titulo ILIKE '%Contabeni%' OR titulo ILIKE '%Sensor de medicion%' OR titulo ILIKE '%Ubistock%' OR titulo ILIKE '%Trinidad Reporta%' OR titulo ILIKE '%NIVA%'`);
+            console.log('✅ Parche Aplicado: Proyectos reubicados a Estudiantes Universitarios.');
         } catch(e) {}
 
-        // 🔥 FUNCIÓN DE AUTO-SANEAMIENTO (Limpia los proyectos fantasmas) 🔥
+        // Limpieza de estados huérfanos
         try {
             await db.query(`UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE estado_evaluacion IS NOT NULL AND id NOT IN (SELECT id_proyecto FROM evaluaciones_tribunal)`);
-            console.log('✅ Saneamiento: Se corrigieron los proyectos con estados huérfanos.');
-        } catch(e) { console.error("Error en saneamiento", e); }
+        } catch(e) { }
 
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
@@ -149,7 +150,6 @@ app.post('/api/editar_usuario', async (req, res) => {
     }
 });
 
-// 🔥 CORRECCIÓN: Borrado en cascada para reiniciar los proyectos si se elimina un tribunal 🔥
 app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
     const { rol, id } = req.params;
     try {
@@ -163,14 +163,21 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
             await db.query('DELETE FROM expositores WHERE ci = $1', [id]);
         } 
         else if (rol === 'tribunal') {
-            // Buscamos los proyectos que este tribunal evaluó
             const evals = await db.query('SELECT id_proyecto FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
-            for (let ev of evals.rows) {
-                // Reiniciamos los proyectos a estado "Pendiente"
-                await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [ev.id_proyecto]);
-            }
-            // Borramos el tribunal y sus evaluaciones
             await db.query('DELETE FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
+            
+            for (let ev of evals.rows) {
+                const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [ev.id_proyecto]);
+                const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
+                
+                if (promedioBruto > 0) {
+                    const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
+                    const notaPonderada = promedioBruto * 0.80;
+                    await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, maxImpacto, ev.id_proyecto]);
+                } else {
+                    await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [ev.id_proyecto]);
+                }
+            }
             await db.query('DELETE FROM tribunales WHERE usuario_tribunal = $1', [id]);
         } 
         else if (rol === 'visitante') {
@@ -292,21 +299,6 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
 });
 
-app.get('/api/usuario_por_celular/:celular', async (req, res) => {
-    const { celular } = req.params;
-    try {
-        const exp = await db.query('SELECT nombre_completo FROM expositores WHERE celular = $1 LIMIT 1', [celular]);
-        if (exp.rows.length > 0) return res.json({ encontrado: true, nombre: exp.rows[0].nombre_completo });
-
-        const vis = await db.query('SELECT nombre_completo FROM visitantes WHERE celular = $1 LIMIT 1', [celular]);
-        if (vis.rows.length > 0) return res.json({ encontrado: true, nombre: vis.rows[0].nombre_completo });
-
-        res.json({ encontrado: false });
-    } catch (error) {
-        res.status(500).json({ error: "Error interno al buscar celular." });
-    }
-});
-
 app.post('/api/restablecer_password_directo', async (req, res) => {
     const { ci, correo, nuevaPassword } = req.body;
     try {
@@ -414,13 +406,7 @@ app.post('/api/proyectos', async (req, res) => {
             const check = await db.query('SELECT id, estado_evaluacion FROM proyectos WHERE ci_propietario = $1 ORDER BY id DESC LIMIT 1', [ci]);
             if (check.rows.length > 0) {
                 const idProyecto = check.rows[0].id;
-                
-                if (check.rows[0].estado_evaluacion === 'Evaluado (No clasifica)') {
-                    await db.query('DELETE FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
-                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP, estado_evaluacion=NULL, nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
-                } else {
-                    await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
-                }
+                await db.query(`UPDATE proyectos SET titulo=$1, categoria=$2, integrantes=$3, eje_tematico=$4, enlace_pdf=COALESCE($5, enlace_pdf), fecha_ultima_edicion=CURRENT_TIMESTAMP WHERE id=$6`, [titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal, idProyecto]);
             } else {
                 await db.query('INSERT INTO proyectos (ci_propietario, titulo, categoria, integrantes, eje_tematico, enlace_pdf) VALUES ($1, $2, $3, $4, $5, $6)', [ci, titulo, categoria, formatoParaDB, ejeTematico, enlacePdfFinal]);
             }
@@ -608,41 +594,6 @@ app.post('/api/visitantes', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
 });
 
-app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, res) => {
-    try {
-        const { celular, idProy, deviceId } = req.params;
-
-        if (deviceId && deviceId !== "null" && deviceId !== "undefined") {
-            const dupDev = await db.query('SELECT id FROM votos_publico WHERE device_id = $1 AND id_proyecto = $2', [deviceId, idProy]);
-            if (dupDev.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_dispositivo' });
-        }
-
-        if (celular && celular !== "0000" && celular !== "null") {
-            const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celular, idProy]);
-            if (dup.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_celular' });
-            
-            const proy = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProy]);
-            if (proy.rows.length > 0) {
-                const ciPropietario = proy.rows[0].ci_propietario;
-                
-                const propData = await db.query('SELECT celular FROM expositores WHERE ci = $1', [ciPropietario]);
-                if (propData.rows.length > 0 && propData.rows[0].celular === celular) {
-                    return res.json({ permitido: false, razon: 'es_autor' });
-                }
-                
-                const integrantes = proy.rows[0].integrantes || "";
-                if (integrantes.includes(`"celular":"${celular}"`) || integrantes.includes(`Celular: ${celular}`)) {
-                    return res.json({ permitido: false, razon: 'es_autor' });
-                }
-            }
-        }
-
-        res.json({ permitido: true });
-    } catch (err) {
-        res.status(500).json({ error: "Error en el servidor." });
-    }
-});
-
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, celular, nombre, nota, lat, lon, deviceId } = req.body;
     try {
@@ -701,7 +652,18 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
         if (evCheck.rows.length > 0) {
             const idProyecto = evCheck.rows[0].id_proyecto;
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
-            await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
+            
+            // Recalcular promedio de los tribunales que quedan
+            const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
+            const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
+            
+            if (promedioBruto > 0) {
+                const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
+                const notaPonderada = promedioBruto * 0.80;
+                await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, maxImpacto, idProyecto]);
+            } else {
+                await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
+            }
         }
         res.json({ mensaje: "Evaluación eliminada." });
     } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación." }); }
@@ -714,6 +676,7 @@ app.get('/api/tribunal_id/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
+// 🔥 LÓGICA DE PROMEDIO PARA 3 TRIBUNALES 🔥
 app.post('/api/evaluar', async (req, res) => {
     const { idProyecto, identificadorTribunal, notaTribunal, notaImpacto, observaciones } = req.body;
     try {
@@ -728,26 +691,28 @@ app.post('/api/evaluar', async (req, res) => {
         const tribunal = tribunalData.rows[0];
         const usuarioTribunal = tribunal.usuario_tribunal;
 
-        // 🔥 VALIDACIÓN DE SEGURIDAD 1: Verificar que el proyecto esté asignado a este tribunal 🔥
         let proyectosAsignados = [];
         try { proyectosAsignados = JSON.parse(tribunal.proyectos_asignados || "[]").map(id => String(id)); } catch(e){}
-        
         if (!proyectosAsignados.includes(String(idProyecto))) {
-            return res.status(403).json({ error: "⛔ Acceso denegado: Este proyecto no se encuentra en tu lista de asignaciones." });
+            return res.status(403).json({ error: "⛔ Acceso denegado: Este proyecto no se encuentra en tu lista." });
         }
 
-        // 🔥 VALIDACIÓN DE SEGURIDAD 2: Verificar que no exista una evaluación previa 🔥
         const yaEvaluado = await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal]);
         if (yaEvaluado.rows.length > 0) {
-            return res.status(400).json({ error: "⛔ Bloqueo de seguridad: Ya registraste una calificación para este proyecto anteriormente." });
+            return res.status(400).json({ error: "⛔ Ya registraste una calificación." });
         }
 
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, nota_impacto, observaciones) VALUES ($1, $2, $3, $4, $5)', [idProyecto, usuarioTribunal, notaTribunal, notaImpacto, observaciones]);
 
-        const notaPonderada = notaTribunal * 0.80;
+        // SACAMOS EL PROMEDIO MATEMÁTICO DE TODOS LOS TRIBUNALES QUE CALIFICARON ESTE PROYECTO
+        const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
+        const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
+        const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
+        const notaPonderada = promedioBruto * 0.80; // 80% del promedio
+
         let estado = 'Evaluado';
 
-        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3, observaciones_tribunal = $4, estado_evaluacion = $5 WHERE id = $6', [notaTribunal, notaPonderada, notaImpacto, observaciones, estado, idProyecto]);
+        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3, observaciones_tribunal = $4, estado_evaluacion = $5 WHERE id = $6', [promedioBruto, notaPonderada, maxImpacto, observaciones, estado, idProyecto]);
 
         const proyData = await db.query('SELECT p.titulo, e.correo, e.nombre_completo FROM proyectos p JOIN expositores e ON p.ci_propietario = e.ci WHERE p.id = $1', [idProyecto]);
 
