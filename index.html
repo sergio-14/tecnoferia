@@ -652,36 +652,58 @@
                         </div>
 
                         <div id="tab-tribunales" class="tab-content section-animate" style="display: none;">
-                            <div class="form-card">
-                                <h3><i class="fas fa-gavel"></i> Registro de Tribunal</h3>
-                                <form onsubmit="registrarNuevoTribunal(event)">
-                                    <div class="form-group"><label>Nombre del Evaluador</label><input type="text" id="tribNombre" placeholder="Ing. Nombre Apellido" required></div>
-                                    <div class="form-group"><label>Especialidad</label><input type="text" id="tribEspecialidad" placeholder="Ej. Redes de Datos" required></div>
-                                    <div class="form-group">
-                                        <label>Categoría a Evaluar</label>
-                                        <select id="tribCategoria" required>
-                                            <option value="" disabled selected>Seleccione la categoría asignada...</option>
-                                            <option value="proyectos_estudiantes">Estudiantes (Pregrado)</option>
-                                            <option value="proyectos_docentes">Docentes Investigadores</option>
-                                            <option value="proyectos_emprendimientos">Emprendimientos Tecnológicos</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Alcance de Evaluación (Carga de trabajo)</label>
-                                        <select id="tribAlcance" required>
-                                            <option value="TODOS">⚡ Evaluar TODOS los proyectos de la categoría</option>
-                                            <option value="ESPECIFICOS">🎯 Asignar proyectos específicos...</option>
-                                        </select>
-                                    </div>
-                                    <div id="contenedor-lista-proyectos" style="display: none; margin-bottom: 15px; max-height: 160px; overflow-y: auto; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 6px; border: 1px dashed #475569;">
-                                        <p style="color: #94a3b8; font-size: 12px; margin: 0;">Seleccione una categoría para cargar los proyectos...</p>
-                                    </div>
-                                    <div class="form-group"><label>Correo Electrónico</label><input type="email" id="tribCorreo" placeholder="ejemplo@correo.com" required></div>
-                                    <div class="form-group"><label>Número de Celular</label><input type="tel" id="tribCelular" placeholder="Ej. 71234567" required></div>
-                                    <div class="form-group"><label>Usuario Asignado</label><input type="text" id="tribUsuario" placeholder="ej. tribunal_1" oninput="this.value = this.value.toLowerCase().replace(/\s/g, '')" required></div>
-                                    <div class="form-group"><label>Contraseña Temporal</label><input type="text" id="tribPass" placeholder="Mínimo 6 caracteres" minlength="6" required></div>
-                                    <button type="submit" id="btnGuardarTribunal" class="btn-save"><i class="fas fa-user-shield"></i> Registrar y Enviar Credenciales</button>
-                                </form>
+                            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: start;">
+                                
+                                <!-- PASO 1: CREAR CUENTA -->
+                                <div class="form-card" style="flex: 1; min-width: 320px;">
+                                    <h3 style="color: var(--azul-uab); border-bottom: 2px solid #ccc; padding-bottom: 10px;"><i class="fas fa-user-plus"></i> 1. Crear Cuenta de Tribunal</h3>
+                                    <p style="color: #666; font-size: 0.85rem; margin-bottom: 20px;">Cree el usuario y contraseña del jurado. (Sin asignarle proyectos aún).</p>
+                                    <form onsubmit="window.registrarNuevoTribunalBase(event)">
+                                        <div class="form-group"><label>Nombre del Evaluador</label><input type="text" id="tribNombre" placeholder="Ing. Nombre Apellido" required></div>
+                                        <div class="form-group"><label>Correo Electrónico</label><input type="email" id="tribCorreo" placeholder="ejemplo@correo.com" required></div>
+                                        <div class="form-group"><label>Número de Celular</label><input type="tel" id="tribCelular" placeholder="Ej. 71234567" required></div>
+                                        <div class="form-group"><label>Usuario Asignado</label><input type="text" id="tribUsuario" placeholder="ej. tribunal_1" oninput="this.value = this.value.toLowerCase().replace(/\s/g, '')" required></div>
+                                        <div class="form-group"><label>Contraseña Temporal</label><input type="text" id="tribPass" placeholder="Mínimo 6 caracteres" minlength="6" required></div>
+                                        <button type="submit" id="btnGuardarTribunalBase" class="btn-save" style="background-color: var(--azul-uab);"><i class="fas fa-save"></i> Crear Cuenta de Tribunal</button>
+                                    </form>
+                                </div>
+
+                                <!-- PASO 2: ASIGNAR PROYECTOS -->
+                                <div class="form-card" style="flex: 1; min-width: 320px;">
+                                    <h3 style="color: #28a745; border-bottom: 2px solid #ccc; padding-bottom: 10px;"><i class="fas fa-tasks"></i> 2. Asignar Categorías y Proyectos</h3>
+                                    <p style="color: #666; font-size: 0.85rem; margin-bottom: 20px;">Seleccione un tribunal existente para asignarle trabajo y áreas de evaluación.</p>
+                                    <form onsubmit="window.guardarAsignacionTribunal(event)">
+                                        <div class="form-group" style="display: flex; gap: 10px;">
+                                            <div style="flex: 1;">
+                                                <label>1. Seleccionar Tribunal</label>
+                                                <select id="asigTribunalSel" required onchange="window.alSeleccionarTribunal()">
+                                                    <option value="" disabled selected>Cargando tribunales...</option>
+                                                </select>
+                                            </div>
+                                            <button type="button" onclick="window.cargarTribunalesParaAsignacion()" style="margin-top: 25px; padding: 10px; height: 42px; background: #002b5c; color: white; border: none; border-radius: 5px; cursor: pointer;" title="Actualizar lista de tribunales"><i class="fas fa-sync-alt"></i></button>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label>2. Categorías a Evaluar (Puede elegir varias)</label>
+                                            <div style="background: rgba(0,0,0,0.03); padding: 12px; border-radius: 6px; border: 1px solid #ddd;">
+                                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;"><input type="checkbox" class="check-cat-trib" value="estudiante" onchange="window.cargarProyectosParaAsignarCheckbox()"> Estudiantes (Pregrado)</label>
+                                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;"><input type="checkbox" class="check-cat-trib" value="docente" onchange="window.cargarProyectosParaAsignarCheckbox()"> Docentes Investigadores</label>
+                                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" class="check-cat-trib" value="emprendimiento" onchange="window.cargarProyectosParaAsignarCheckbox()"> Emprendimientos Tecnológicos</label>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label style="display: flex; justify-content: space-between;">
+                                                <span>3. Proyectos Específicos Asignados</span>
+                                                <a href="#" onclick="window.seleccionarTodosLosProyectos(event)" style="color: #0056b3; font-size: 0.8rem; text-decoration: none;"><i class="fas fa-check-square"></i> Marcar/Desmarcar Todos</a>
+                                            </label>
+                                            <div id="contenedor-lista-proyectos-check" style="max-height: 220px; overflow-y: auto; background: rgba(0,0,0,0.03); padding: 12px; border-radius: 6px; border: 1px dashed #bbb;">
+                                                <p style="color: #888; font-size: 0.85rem; margin: 0; text-align: center;">Seleccione un tribunal y al menos una categoría arriba.</p>
+                                            </div>
+                                        </div>
+                                        <button type="submit" id="btnGuardarAsignacion" class="btn-save" style="background-color: #28a745;"><i class="fas fa-check-double"></i> Guardar Asignaciones</button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                         <div id="tab-visitantes" class="tab-content section-animate" style="display: none;">
@@ -1087,7 +1109,7 @@
     <script src="core/router.js?v=FERIA_V93"></script>
     <script src="features/auth/auth.js?v=FERIA_V93"></script>
     <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V93"></script>
-    <script src="features/admin/admin.js?v=FERIA_V94"></script>
+    <script src="features/admin/admin.js?v=FERIA_V95"></script>
     <script src="features/votacion/votacion.js?v=FERIA_V100"></script>
     <script src="features/habilitacion/habilitacion.js?v=FERIA_V93"></script>
     <script src="features/registro/registro.js?v=FERIA_V93"></script>

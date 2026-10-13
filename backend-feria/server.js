@@ -300,13 +300,25 @@ app.post('/api/expositores', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar expositor." }); }
 });
 
+// 🔥 NUEVO: PASO 1 - CREAR CUENTA DE TRIBUNAL (Sin Asignaciones Iniciales) 🔥
 app.post('/api/tribunales', async (req, res) => {
-    const { usuario, nombre, especialidad, categoria, proyectosAsignados, correo, celular, password } = req.body;
+    const { usuario, nombre, correo, celular, password } = req.body;
     try {
         const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
-        await db.query(`INSERT INTO tribunales (usuario_tribunal, nombre_completo, especialidad, categoria_asignada, proyectos_asignados, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [usuario, nombre, especialidad, categoria, proyectosAsignados, correo, celular, hash]);
-        res.status(201).json({ mensaje: "✅ Tribunal guardado." });
+        // Se crea el usuario en blanco (sin especialidad, sin categorías y sin proyectos)
+        await db.query(`INSERT INTO tribunales (usuario_tribunal, nombre_completo, correo, celular, contrasena) VALUES ($1, $2, $3, $4, $5)`, [usuario, nombre, correo, celular, hash]);
+        res.status(201).json({ mensaje: "✅ Cuenta de Tribunal creada exitosamente.\n\nAhora dirígete al Paso 2 para asignarle los proyectos." });
     } catch (error) { res.status(500).json({ error: "Error al guardar el tribunal." }); }
+});
+
+// 🔥 NUEVO: PASO 2 - ASIGNAR CATEGORÍAS Y PROYECTOS AL TRIBUNAL 🔥
+app.post('/api/tribunales/asignar', async (req, res) => {
+    const { usuario, categorias, proyectos } = req.body;
+    try {
+        // Guardamos las múltiples categorías y proyectos como listas JSON en la Base de Datos
+        await db.query(`UPDATE tribunales SET categoria_asignada = $1, proyectos_asignados = $2 WHERE usuario_tribunal = $3`, [JSON.stringify(categorias), JSON.stringify(proyectos), usuario]);
+        res.json({ mensaje: "✅ Asignaciones de evaluación guardadas correctamente." });
+    } catch (error) { res.status(500).json({ error: "Error al guardar asignaciones en el servidor." }); }
 });
 
 app.post('/api/proyectos', async (req, res) => {

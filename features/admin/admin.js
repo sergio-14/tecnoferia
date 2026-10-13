@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/admin/admin.js
-// FUNCIÓN: Gestión de Proyectos, Buscador, QRs, Descargas y Monitoreo
+// FUNCIÓN: Gestión de Proyectos, Buscador, QRs, Descargas, Monitoreo y Tribunales
 // =========================================================================
 
 // Variable para almacenar proyectos en memoria y filtrarlos rápido
@@ -452,66 +452,6 @@ window.eliminarVotoTribunal = async function(idEvaluacion, nombreTribunal, nombr
     }
 };
 
-window.cargarProyectosParaAsignar = async function() {
-    const selCategoria = document.getElementById('tribCategoria');
-    const selAlcance = document.getElementById('tribAlcance');
-    const contProyectos = document.getElementById('contenedor-lista-proyectos');
-
-    if (!selCategoria || !selAlcance || !contProyectos) return;
-
-    if (selAlcance.value === "ESPECIFICOS" && selCategoria.value !== "") {
-        contProyectos.style.display = "block";
-        contProyectos.innerHTML = '<p style="color: #60a5fa; font-size: 12px; margin: 0;"><i class="fas fa-spinner fa-spin"></i> Cargando proyectos desde la Base de Datos...</p>';
-        
-        try {
-            const respuesta = await fetch('/api/proyectos_admin');
-            const todosLosProyectos = await respuesta.json();
-
-            let palabraClave = "";
-            if (selCategoria.value.includes('estudiante')) palabraClave = 'estudiante';
-            else if (selCategoria.value.includes('docente')) palabraClave = 'docente';
-            else if (selCategoria.value.includes('emprendimiento')) palabraClave = 'emprendimiento';
-
-            const proyectosFiltrados = todosLosProyectos.filter(p => p.categoria.includes(palabraClave));
-            
-            if (proyectosFiltrados.length === 0) {
-                contProyectos.innerHTML = '<p style="color: #f87171; font-size: 12px; margin: 0;">⚠️ No hay proyectos inscritos en esta categoría aún.</p>';
-                return;
-            }
-
-            let htmlCheckboxes = '<label style="font-size: 11px; color: #cbd5e1; display: block; margin-bottom: 8px; font-weight: bold;">Seleccione los proyectos que evaluará este jurado:</label>';
-            
-            proyectosFiltrados.forEach(p => {
-                const titulo = p.titulo || "Sin título";
-                const estado = "Inscrito"; 
-                const colorEstado = "#34d399"; 
-
-                htmlCheckboxes += `
-                    <div style="margin-bottom: 6px; text-align: left;">
-                        <label style="font-size: 12px; color: #fff; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: normal;">
-                            <input type="checkbox" name="proy_tribunal_check" value="${p.id}" style="cursor: pointer; width: 16px; height: 16px;">
-                            <span>${titulo} <strong style="color: ${colorEstado}; font-size: 10px;">[${estado}]</strong></span>
-                        </label>
-                    </div>
-                `;
-            });
-            contProyectos.innerHTML = htmlCheckboxes;
-        } catch (error) {
-            console.error("Error al cargar proyectos para asignar:", error);
-            contProyectos.innerHTML = '<p style="color: #f87171; font-size: 12px; margin: 0;">❌ Error al cargar la lista de proyectos.</p>';
-        }
-    } else {
-        contProyectos.style.display = "none";
-    }
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-    const selCat = document.getElementById('tribCategoria');
-    const selAlc = document.getElementById('tribAlcance');
-    if (selCat) selCat.addEventListener('change', window.cargarProyectosParaAsignar);
-    if (selAlc) selAlc.addEventListener('change', window.cargarProyectosParaAsignar);
-});
-
 window.cargarFechasActuales = async function() {
     try {
         const res = await fetch('/api/configuraciones');
@@ -822,5 +762,206 @@ window.eliminarUsuarioTotal = async function(rol, idUsuario, nombre) {
     } catch (error) {
         console.error("Error al eliminar usuario:", error);
         alert(`❌ Ocurrió un error al intentar eliminar la cuenta:\n${error.message}`);
+    }
+};
+
+// 🔥 NUEVO FLUJO DE TRIBUNALES (CREACIÓN Y ASIGNACIÓN SEPARADA) 🔥
+window.tribunalesGlobalesBD = [];
+
+window.registrarNuevoTribunalBase = async function(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('btnGuardarTribunalBase');
+    const textoOriginal = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creando...';
+    btn.disabled = true;
+
+    const data = {
+        usuario: document.getElementById('tribUsuario').value.trim(),
+        nombre: document.getElementById('tribNombre').value.trim(),
+        correo: document.getElementById('tribCorreo').value.trim(),
+        celular: document.getElementById('tribCelular').value.trim(),
+        password: document.getElementById('tribPass').value
+    };
+
+    try {
+        const res = await fetch('/api/tribunales', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+        });
+        const resData = await res.json();
+        if (!res.ok) throw new Error(resData.error || "Error al crear tribunal");
+        
+        alert(resData.mensaje);
+        e.target.reset();
+        window.cargarTribunalesParaAsignacion(); 
+        window.cargarUsuariosGlobal();
+    } catch (error) {
+        alert("❌ Ocurrió un error: " + error.message);
+    } finally {
+        btn.innerHTML = textoOriginal;
+        btn.disabled = false;
+    }
+};
+
+window.cargarTribunalesParaAsignacion = async function() {
+    const select = document.getElementById('asigTribunalSel');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="" disabled selected>Cargando tribunales...</option>';
+    
+    try {
+        const res = await fetch('/api/usuarios_admin');
+        const data = await res.json();
+        window.tribunalesGlobalesBD = data.tribunales || [];
+        
+        select.innerHTML = '<option value="" disabled selected>Seleccione un tribunal de la lista...</option>';
+        window.tribunalesGlobalesBD.forEach(t => {
+            select.innerHTML += `<option value="${t.id}">${t.nombre_completo} (${t.id})</option>`;
+        });
+        
+        // Limpiamos los checks al recargar
+        document.querySelectorAll('.check-cat-trib').forEach(chk => chk.checked = false);
+        document.getElementById('contenedor-lista-proyectos-check').innerHTML = '<p style="color: #888; font-size: 0.85rem; margin: 0; text-align: center;">Seleccione un tribunal y al menos una categoría arriba.</p>';
+        
+    } catch (error) {
+        select.innerHTML = '<option value="" disabled selected>Error al cargar</option>';
+    }
+};
+
+// Al abrir la pestaña de tribunales, cargar la lista automáticamente
+document.addEventListener('click', function(e) {
+    if (e.target.innerText && e.target.innerText.includes('Tribunales')) {
+        window.cargarTribunalesParaAsignacion();
+    }
+});
+
+window.alSeleccionarTribunal = function() {
+    const idTribunal = document.getElementById('asigTribunalSel').value;
+    const tribunal = window.tribunalesGlobalesBD.find(t => t.id === idTribunal);
+    
+    if (tribunal) {
+        // Pre-marcar las categorías que ya se le habían asignado a este tribunal antes
+        const checkboxes = document.querySelectorAll('.check-cat-trib');
+        let categoriasAsignadas = [];
+        try { 
+            categoriasAsignadas = JSON.parse(tribunal.categoria_asignada || "[]"); 
+        } catch(e) { 
+            if (typeof tribunal.categoria_asignada === 'string') categoriasAsignadas = [tribunal.categoria_asignada];
+        }
+        
+        checkboxes.forEach(chk => {
+            chk.checked = categoriasAsignadas.includes(chk.value);
+        });
+        
+        window.cargarProyectosParaAsignarCheckbox(tribunal.proyectos_asignados);
+    }
+};
+
+window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPreviamente = "[]") {
+    const contenedor = document.getElementById('contenedor-lista-proyectos-check');
+    const checkboxesCat = document.querySelectorAll('.check-cat-trib:checked');
+    const categoriasSeleccionadas = Array.from(checkboxesCat).map(chk => chk.value);
+    
+    if (categoriasSeleccionadas.length === 0) {
+        contenedor.innerHTML = '<p style="color: #888; font-size: 0.85rem; margin: 0; text-align: center;">Seleccione al menos una categoría arriba para ver los proyectos.</p>';
+        return;
+    }
+
+    contenedor.innerHTML = '<p style="color: #0056b3; font-size: 0.85rem; margin: 0; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Cargando proyectos de la base de datos...</p>';
+
+    try {
+        let proyectosBD = window.proyectosGlobalesBD;
+        if (proyectosBD.length === 0) {
+            const res = await fetch('/api/proyectos_admin');
+            proyectosBD = await res.json();
+            window.proyectosGlobalesBD = proyectosBD.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+        }
+
+        const proyectosFiltrados = proyectosBD.filter(p => {
+            return categoriasSeleccionadas.some(cat => p.categoria.includes(cat));
+        });
+
+        if (proyectosFiltrados.length === 0) {
+            contenedor.innerHTML = '<p style="color: #d32f2f; font-size: 0.85rem; margin: 0; text-align: center;">No hay proyectos inscritos en las categorías seleccionadas.</p>';
+            return;
+        }
+
+        let asignadosArr = [];
+        try { asignadosArr = JSON.parse(proyectosAsignadosPreviamente || "[]"); } catch(e) {}
+        asignadosArr = asignadosArr.map(id => String(id));
+
+        let html = '';
+        proyectosFiltrados.forEach(p => {
+            const estaMarcado = asignadosArr.includes(String(p.id)) ? 'checked' : '';
+            let insignia = '';
+            if(p.categoria.includes('estudiante')) insignia = '<span style="background:#e3f2fd; color:#1976d2; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">ESTUDIANTE</span>';
+            if(p.categoria.includes('docente')) insignia = '<span style="background:#e8f5e9; color:#388e3c; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">DOCENTE</span>';
+            if(p.categoria.includes('emprendimiento')) insignia = '<span style="background:#fff3e0; color:#f57c00; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold;">EMPREND.</span>';
+
+            html += `
+                <label style="display: flex; align-items: start; gap: 10px; margin-bottom: 12px; cursor: pointer; padding-bottom: 8px; border-bottom: 1px solid #eaeaea;">
+                    <input type="checkbox" class="check-proy-trib" value="${p.id}" style="margin-top: 3px;" ${estaMarcado}>
+                    <div style="flex: 1; line-height: 1.3;">
+                        <strong style="color: #333; font-size: 0.9rem;">${p.titulo}</strong><br>
+                        ${insignia}
+                    </div>
+                </label>
+            `;
+        });
+
+        contenedor.innerHTML = html;
+
+    } catch (error) {
+        contenedor.innerHTML = '<p style="color: #d32f2f; font-size: 0.85rem; margin: 0; text-align: center;">Error al cargar proyectos.</p>';
+    }
+};
+
+window.seleccionarTodosLosProyectos = function(e) {
+    e.preventDefault();
+    const checkboxes = document.querySelectorAll('.check-proy-trib');
+    const todosMarcados = Array.from(checkboxes).every(chk => chk.checked);
+    checkboxes.forEach(chk => chk.checked = !todosMarcados);
+};
+
+window.guardarAsignacionTribunal = async function(e) {
+    e.preventDefault();
+    const usuarioTribunal = document.getElementById('asigTribunalSel').value;
+    if (!usuarioTribunal) {
+        alert("⚠️ Seleccione un tribunal primero."); return;
+    }
+
+    const categoriasSel = Array.from(document.querySelectorAll('.check-cat-trib:checked')).map(c => c.value);
+    const proyectosSel = Array.from(document.querySelectorAll('.check-proy-trib:checked')).map(c => parseInt(c.value, 10));
+
+    if (categoriasSel.length === 0) {
+        if(!confirm("No ha seleccionado ninguna categoría. ¿Desea vaciar todas las asignaciones a este tribunal?")) return;
+    }
+
+    const btn = document.getElementById('btnGuardarAsignacion');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/tribunales/asignar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                usuario: usuarioTribunal,
+                categorias: categoriasSel,
+                proyectos: proyectosSel
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar");
+
+        alert(data.mensaje);
+        window.cargarTribunalesParaAsignacion();
+    } catch (err) {
+        alert("❌ Ocurrió un error: " + err.message);
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
     }
 };
