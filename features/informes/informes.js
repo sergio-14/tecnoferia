@@ -979,5 +979,64 @@ window.imprimirInformeActual = function(event) {
         alert("Por favor, seleccione un tipo de informe primero para visualizarlo.");
         return;
     }
-    imprimirElemento('informe-impresion');
+
+    const contenidoHTML = areaImpresion.innerHTML;
+    const ventanaImpresion = window.open('', '_blank');
+    
+    ventanaImpresion.document.write(`
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <title>Imprimir Informe Oficial - TecnoFeria 2026</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    color: #000; 
+                    background: #fff; 
+                    margin: 0; 
+                    padding: 20px; 
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse; 
+                    margin-bottom: 20px; 
+                    page-break-inside: auto; 
+                }
+                tr { 
+                    page-break-inside: avoid; 
+                    page-break-after: auto; 
+                }
+                thead { 
+                    display: table-header-group; 
+                }
+                th, td { 
+                    border: 1px solid #999; 
+                    padding: 8px; 
+                    font-size: 11px; 
+                    text-align: left; 
+                }
+                th { 
+                    background-color: #f2f2f2 !important; 
+                    -webkit-print-color-adjust: exact; 
+                    print-color-adjust: exact; 
+                }
+                @page { 
+                    size: A4 portrait; 
+                    margin: 15mm; 
+                }
+            </style>
+        </head>
+        <body>
+            ${contenidoHTML}
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function(){ window.close(); }, 500);
+                }
+            </script>
+        </body>
+        </html>
+    `);
+    ventanaImpresion.document.close();
 };
