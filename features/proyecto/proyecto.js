@@ -303,24 +303,21 @@ window.cargarDatosProyecto = async function() {
             
             let mensajeEstado = esLider ? "Usted ya subió un proyecto para ser evaluado en la feria." : "Usted ya pertenece a un proyecto en espera a ser evaluado en la feria.";
 
-            if (estadoActual === "Pre-seleccionado") {
-                tituloCartel = "¡Felicidades! Etapa Superada"; iconoCartel = "fas fa-trophy"; colorPrimario = "#ffc107";
+            // 🔥 NUEVA LÓGICA: Ya no hay rechazos. Solo muestra que terminó y manda a resultados 🔥
+            if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
+                tituloCartel = "Evaluación Finalizada"; iconoCartel = "fas fa-flag-checkered"; colorPrimario = "#ffc107";
                 colorFondo = "rgba(255, 193, 7, 0.12)"; colorBorde = "rgba(255, 193, 7, 0.5)"; 
-                mensajeEstado = esLider ? "Tu proyecto ha sido <b style='color: #ffc107;'>PRE-SELECCIONADO</b> por el Tribunal." : "El proyecto de tu equipo ha sido <b style='color: #ffc107;'>PRE-SELECCIONADO</b> por el Tribunal.";
-            } else if (estadoActual === "Evaluado (No clasifica)") {
-                tituloCartel = "Proyecto Observado (Requiere Mejoras)"; iconoCartel = "fas fa-sync-alt"; colorPrimario = "#f39c12"; 
-                colorFondo = "rgba(243, 156, 18, 0.1)"; colorBorde = "rgba(243, 156, 18, 0.3)"; 
-                mensajeEstado = esLider ? "Tu proyecto fue evaluado pero no alcanzó la nota mínima ponderada. <b>¡Corrige y vuelve a subirlo!</b>" : "El proyecto de tu equipo fue evaluado pero no alcanzó la nota mínima. <b>Comunícate con tu líder para hacer las correcciones.</b>";
+                mensajeEstado = esLider ? "El Tribunal ha terminado de calificar tu proyecto. Ya puedes revisar los puntajes y el ranking en la pestaña de <b>Resultados</b>." : "El Tribunal ha terminado de calificar a tu equipo. Puedes revisar los puntajes en la pestaña de <b>Resultados</b>.";
             }
 
             let notasHTML = "";
             if (estadoActual !== "Pendiente") {
                 notasHTML = `
                 <div style="text-align: left; background: rgba(0, 43, 92, 0.4); padding: 20px; border-radius: 8px; border: 1px solid rgba(100, 181, 246, 0.3); border-left: 5px solid #3b82f6; margin-bottom: 20px; font-size: 0.95rem; color: #ffffff;">
-                    <h4 style="margin-top: 0; color: #60a5fa; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px;">Resultados de Evaluación</h4>
+                    <h4 style="margin-top: 0; color: #60a5fa; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 10px;">Retroalimentación</h4>
                     <p><b>Nota Tribunal Bruta:</b> ${proyectoExistente.data.notaTribunal || 0} / 100 pts</p>
                     <p><b>Nota Ponderada (80%):</b> ${proyectoExistente.data.notaPonderada || 0} / 80 pts</p>
-                    <p style="margin-top: 10px; color: #ffc107;"><b>Observaciones a corregir:</b><br>"${proyectoExistente.data.observacionesTribunal || "Sin comentarios adicionales."}"</p>
+                    <p style="margin-top: 10px; color: #ffc107;"><b>Observaciones del jurado:</b><br>"${proyectoExistente.data.observacionesTribunal || "Sin comentarios adicionales."}"</p>
                 </div>`;
             }
 
@@ -340,22 +337,11 @@ window.cargarDatosProyecto = async function() {
                     </div>
                 `;
             } else {
-                mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes hacer modificaciones hasta el <b>${fechaFormateada}</b>.</div>`;
+                mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo de modificaciones ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes editar los datos hasta el <b>${fechaFormateada}</b>.</div>`;
                 
-                if (!tiempoAgotado) {
-                    if (estadoActual === "Evaluado (No clasifica)") {
-                        botonEdicionHTML = `
-                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                            <button type="button" id="btnActivarEdicion" style="background: #e74c3c; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;">
-                                <i class="fas fa-upload"></i> Subir Versión Corregida
-                            </button>
-                            <button type="button" id="btnNuevoProyecto" style="background: #6c757d; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;" title="Guarda el proyecto actual en el historial y empieza uno nuevo">
-                                <i class="fas fa-file-medical"></i> Participar con otro proyecto
-                            </button>
-                        </div>`;
-                    } else {
-                        botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
-                    }
+                // Si la fecha límite no ha pasado, le mostramos el botón de editar
+                if (!tiempoAgotado && estadoActual === "Pendiente") {
+                    botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
                 }
             }
 
@@ -415,7 +401,6 @@ window.cargarDatosProyecto = async function() {
                         document.getElementById('proyTitulo').value = proyectoExistente.data.tituloProyecto;
                         document.getElementById('proyEje').value = proyectoExistente.data.ejeTematico;
 
-                        // Limpiamos tarjetas antiguas para que no se dupliquen al entrar y salir de editar
                         const contInt = document.getElementById('contenedor-integrantes-proyecto');
                         if (contInt) contInt.innerHTML = '';
                         window.contadorIntegrantesProyecto = 0;
@@ -436,26 +421,18 @@ window.cargarDatosProyecto = async function() {
                             }
                         }
 
-                        if (estadoActual === "Pre-seleccionado") {
-                            document.getElementById('proyTitulo').disabled = true;
-                            document.getElementById('proyEje').disabled = true;
-                            window.habilitarCasillasIntegrantes(false);
-                        } else {
-                            document.getElementById('proyTitulo').disabled = false;
-                            document.getElementById('proyEje').disabled = false;
-                            window.habilitarCasillasIntegrantes(true);
-                        }
+                        document.getElementById('proyTitulo').disabled = false;
+                        document.getElementById('proyEje').disabled = false;
+                        window.habilitarCasillasIntegrantes(true);
 
-                        // 🔥 FIX BLOQUEO: ASEGURAMOS QUE EL BOTÓN ESTÉ HABILITADO AL ENTRAR A EDITAR 🔥
                         if(btnSubir) {
-                            btnSubir.innerHTML = estadoActual === "Evaluado (No clasifica)" ? 'Re-enviar a Evaluación' : 'Actualizar Proyecto';
+                            btnSubir.innerHTML = 'Actualizar Proyecto';
                             btnSubir.disabled = false; 
                             btnSubir.style.cursor = 'pointer';
                             btnSubir.style.opacity = '1';
                         }
                         if(archivoInput) archivoInput.removeAttribute('required');
 
-                        // 🔥 BOTÓN CANCELAR: SOLUCIÓN UX 🔥
                         let btnCancel = document.getElementById('btnCancelarEdicion');
                         if (!btnCancel) {
                             btnCancel = document.createElement('button');
@@ -465,46 +442,9 @@ window.cargarDatosProyecto = async function() {
                             btnCancel.style.cssText = 'width: 100%; margin-top: 10px; padding: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s;';
                             btnCancel.onmouseover = () => { btnCancel.style.background = 'rgba(255,255,255,0.2)'; };
                             btnCancel.onmouseout = () => { btnCancel.style.background = 'rgba(255,255,255,0.1)'; };
-                            btnCancel.onclick = () => window.cargarDatosProyecto(); // Te devuelve a la pantalla verde
+                            btnCancel.onclick = () => window.cargarDatosProyecto(); 
                             
                             btnSubir.parentNode.insertBefore(btnCancel, btnSubir.nextSibling);
-                        }
-                    });
-                }
-
-                const btnNuevo = document.getElementById('btnNuevoProyecto');
-                if (btnNuevo) {
-                    btnNuevo.addEventListener('click', async () => {
-                        if(confirm("⚠️ ¿Deseas participar con un NUEVO proyecto?\n\nTu proyecto actual quedará guardado en el historial como 'No Clasificado'.\nPodrás empezar una postulación desde cero con un nuevo título y documento.\n\n¿Estás seguro de continuar?")) {
-                            window.esNuevoIntentoProyecto = true; 
-                            if (divEstado) divEstado.style.display = 'none';
-                            if (tarjetaBlanca) tarjetaBlanca.style.display = 'block';
-                            
-                            document.getElementById('proyTitulo').value = "";
-                            document.getElementById('proyTitulo').disabled = false;
-                            document.getElementById('proyEje').value = "";
-                            document.getElementById('proyEje').disabled = false;
-
-                            const contInt = document.getElementById('contenedor-integrantes-proyecto');
-                            if (contInt) contInt.innerHTML = '';
-                            window.contadorIntegrantesProyecto = 0;
-
-                            if (jsonIntegrantes && jsonIntegrantes.length > 0) {
-                                for (const exp of jsonIntegrantes) {
-                                    await window.agregarCasillaIntegranteProyecto(exp.nombre, exp.ci, exp.celular !== 'S/N' ? exp.celular : '', exp.correo, exp.institucion, true);
-                                }
-                            }
-
-                            window.habilitarCasillasIntegrantes(true);
-
-                            if(btnSubir) {
-                                btnSubir.innerHTML = 'Enviar Nuevo Proyecto';
-                                btnSubir.disabled = false;
-                            }
-                            if(archivoInput) archivoInput.setAttribute('required', 'true');
-
-                            let btnCancel = document.getElementById('btnCancelarEdicion');
-                            if (btnCancel) btnCancel.remove(); // No cancelar en nuevo proyecto
                         }
                     });
                 }
@@ -644,7 +584,7 @@ window.subirProyectoFeria = async function(e) {
             window.esNuevoIntentoProyecto = false; 
             await window.cargarDatosProyecto();
             btn.style.backgroundColor = ''; 
-            btn.disabled = false; // Aseguramos reset visual
+            btn.disabled = false; 
         }, 1000);
 
     } catch (error) {

@@ -204,7 +204,7 @@ app.delete('/api/instituciones/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar institución" }); }
 });
 
-// 🔥 CORRECCIÓN: Evitar Cierre de Sesión Fantasma 🔥
+// 🔥 CORRECCIÓN 1: SISTEMA DE LOGIN Y SESIÓN REPARADO PARA TRIBUNALES 🔥
 app.post('/api/login', async (req, res) => {
     const { identificador, password } = req.body;
     try {
@@ -234,6 +234,7 @@ app.post('/api/login', async (req, res) => {
             if (!hashBd || !(await bcrypt.compare(password, hashBd))) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
         }
 
+        // Obligamos a que la sesión se guarde con el CI o Usuario de forma consistente
         let idReal = datosEncontrados.ci || datosEncontrados.usuario_tribunal || identificador;
         datosEncontrados.ci = idReal; 
 
@@ -698,7 +699,6 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación." }); }
 });
 
-// 🔥 NUEVA RUTA PARA BUSCAR TRIBUNAL POR CI O USUARIO 🔥
 app.get('/api/tribunal_id/:id', async (req, res) => {
     try {
         const tribunal = await db.query('SELECT * FROM tribunales WHERE ci = $1 OR usuario_tribunal = $1 OR correo = $1', [req.params.id]);
@@ -706,7 +706,6 @@ app.get('/api/tribunal_id/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
-// 🔥 VALIDACIÓN DE FECHA Y USO DEL ID CORRECTO 🔥
 app.post('/api/evaluar', async (req, res) => {
     const { idProyecto, identificadorTribunal, notaTribunal, observaciones } = req.body;
     try {
@@ -724,7 +723,9 @@ app.post('/api/evaluar', async (req, res) => {
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, observaciones) VALUES ($1, $2, $3, $4)', [idProyecto, usuarioTribunal, notaTribunal, observaciones]);
 
         const notaPonderada = notaTribunal * 0.80;
-        let estado = notaPonderada >= 51 ? 'Pre-seleccionado' : 'Evaluado (No clasifica)';
+        
+        // 🔥 CORRECCIÓN: Todos los proyectos evaluados pasan directo a Resultados 🔥
+        let estado = 'Evaluado';
 
         await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, observaciones_tribunal = $3, estado_evaluacion = $4 WHERE id = $5', [notaTribunal, notaPonderada, observaciones, estado, idProyecto]);
 
@@ -766,7 +767,8 @@ app.get('/api/resultados', async (req, res) => {
 
         if (checkTime.rows[0].resultados_ocultos && !esAdmin) return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
 
-        const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Pre-seleccionado'`;
+        // 🔥 CORRECCIÓN: Mostrar cualquier proyecto que haya sido "Evaluado" o "Pre-seleccionado" 🔥
+        const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Evaluado' OR p.estado_evaluacion = 'Pre-seleccionado'`;
         const resultados = await db.query(query);
         
         const dataFinal = resultados.rows.map(r => {

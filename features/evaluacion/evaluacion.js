@@ -11,7 +11,6 @@ window.cargarProyectosParaEvaluar = async function() {
     select.innerHTML = '<option value="" disabled selected>Buscando proyectos asignados a su perfil...</option>';
     
     try {
-        // 🔥 CORRECCIÓN: Buscamos por CI en lugar del correo por si acaso el navegador lo borró 🔥
         const idTribunal = localStorage.getItem("feria_ci") || localStorage.getItem("feria_correo");
         
         if (!idTribunal) { 
@@ -26,10 +25,13 @@ window.cargarProyectosParaEvaluar = async function() {
             return;
         }
 
-        let palabraClaveCategoria = "";
-        if (datosTribunal.categoria_asignada.includes('estudiante')) palabraClaveCategoria = 'estudiante';
-        else if (datosTribunal.categoria_asignada.includes('docente')) palabraClaveCategoria = 'docente';
-        else if (datosTribunal.categoria_asignada.includes('emprendimiento')) palabraClaveCategoria = 'emprendimiento';
+        // 🔥 CORRECCIÓN: Soporte para múltiples categorías 🔥
+        let categoriasAsignadas = [];
+        try { 
+            categoriasAsignadas = JSON.parse(datosTribunal.categoria_asignada || "[]"); 
+        } catch(e) { 
+            if (typeof datosTribunal.categoria_asignada === 'string') categoriasAsignadas = [datosTribunal.categoria_asignada]; 
+        }
 
         let proyectosAsignadosArray = "TODOS";
         if (datosTribunal.proyectos_asignados && datosTribunal.proyectos_asignados !== "TODOS") {
@@ -44,7 +46,10 @@ window.cargarProyectosParaEvaluar = async function() {
 
         todosLosProyectos.forEach(p => {
             if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-            if (palabraClaveCategoria !== "" && !p.categoria.includes(palabraClaveCategoria)) return;
+            
+            const matchCategoria = categoriasAsignadas.some(cat => p.categoria.includes(cat));
+            if (!matchCategoria && categoriasAsignadas.length > 0) return;
+
             if (Array.isArray(proyectosAsignadosArray) && !proyectosAsignadosArray.includes(String(p.id))) return;
 
             opcionesHTML += `<option value="${p.id}" data-url="${p.enlace_pdf || ''}">${p.titulo}</option>`;
@@ -159,6 +164,7 @@ window.guardarEvaluacionTribunal = async function(e) {
         document.getElementById('form-evaluacion-tribunal').reset();
         document.getElementById('eval-btn-doc').href = "#";
         document.getElementById('eval-btn-doc').style.opacity = "0.5";
+        window.cargarProyectosParaEvaluar();
 
     } catch (error) {
         console.error("Error guardando nota:", error);
@@ -169,7 +175,6 @@ window.guardarEvaluacionTribunal = async function(e) {
     }
 };
 
-// 🔥 BLOQUEO DE TRIBUNAL SEGÚN CONFIGURACIÓN DE HORA 🔥
 async function verificarBloqueoTribunal() {
     try {
         const res = await fetch('/api/configuraciones');
