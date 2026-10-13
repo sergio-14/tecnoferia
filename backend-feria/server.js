@@ -468,7 +468,6 @@ app.get('/api/proyectos_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar proyectos" }); }
 });
 
-// 🔥 NUEVA RUTA: RESCATE MANUAL DE PDF POR PARTE DEL ADMINISTRADOR 🔥
 app.post('/api/admin_resubir_pdf', async (req, res) => {
     try {
         const { idProyecto, ciPropietario, categoria } = req.body;
@@ -486,12 +485,10 @@ app.post('/api/admin_resubir_pdf', async (req, res) => {
         if (!fs.existsSync(dirDestino)) { fs.mkdirSync(dirDestino, { recursive: true }); }
         
         const archivo = req.files.proyArchivo;
-        // Mantenemos el mismo formato de nombre seguro
         const nombreSeguro = `${ciPropietario}_${Date.now()}.pdf`;
         await archivo.mv(path.join(dirDestino, nombreSeguro));
         const enlacePdfFinal = `/archivos_proyectos/${subcarpeta}/${nombreSeguro}`;
 
-        // Solo actualizamos la columna del PDF, no tocamos nada más
         await db.query(`UPDATE proyectos SET enlace_pdf = $1 WHERE id = $2`, [enlacePdfFinal, idProyecto]);
 
         res.status(200).json({ mensaje: "PDF resubido y enlazado correctamente al proyecto.", nuevoEnlace: enlacePdfFinal });
@@ -530,60 +527,71 @@ app.post('/api/visitantes', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
 });
 
-function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; 
-    const radLat1 = lat1 * Math.PI / 180;
-    const radLat2 = lat2 * Math.PI / 180;
-    const deltaLat = (lat2 - lat1) * Math.PI / 180;
-    const deltaLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-}
-
-app.get('/api/verificar_voto_duplicado/:ci/:idProy', async (req, res) => {
+// 🔥 NUEVO: VERIFICACIÓN INTELIGENTE DE PERMISO DE VOTO POR CELULAR 🔥
+app.get('/api/verificar_permiso_voto/:celular/:idProy', async (req, res) => {
     try {
-        const { ci, idProy } = req.params;
-        const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProy]);
-        res.json({ yaVoto: dup.rows.length > 0 });
-    } catch (error) { res.status(500).json({ error: "Error interno al verificar duplicidad." }); }
+        const { celular, idProy } = req.params;
+
+        // 1. ¿Ya votó por este proyecto con este número?
+        const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celular, idProy]);
+        if (dup.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto' });
+
+        // 2. ¿Es autor o integrante del proyecto?
+        const proy = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProy]);
+        if (proy.rows.length > 0) {
+            const ciPropietario = proy.rows[0].ci_propietario;
+            
+            // Revisar si el celular es del líder
+            const propData = await db.query('SELECT celular FROM expositores WHERE ci = $1', [ciPropietario]);
+            if (propData.rows.length > 0 && propData.rows[0].celular === celular) {
+                return res.json({ permitido: false, razon: 'es_autor' });
+            }
+            
+            // Revisar si el celular es de un compañero de equipo
+            const integrantes = proy.rows[0].integrantes || "";
+            if (integrantes.includes(`"celular":"${celular}"`) || integrantes.includes(`Celular: ${celular}`)) {
+                return res.json({ permitido: false, razon: 'es_autor' });
+            }
+        }
+        res.json({ permitido: true });
+    } catch (err) {
+        res.status(500).json({ error: "Error en el servidor." });
+    }
 });
 
+// 🔥 NUEVO: REGISTRO DE VOTO POR CELULAR Y HUELLA DIGITAL 🔥
 app.post('/api/votar', async (req, res) => {
-    const { idProyecto, ci, ciNinja, nota, lat, lon, institucionVisitante } = req.body;
+    const { idProyecto, celular, nombre, nota, lat, lon } = req.body;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`);
         if (checkTime.rows[0].votacion_cerrada) return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado." });
 
+        const celReal = celular; 
+        const nomReal = nombre || "Visitante";
+
+        // Doble verificación anti-fraude backend
         const proyCheck = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProyecto]);
-        
         if (proyCheck.rows.length > 0) {
-            const propietario = String(proyCheck.rows[0].ci_propietario).trim();
-            const integrantesStringDB = proyCheck.rows[0].integrantes || "";
-            const ciReq = String(ci).trim();
-            const ninjaReq = ciNinja ? String(ciNinja).trim() : null;
-
-            let esMiembroEquipo = false;
-            if (propietario === ciReq || propietario === ninjaReq) esMiembroEquipo = true;
-            if (integrantesStringDB.includes(`"ci":"${ciReq}"`) || integrantesStringDB.includes(`CI: ${ciReq}`)) esMiembroEquipo = true;
-            if (ninjaReq && (integrantesStringDB.includes(`"ci":"${ninjaReq}"`) || integrantesStringDB.includes(`CI: ${ninjaReq}`))) esMiembroEquipo = true;
-
-            if (esMiembroEquipo) {
-                return res.status(400).json({ error: "⛔ Fraude Detectado por Servidor: Este dispositivo o usuario pertenece al equipo de este proyecto. Tu voto ha sido bloqueado." });
+            const ciPropietario = proyCheck.rows[0].ci_propietario;
+            const propData = await db.query('SELECT celular FROM expositores WHERE ci = $1', [ciPropietario]);
+            if (propData.rows.length > 0 && propData.rows[0].celular === celReal) {
+                return res.status(400).json({ error: "⛔ Fraude Detectado: No puedes calificar tu propio proyecto." });
             }
-        }
-        
-        if ((await db.query('SELECT ci FROM visitantes WHERE ci = $1', [ci])).rows.length === 0) {
-            const checkExp = await db.query('SELECT nombre_completo, institucion, celular FROM expositores WHERE ci = $1', [ci]);
-            if (checkExp.rows.length > 0) {
-                await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4)`, [ci, checkExp.rows[0].nombre_completo, checkExp.rows[0].institucion, checkExp.rows[0].celular]);
-            } else {
-                await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, 'S/N')`, [ci, ci.startsWith('DEV-') ? 'Visitante (Móvil)' : 'Visitante Habilitado', institucionVisitante || 'Visitante Anónimo (Dispositivo)']);
+            const ints = proyCheck.rows[0].integrantes || "";
+            if (ints.includes(`"celular":"${celReal}"`)) {
+                return res.status(400).json({ error: "⛔ Fraude Detectado: Perteneces al equipo de este proyecto." });
             }
         }
 
-        if ((await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [ci, idProyecto])).rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente." });
+        const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celReal, idProyecto]);
+        if (dup.rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente." });
+
+        // Guardar automáticamente al visitante usando su Celular como Identificador (PK)
+        await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, 'Visitante Público', $1) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo`, [celReal, nomReal]);
+
+        // Guardar el voto
+        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, celReal, parseInt(nota, 10), lat, lon]);
         
-        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud) VALUES ($1, $2, $3, $4, $5)', [idProyecto, ci, parseInt(nota, 10), lat, lon]);
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
     } catch (error) { res.status(500).json({ error: "Error en la Base de Datos: " + error.message }); }
 });

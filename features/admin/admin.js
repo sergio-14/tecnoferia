@@ -1,27 +1,30 @@
 // =========================================================================
 // ARCHIVO: features/admin/admin.js
-// FUNCIÓN: Gestión de Proyectos, QRs, Descargas y Monitoreo en Tiempo Real
+// FUNCIÓN: Gestión de Proyectos, Buscador, QRs, Descargas y Monitoreo
 // =========================================================================
+
+// Variable para almacenar proyectos en memoria y filtrarlos rápido
+window.proyectosGlobalesBD = [];
 
 window.cargarProyectosAdmin = async function() {
     const btn = document.getElementById('btnActualizarAdmin');
     const textoOriginal = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
     btn.disabled = true;
 
     try {
         const respuesta = await fetch('/api/proyectos_admin');
         const proyectosBD = await respuesta.json();
 
-        const proyectosActivos = proyectosBD.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+        // Guardamos en memoria solo los que no están eliminados en evaluación
+        window.proyectosGlobalesBD = proyectosBD.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+        
+        // Limpiamos el buscador si recargamos la lista
+        const buscador = document.getElementById('buscador-proyectos-admin');
+        if (buscador) buscador.value = '';
 
-        const est = proyectosActivos.filter(p => p.categoria.includes('estudiante'));
-        const doc = proyectosActivos.filter(p => p.categoria.includes('docente'));
-        const emp = proyectosActivos.filter(p => p.categoria.includes('emprendimiento'));
-
-        renderizarTablaSQL(est, 'tabla-estudiantes', 'proyectos_estudiantes');
-        renderizarTablaSQL(doc, 'tabla-docentes', 'proyectos_docentes');
-        renderizarTablaSQL(emp, 'tabla-emprendimientos', 'proyectos_emprendimientos');
+        // Ejecutamos el filtro inicial (que mostrará todos)
+        window.filtrarProyectosAdmin();
 
     } catch (error) {
         console.error("Error al cargar la lista de proyectos:", error);
@@ -31,6 +34,32 @@ window.cargarProyectosAdmin = async function() {
     }
 };
 
+// 🔥 NUEVA FUNCIÓN: BUSCADOR INTELIGENTE EN TIEMPO REAL 🔥
+window.filtrarProyectosAdmin = function() {
+    const termino = document.getElementById('buscador-proyectos-admin').value.toLowerCase().trim();
+    
+    let proyectosFiltrados = window.proyectosGlobalesBD;
+
+    if (termino !== "") {
+        proyectosFiltrados = window.proyectosGlobalesBD.filter(p => {
+            const tituloMatch = p.titulo ? p.titulo.toLowerCase().includes(termino) : false;
+            const ciMatch = p.ci_propietario ? String(p.ci_propietario).toLowerCase().includes(termino) : false;
+            const nombreMatch = p.nombre_lider ? p.nombre_lider.toLowerCase().includes(termino) : false;
+            
+            return tituloMatch || ciMatch || nombreMatch;
+        });
+    }
+
+    // Separar por categorías y renderizar
+    const est = proyectosFiltrados.filter(p => p.categoria.includes('estudiante'));
+    const doc = proyectosFiltrados.filter(p => p.categoria.includes('docente'));
+    const emp = proyectosFiltrados.filter(p => p.categoria.includes('emprendimiento'));
+
+    renderizarTablaSQL(est, 'tabla-estudiantes', 'proyectos_estudiantes');
+    renderizarTablaSQL(doc, 'tabla-docentes', 'proyectos_docentes');
+    renderizarTablaSQL(emp, 'tabla-emprendimientos', 'proyectos_emprendimientos');
+};
+
 function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
     const tabla = document.getElementById(idTabla);
     if (!tabla) return; 
@@ -38,7 +67,7 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
     tabla.innerHTML = ''; 
 
     if (arregloProyectos.length === 0) {
-        tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 15px; color: #666; font-style: italic;">No hay proyectos registrados en esta categoría aún.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 15px; color: #666; font-style: italic;">No se encontraron proyectos.</td></tr>';
         return;
     }
 
@@ -57,7 +86,6 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
             btnView = `<button type="button" disabled style="display: inline-block; padding: 6px 10px; margin-right: 4px; background: #ccc; color: #666; border: 1px solid #ccc; border-radius: 4px; font-weight: bold; cursor: not-allowed;" title="Este proyecto no tiene PDF"><i class="fas fa-eye-slash"></i> N/A</button>`;
         }
 
-        // 🔥 NUEVO: Botón oculto tipo FILE y botón visual morado para Rescatar PDF 🔥
         fila.innerHTML = `
             <td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>${proyecto.titulo}</strong></td>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">${proyecto.integrantes}</td>
@@ -86,7 +114,6 @@ function renderizarTablaSQL(arregloProyectos, idTabla, nombreColeccion) {
     });
 }
 
-// 🔥 NUEVA FUNCIÓN: Envía el PDF de rescate al servidor 🔥
 window.resubirPDFAdmin = async function(e, idProyecto, ciPropietario, categoria) {
     const file = e.target.files[0];
     if (!file) return;
@@ -118,13 +145,13 @@ window.resubirPDFAdmin = async function(e, idProyecto, ciPropietario, categoria)
         if (!respuesta.ok) throw new Error(data.error || "Error al subir");
 
         alert("✅ " + data.mensaje);
-        window.cargarProyectosAdmin(); // Refresca la tabla para que el botón de "Ver" vuelva a funcionar
+        window.cargarProyectosAdmin(); 
 
     } catch (error) {
         alert("❌ Ocurrió un error al intentar resubir el documento: " + error.message);
     }
     
-    e.target.value = ""; // Resetea el input file
+    e.target.value = ""; 
 };
 
 window.descargarPDFLocal = async function(e, url, ci, categoriaStr) {

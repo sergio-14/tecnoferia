@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
-    <!-- 🔥 VERSIÓN V73: SISTEMA DE VOTACIÓN POR ESTRELLAS 🔥 -->
-    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V73">
-    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V73">
+    <!-- 🔥 VERSIÓN V93: ACTUALIZACIÓN GENERAL Y CACHÉ 🔥 -->
+    <link rel="stylesheet" href="assets/css/global.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/proyecto/proyecto.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/auth/auth.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/dashboard/dashboard.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/admin/admin.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/informes/informes.css?v=FERIA_V93">
+    <link rel="stylesheet" href="features/resultados/resultados.css?v=FERIA_V93">
 
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
@@ -439,27 +439,22 @@
                         <input type="hidden" id="voto-idProy">
                         <input type="hidden" id="voto-cat">
                         
-                        <div id="caja-ci-oculta" style="text-align: left; margin-bottom: 25px; display: none;">
-                            <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Carnet de Identidad (CI)</label>
-                            <div style="position: relative;">
-                                <i class="far fa-id-card" style="position: absolute; left: 15px; top: 15px; color: #a0aec0;"></i>
-                                <input type="text" id="voto-ci" placeholder="Ej. 1234567" required min="1" oninput="window.simularVerificacionCI()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1.05rem; background: rgba(0, 0, 0, 0.2); color: #ffffff; outline: none; transition: 0.3s;">
+                        <!-- NUEVAS CAJAS DE DATOS POR CELULAR Y NOMBRE -->
+                        <div id="caja-datos-votante" style="text-align: left; margin-bottom: 25px;">
+                            <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Nombre Completo</label>
+                            <div style="position: relative; margin-bottom: 15px;">
+                                <i class="far fa-user" style="position: absolute; left: 15px; top: 15px; color: #a0aec0;"></i>
+                                <input type="text" id="voto-nombre" placeholder="Ej. Carlos Pérez" required oninput="window.validarFormularioVoto()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1.05rem; background: rgba(0, 0, 0, 0.2); color: #ffffff; outline: none; transition: 0.3s;">
                             </div>
-                            <div id="mensaje-validacion-ci" style="font-size: 0.85rem; margin-top: 8px; font-weight: bold; min-height: 20px;"></div>
+
+                            <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">Tu Número de Celular</label>
+                            <div style="position: relative;">
+                                <i class="fas fa-phone" style="position: absolute; left: 15px; top: 15px; color: #a0aec0;"></i>
+                                <input type="tel" id="voto-celular" placeholder="Ej. 71234567" required oninput="window.validarFormularioVoto()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1.05rem; background: rgba(0, 0, 0, 0.2); color: #ffffff; outline: none; transition: 0.3s;">
+                            </div>
+                            <div id="mensaje-validacion-voto" style="font-size: 0.85rem; margin-top: 8px; font-weight: bold; min-height: 20px;"></div>
                         </div>
 
-                        <div id="caja-institucion-visitante" style="text-align: left; margin-bottom: 25px; display: none;">
-                            <label style="display: block; color: #ffffff; font-size: 0.9rem; font-weight: bold; margin-bottom: 8px;">¿De qué Colegio o Institución nos visitas?</label>
-                            <div style="position: relative;">
-                                <i class="fas fa-university" style="position: absolute; left: 15px; top: 15px; color: #a0aec0; z-index: 10;"></i>
-                                <select id="voto-institucion" onchange="window.simularVerificacionCI()" style="width: 100%; padding: 12px 12px 12px 45px; border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 8px; font-size: 1rem; background: rgba(0, 0, 0, 0.4); color: #ffffff; outline: none; appearance: auto; cursor: pointer;">
-                                    <option value="" disabled selected>Cargando colegios...</option>
-                                </select>
-                            </div>
-                            <p style="font-size: 0.75rem; color: #93c5fd; margin-top: 8px;"><i class="fas fa-info-circle"></i> Solo te pediremos este dato en tu primer voto.</p>
-                        </div>
-                        
-                        <!-- 🔥 NUEVO SISTEMA DE VOTACIÓN POR ESTRELLAS 🔥 -->
                         <div style="text-align: center; margin-bottom: 25px;">
                             <label style="display: block; color: #ffffff; font-size: 1rem; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid var(--rojo-uab); padding-bottom:5px;">Calificación del Proyecto (20% de Nota Final)</label>
                             
@@ -577,12 +572,22 @@
                                     </div>
                                 </div>
                                 <div class="form-card" style="width: 100%; background: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px;">
                                         <h3 style="margin: 0; color: #002b5c; font-size: 1.4rem;"><i class="fas fa-list"></i> Proyectos Registrados</h3>
-                                        <button id="btnActualizarAdmin" onclick="window.cargarProyectosAdmin()" style="padding: 8px 16px; cursor: pointer; border-radius: 5px; background: #002b5c; color: white; border: none; font-weight: bold; transition: 0.3s;">
-                                            <i class="fas fa-sync-alt"></i> Actualizar Lista
-                                        </button>
+                                        
+                                        <!-- 🔥 NUEVO: BUSCADOR INTELIGENTE DE PROYECTOS 🔥 -->
+                                        <div style="display: flex; gap: 10px; align-items: center; flex: 1; justify-content: flex-end;">
+                                            <div style="position: relative; width: 100%; max-width: 350px;">
+                                                <i class="fas fa-search" style="position: absolute; left: 12px; top: 10px; color: #666;"></i>
+                                                <input type="text" id="buscador-proyectos-admin" placeholder="Buscar por título, líder o CI..." oninput="window.filtrarProyectosAdmin()" style="width: 100%; padding: 8px 10px 8px 35px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.95rem; outline: none; box-sizing: border-box;">
+                                            </div>
+                                            <button id="btnActualizarAdmin" onclick="window.cargarProyectosAdmin()" style="padding: 8px 16px; cursor: pointer; border-radius: 5px; background: #002b5c; color: white; border: none; font-weight: bold; transition: 0.3s; white-space: nowrap;">
+                                                <i class="fas fa-sync-alt"></i> Actualizar
+                                            </button>
+                                        </div>
                                     </div>
+                                    
                                     <h4 style="color: #333; margin-bottom: 10px;"><i class="fas fa-user-graduate"></i> 1. Estudiantes (Pregrado)</h4>
                                     <div style="overflow-x: auto; margin-bottom: 30px;">
                                         <table style="width: 100%; border-collapse: collapse; font-size: 0.95rem;">
@@ -1078,18 +1083,18 @@
             }
         })();
     </script>
-    <script src="core/utils.js?v=FERIA_V73"></script>
-    <script src="core/router.js?v=FERIA_V73"></script>
-    <script src="features/auth/auth.js?v=FERIA_V77"></script>
-    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V73"></script>
-    <script src="features/admin/admin.js?v=FERIA_V75"></script>
-    <script src="features/votacion/votacion.js?v=FERIA_V79"></script>
-    <script src="features/habilitacion/habilitacion.js?v=FERIA_V74"></script>
-    <script src="features/registro/registro.js?v=FERIA_V74"></script>
-    <script src="features/proyecto/proyecto.js?v=FERIA_V78"></script>
-    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V74"></script> 
-    <script src="features/evaluacion/evaluacion.js?v=FERIA_V74"></script>
-    <script src="features/resultados/resultados.js?v=FERIA_V74"></script>
-    <script src="features/informes/informes.js?v=FERIA_V76"></script>
+    <script src="core/utils.js?v=FERIA_V93"></script>
+    <script src="core/router.js?v=FERIA_V93"></script>
+    <script src="features/auth/auth.js?v=FERIA_V93"></script>
+    <script type="module" src="features/RestablecerContra/RestablecerContra.js?v=FERIA_V93"></script>
+    <script src="features/admin/admin.js?v=FERIA_V94"></script>
+    <script src="features/votacion/votacion.js?v=FERIA_V94"></script>
+    <script src="features/habilitacion/habilitacion.js?v=FERIA_V93"></script>
+    <script src="features/registro/registro.js?v=FERIA_V93"></script>
+    <script src="features/proyecto/proyecto.js?v=FERIA_V93"></script>
+    <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V93"></script> 
+    <script src="features/evaluacion/evaluacion.js?v=FERIA_V93"></script>
+    <script src="features/resultados/resultados.js?v=FERIA_V93"></script>
+    <script src="features/informes/informes.js?v=FERIA_V93"></script>
 </body>
 </html>
