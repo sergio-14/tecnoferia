@@ -1,14 +1,27 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Votación por Celular, Huella Digital y Seguridad GPS Estricta
+// FUNCIÓN: Votación con Huella Digital y Bloqueo Inmediato
 // =========================================================================
 
-// Generación de Huella Única de Dispositivo
-if (!localStorage.getItem('feria_device_id')) {
-    localStorage.setItem('feria_device_id', 'DEV-' + Math.random().toString(36).substr(2, 9));
-}
+// 🔥 OBTENER O GENERAR HUELLA DIGITAL 🔥
+window.obtenerHuellaDispositivo = function() {
+    let deviceId = localStorage.getItem('feria_device_id');
+    if (!deviceId) {
+        let match = document.cookie.match(new RegExp('(^| )feria_device_id=([^;]+)'));
+        if (match) deviceId = match[2];
+    }
+    if (!deviceId) {
+        deviceId = 'DEV-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now();
+        localStorage.setItem('feria_device_id', deviceId);
+        document.cookie = "feria_device_id=" + deviceId + "; max-age=31536000; path=/";
+    }
+    return deviceId;
+};
 
-// Congelamiento Ninja: Guarda los datos en cuanto los escribe
+// Generamos la huella apenas carga el archivo
+window.obtenerHuellaDispositivo();
+
+// Congelamiento: Guarda los datos en cuanto los escribe
 document.addEventListener('input', function(e) {
     if (e.target && e.target.id === 'voto-celular') {
         const val = e.target.value.replace(/[^0-9]/g, '').trim();
@@ -49,7 +62,6 @@ window.ingresarComoPublico = async function() {
     const menusPrivados = ['nav-mi-proyecto', 'nav-registro', 'nav-evaluacion', 'nav-informes'];
     menusPrivados.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
 
-    // No borramos localStorage completo para no matar la Huella Digital ni los datos congelados
     localStorage.setItem('feria_rol', 'VISITANTE');
     localStorage.setItem('feria_nombre', 'Visitante Público');
     localStorage.setItem('feria_ci', 'publico');
@@ -61,6 +73,7 @@ window.ingresarComoPublico = async function() {
 window.cargarProyectoParaVotar = async function() {
     const params = new URLSearchParams(window.location.search);
     const idProy = params.get('idProy');
+    const deviceId = window.obtenerHuellaDispositivo();
 
     if (idProy) {
         document.getElementById('login-screen').style.display = 'none';
@@ -79,10 +92,8 @@ window.cargarProyectoParaVotar = async function() {
         const inputNom = document.getElementById('voto-nombre');
         const btnEnviar = document.getElementById('btnEnviarVoto');
         
-        // Obtenemos los datos congelados y el historial de votos de ESTE celular
         let savedCelular = localStorage.getItem('feria_ninja_celular');
         let savedNombre = localStorage.getItem('feria_ninja_nombre');
-        let proyectosVotados = JSON.parse(localStorage.getItem('feria_historial_votos') || '[]');
 
         if(btnEnviar) { btnEnviar.disabled = true; btnEnviar.style.opacity = "0.5"; btnEnviar.style.cursor = "not-allowed"; }
 
@@ -93,33 +104,51 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                // 1. Verificación de Huella: ¿Este teléfono ya votó por este proyecto?
-                if (proyectosVotados.includes(String(idProy))) {
-                    formEl.style.display = 'none'; 
-                    tituloEl.style.border = 'none';
-                    tituloEl.style.background = 'transparent';
-                    tituloEl.innerHTML = `
-                        <div style="text-align: center; padding: 20px 10px;">
-                            <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
-                            <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px;">¡Voto Registrado!</h3>
-                            <p style="color: #e2e8f0; font-size: 1rem; margin-bottom: 20px;">Tu dispositivo ya emitió un voto válido para la innovación:<br><b style="color: #4db8ff;">"${proyecto.titulo}"</b></p>
-                            <button type="button" onclick="window.location.href = window.location.pathname;" style="padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;">Escanea Otro Proyecto</button>
-                        </div>
-                    `;
-                    return;
-                }
+                // 🔥 GOLPE NINJA INMEDIATO 🔥: Le preguntamos al backend ANTES de mostrar el formulario
+                let celVerificacion = savedCelular || "0000"; 
+                try {
+                    const resVerif = await fetch(`/api/verificar_permiso_voto/${celVerificacion}/${idProy}/${deviceId}`);
+                    const dataVerif = await resVerif.json();
+                    
+                    if (!dataVerif.permitido) {
+                        formEl.style.display = 'none'; 
+                        tituloEl.style.border = 'none';
+                        tituloEl.style.background = 'transparent';
+                        
+                        if (dataVerif.razon === 'ya_voto_dispositivo' || dataVerif.razon === 'ya_voto_celular') {
+                            tituloEl.innerHTML = `
+                                <div style="text-align: center; padding: 20px 10px;">
+                                    <i class="fas fa-check-circle" style="font-size: 4.5rem; color: #28a745; margin-bottom: 20px; display: block;"></i>
+                                    <h3 style="color: #ffc107; font-size: 1.6rem; margin-bottom: 15px;">¡Voto Registrado!</h3>
+                                    <p style="color: #e2e8f0; font-size: 1rem; margin-bottom: 20px;">Tu dispositivo ya emitió un voto válido para la innovación:<br><b style="color: #4db8ff;">"${proyecto.titulo}"</b></p>
+                                    <button onclick="window.location.href = window.location.pathname;" style="padding: 14px; background: var(--azul-uab); color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;">Escanea Otro Proyecto</button>
+                                </div>
+                            `;
+                        } else if (dataVerif.razon === 'es_autor') {
+                            tituloEl.innerHTML = `
+                                <div style="text-align: center; padding: 20px 10px;">
+                                    <i class="fas fa-user-secret" style="font-size: 4.5rem; color: #d32f2f; margin-bottom: 20px; display: block;"></i>
+                                    <h3 style="color: #ff6b6b; font-size: 1.6rem; margin-bottom: 15px;">¡Acción Bloqueada!</h3>
+                                    <p style="color: #e2e8f0; font-size: 1rem; margin-bottom: 20px;">Usted pertenece al equipo responsable de este proyecto:<br><b style="color: #4db8ff;">"${proyecto.titulo}"</b></p>
+                                    <p style="color: #ffc107; font-weight: bold; margin-bottom: 30px;"><i class="fas fa-exclamation-triangle"></i> No puedes calificar tu propia innovación.</p>
+                                    <button onclick="window.ingresarComoPublico()" style="padding: 14px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer;">Ver Resultados</button>
+                                </div>
+                            `;
+                        }
+                        return; // Detiene la carga de la pantalla de votación
+                    }
+                } catch(e) {}
 
-                // 2. Verificación de Fraude del Expositor Logueado
-                const rolActivo = localStorage.getItem('feria_rol');
-                if (rolActivo === 'EXPOSITOR') {
-                    // Si es expositor y está con la sesión abierta, usamos el número de su cuenta para evitar trampa
-                    savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
-                }
-
+                // Si pasa el escudo ninja, mostramos el proyecto
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
 
-                // 3. CONGELAMIENTO: Rellenado y Bloqueo de Campos
+                const rolActivo = localStorage.getItem('feria_rol');
+                if (rolActivo === 'EXPOSITOR') {
+                    savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
+                }
+
+                // Congelamiento Visual
                 if (savedNombre && inputNom) {
                     inputNom.value = savedNombre;
                     inputNom.readOnly = true;
@@ -171,6 +200,7 @@ window.validarFormularioVoto = async function() {
     const celInput = document.getElementById('voto-celular').value.trim();
     const nomInput = document.getElementById('voto-nombre').value.trim();
     const idProy = document.getElementById('voto-idProy').value;
+    const deviceId = window.obtenerHuellaDispositivo();
     const msj = document.getElementById('mensaje-validacion-voto');
     const btn = document.getElementById('btnEnviarVoto');
 
@@ -180,29 +210,28 @@ window.validarFormularioVoto = async function() {
         return;
     }
 
-    if (celInput.length >= 8 && nomInput.length >= 3) {
-        try {
-            const res = await fetch(`/api/verificar_permiso_voto/${celInput}/${idProy}`);
-            const data = await res.json();
+    try {
+        const res = await fetch(`/api/verificar_permiso_voto/${celInput}/${idProy}/${deviceId}`);
+        const data = await res.json();
 
-            if (!data.permitido) {
-                btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-                if (data.razon === 'es_autor') {
-                    msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Fraude detectado: Perteneces a este equipo.</span>`;
-                } else {
-                    msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Ya emitiste tu voto por este proyecto.</span>`;
-                }
+        if (!data.permitido) {
+            btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
+            if (data.razon === 'es_autor') {
+                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Fraude detectado: Perteneces a este equipo.</span>`;
+            } else if (data.razon === 'ya_voto_dispositivo') {
+                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> Tu dispositivo ya votó por este proyecto.</span>`;
             } else {
-                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Datos válidos. Puedes calificar.</span>`;
-                if (window.calificacionActual > 0) {
-                    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-                }
+                msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> El número ingresado ya emitió un voto aquí.</span>`;
             }
-        } catch(e) {
-            // Permitimos habilitar el botón por si hay lentitud de red, el servidor lo bloqueará al final de todos modos
+        } else {
+            msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Datos válidos. Puedes calificar.</span>`;
             if (window.calificacionActual > 0) {
                 btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
             }
+        }
+    } catch(e) {
+        if (window.calificacionActual > 0) {
+            btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
         }
     }
 };
@@ -215,7 +244,7 @@ function obtenerUbicacionGPS() {
             (error) => {
                 let msg = "Error al obtener ubicación.";
                 if (error.code === 1) msg = "DENEGADO: Debes darle 'Permitir' a la ubicación GPS para poder votar.";
-                if (error.code === 2) msg = "NO DISPONIBLE: No se pudo conectar al satélite GPS. Verifica que tu GPS/Ubicación esté encendido.";
+                if (error.code === 2) msg = "NO DISPONIBLE: No se pudo conectar al satélite GPS.";
                 if (error.code === 3) msg = "TIEMPO AGOTADO: El GPS tardó demasiado.";
                 reject(new Error(msg));
             }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -249,7 +278,6 @@ window.enviarCalificacion = async function(e) {
 
         const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
 
-        // 🔥 SEGURIDAD GPS 100% GENUINA - SIN TRUCOS 🔥
         if (distanciaMetros > RADIO_FERIA) {
             alert(`⛔ ALERTA: ESTÁS DEMASIADO LEJOS\n\nEstás a ${distanciaMetros.toFixed(0)} metros.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la feria.`);
             btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
@@ -267,19 +295,13 @@ window.enviarCalificacion = async function(e) {
                 nombre: nomInput,
                 nota: nota,
                 lat: userLat,
-                lon: userLon
+                lon: userLon,
+                deviceId: window.obtenerHuellaDispositivo()
             })
         });
         
         const resData = await res.json();
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
-
-        // Guardamos el proyecto en la huella digital local para que no vuelva a votar
-        let proyectosVotados = JSON.parse(localStorage.getItem('feria_historial_votos') || '[]');
-        if (!proyectosVotados.includes(String(idProy))) {
-            proyectosVotados.push(String(idProy));
-            localStorage.setItem('feria_historial_votos', JSON.stringify(proyectosVotados));
-        }
 
         alert("🎉 ¡Voto registrado con éxito! Gracias por apoyar las innovaciones tecnológicas.");
         window.ingresarComoPublico(); 
