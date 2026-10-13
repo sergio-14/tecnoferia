@@ -719,14 +719,28 @@ app.post('/api/evaluar', async (req, res) => {
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_apertura_tribunal) as tribunal_bloqueado FROM configuraciones WHERE id = 1`);
         if (checkTime.rows[0].tribunal_bloqueado) {
-            return res.status(403).json({ error: "⛔ El periodo oficial de evaluación aún no ha comenzado. Solo puede revisar los documentos técnicos." });
+            return res.status(403).json({ error: "⛔ El periodo oficial de evaluación aún no ha comenzado." });
         }
 
-        const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [identificadorTribunal]);
+        const tribunalData = await db.query('SELECT usuario_tribunal, proyectos_asignados FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [identificadorTribunal]);
         if (tribunalData.rows.length === 0) return res.status(404).json({ error: "Tribunal no encontrado." });
-        const usuarioTribunal = tribunalData.rows[0].usuario_tribunal;
+        
+        const tribunal = tribunalData.rows[0];
+        const usuarioTribunal = tribunal.usuario_tribunal;
 
-        if ((await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal])).rows.length > 0) return res.status(400).json({ error: "⛔ Ya registraste una calificación." });
+        // 🔥 VALIDACIÓN DE SEGURIDAD 1: Verificar que el proyecto esté asignado a este tribunal 🔥
+        let proyectosAsignados = [];
+        try { proyectosAsignados = JSON.parse(tribunal.proyectos_asignados || "[]").map(id => String(id)); } catch(e){}
+        
+        if (!proyectosAsignados.includes(String(idProyecto))) {
+            return res.status(403).json({ error: "⛔ Acceso denegado: Este proyecto no se encuentra en tu lista de asignaciones." });
+        }
+
+        // 🔥 VALIDACIÓN DE SEGURIDAD 2: Verificar que no exista una evaluación previa 🔥
+        const yaEvaluado = await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal]);
+        if (yaEvaluado.rows.length > 0) {
+            return res.status(400).json({ error: "⛔ Bloqueo de seguridad: Ya registraste una calificación para este proyecto anteriormente." });
+        }
 
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, nota_impacto, observaciones) VALUES ($1, $2, $3, $4, $5)', [idProyecto, usuarioTribunal, notaTribunal, notaImpacto, observaciones]);
 

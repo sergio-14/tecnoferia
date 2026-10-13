@@ -76,9 +76,48 @@ window.cargarProyectosParaEvaluar = async function() {
             select.innerHTML = opcionesHTML;
         }
 
-        select.addEventListener('change', function() {
+        select.addEventListener('change', async function() {
             const opcionSeleccionada = this.options[this.selectedIndex];
             const url = opcionSeleccionada.getAttribute('data-url');
+            const idProySel = this.value;
+
+            // Verificamos si este tribunal ya evaluó este proyecto en específico
+            try {
+                const idTribunal = localStorage.getItem("feria_ci");
+                const resEval = await fetch(`/api/evaluaciones_admin`);
+                const todasEvals = await resEval.json();
+                
+                const yaCalifico = todasEvals.some(ev => 
+                    String(ev.id_proyecto) === String(idProySel) && 
+                    (ev.usuario_tribunal === idTribunal || ev.nombre_tribunal?.toLowerCase().includes(idTribunal.toLowerCase()))
+                );
+
+                const btnSubmit = document.querySelector('.btn-tribunal');
+
+                if (yaCalifico) {
+                    // Bloqueamos las casillas si ya está evaluado
+                    document.querySelectorAll('.trib-nota, #eval-obs').forEach(el => {
+                        el.disabled = true;
+                        el.style.backgroundColor = "rgba(0,0,0,0.4)";
+                    });
+                    if (btnSubmit) {
+                        btnSubmit.disabled = true;
+                        btnSubmit.innerHTML = '<i class="fas fa-check-circle"></i> Proyecto Ya Evaluado';
+                        btnSubmit.style.background = '#6c757d';
+                    }
+                } else {
+                    // Desbloqueamos si está pendiente
+                    document.querySelectorAll('.trib-nota, #eval-obs').forEach(el => {
+                        el.disabled = false;
+                        el.style.backgroundColor = "";
+                    });
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Calificación Oficial';
+                        btnSubmit.style.background = 'var(--azul-uab)';
+                    }
+                }
+            } catch(e) {}
             
             if (url && url !== "undefined" && url !== "") {
                 btnDoc.href = "javascript:void(0)";

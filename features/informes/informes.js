@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos y Certificados Editables
+// FUNCIÓN: Generación de reportes dinámicos, Certificados y Actas de Terna
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -154,7 +154,6 @@ window.procesarInformeActual = async function(e) {
         return;
     }
 
-    // Si es un informe normal, llamamos a la función de impresión
     window.imprimirInformeActual(e);
 };
 
@@ -257,7 +256,6 @@ window.generarCertificadoParticipacion = async function(ci) {
                             <span>ID: ${ci}</span>
                         </div>
 
-                        <!-- 3 LOGOS ALINEADOS -->
                         <div class="header-logos">
                             <img src="${logoUab}" alt="Escudo UABJB" onerror="this.style.display='none'">
                             <img src="${logoCis}" alt="Escudo Carrera Sistemas" onerror="this.style.display='none'">
@@ -378,7 +376,7 @@ window.generarVistaPrevia = async function() {
             return roles;
         };
 
-        // 🔥 NUEVA LÓGICA DE TERNA ASIGNADA (SINCRONIZADA CON EL ADMIN Y TRIBUNAL) 🔥
+        // 🔥 NUEVA LÓGICA DE TERNA ASIGNADA (Sincronizada con el Admin y numerada correctamente) 🔥
         if (valor === 'terna') {
             let html = `<div style="text-align:center; margin-bottom:20px;">
                             <h2 style="color:#002b5c; margin-bottom:5px;">ACTA DE ASIGNACIÓN DE TERNAS Y TRIBUNALES</h2>
@@ -396,17 +394,23 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
-                // Filtramos los que el admin ya descartó para que los números cuadren
-                const proyectosValidosGlobales = proyectos.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+                // 1. Filtramos y ordenamos igual que en admin.js para asegurar que los números coincidan
+                const proyectosValidosGlobales = proyectos
+                    .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
+                    .sort((a, b) => b.id - a.id); // Orden DESCendente por ID (Igual que admin)
+
+                // 2. Creamos el mapeo oficial de numeración por categoría
+                let cEst = 1, cDoc = 1, cEmp = 1;
+                let mapeoNumerosGlobales = {};
+                proyectosValidosGlobales.forEach(p => {
+                    if(p.categoria.includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
+                    else if(p.categoria.includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
+                    else if(p.categoria.includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
+                });
 
                 categorias.forEach(cat => {
                     html += `<h3 style="background:#002b5c; color:white; padding:10px; margin-top:30px; border-radius:4px;">${cat.nombre}</h3>`;
                     
-                    // Calculamos la numeración oficial (1, 2, 3...) idéntica a la que ve el admin
-                    const proyectosCat = proyectosValidosGlobales.filter(p => p.categoria.includes(cat.id));
-                    let mapeoNumeracion = {};
-                    proyectosCat.forEach((p, index) => { mapeoNumeracion[String(p.id)] = index + 1; });
-
                     let hayTribunalesEnEstaCat = false;
 
                     tribunalesActivos.forEach(trib => {
@@ -427,7 +431,7 @@ window.generarVistaPrevia = async function() {
                                     <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                                         <thead>
                                             <tr style="background:#f1f1f1; text-align:left;">
-                                                <th style="padding:8px; border:1px solid #ccc; width:10%;">Nº Asignado</th>
+                                                <th style="padding:8px; border:1px solid #ccc; width:10%; text-align:center;">Nº Asignado</th>
                                                 <th style="padding:8px; border:1px solid #ccc; width:45%;">Título del Proyecto</th>
                                                 <th style="padding:8px; border:1px solid #ccc; width:45%;">Líder y Equipo</th>
                                             </tr>
@@ -435,9 +439,12 @@ window.generarVistaPrevia = async function() {
                                         <tbody>
                             `;
                             
+                            // 3. ORDENAMOS los proyectos asignados de menor a mayor (basado en su número oficial)
+                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
+
                             let contoProyectosTribunal = 0;
                             proyAsignados.forEach(idProy => {
-                                const proyectoDetalle = proyectosCat.find(p => String(p.id) === String(idProy));
+                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id));
                                 if (proyectoDetalle) {
                                     contoProyectosTribunal++;
                                     let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
@@ -445,7 +452,7 @@ window.generarVistaPrevia = async function() {
                                                                                     .replace(/\|\|\|.*/g, ''); 
                                     html += `
                                         <tr>
-                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1rem; color:#002b5c;">#${mapeoNumeracion[String(idProy)]}</td>
+                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(idProy)]}</td>
                                             <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
                                             <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
                                         </tr>
