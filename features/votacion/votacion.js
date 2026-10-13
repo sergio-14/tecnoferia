@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/votacion/votacion.js
-// FUNCIÓN: Votación con Huella Digital y Bloqueo Inmediato
+// FUNCIÓN: Votación por Celular, Auto-Llenado Inteligente y Filtros Estrictos
 // =========================================================================
 
 // 🔥 OBTENER O GENERAR HUELLA DIGITAL 🔥
@@ -18,18 +18,66 @@ window.obtenerHuellaDispositivo = function() {
     return deviceId;
 };
 
-// Generamos la huella apenas carga el archivo
 window.obtenerHuellaDispositivo();
 
-// Congelamiento: Guarda los datos en cuanto los escribe
-document.addEventListener('input', function(e) {
+// 🔥 FILTROS ESTRICTOS Y AUTO-LLENADO NINJA 🔥
+document.addEventListener('input', async function(e) {
+    // 1. Filtro estricto para Celular (Solo números, máximo 8)
     if (e.target && e.target.id === 'voto-celular') {
-        const val = e.target.value.replace(/[^0-9]/g, '').trim();
+        let val = e.target.value.replace(/[^0-9]/g, '').substring(0, 8);
         e.target.value = val;
-        if (val.length >= 8) localStorage.setItem('feria_ninja_celular', val);
+        
+        if (val.length === 8) {
+            localStorage.setItem('feria_ninja_celular', val);
+            
+            const msj = document.getElementById('mensaje-validacion-voto');
+            if (msj) msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando datos...</span>';
+            
+            try {
+                // Auto-llenado Mágico
+                const res = await fetch(`/api/usuario_por_celular/${val}`);
+                const data = await res.json();
+                const inputNom = document.getElementById('voto-nombre');
+                
+                if (data.encontrado && inputNom) {
+                    inputNom.value = data.nombre;
+                    inputNom.readOnly = true;
+                    inputNom.style.backgroundColor = "rgba(0,0,0,0.5)";
+                    inputNom.style.color = "#94a3b8";
+                    localStorage.setItem('feria_ninja_nombre', data.nombre);
+                    if (msj) msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-user-check"></i> Usuario verificado automáticamente.</span>`;
+                } else {
+                    if (inputNom && inputNom.readOnly) {
+                        inputNom.value = "";
+                        inputNom.readOnly = false;
+                        inputNom.style.backgroundColor = "rgba(0,0,0,0.2)";
+                        inputNom.style.color = "#ffffff";
+                        localStorage.removeItem('feria_ninja_nombre');
+                    }
+                    if (msj) msj.innerHTML = '';
+                }
+            } catch(err) {
+                if (msj) msj.innerHTML = '';
+            }
+            window.validarFormularioVoto();
+        } else {
+            // Si borran un número y quedan 7, habilitamos de nuevo la caja de nombre
+            const inputNom = document.getElementById('voto-nombre');
+            if (inputNom && inputNom.readOnly) {
+                inputNom.value = "";
+                inputNom.readOnly = false;
+                inputNom.style.backgroundColor = "rgba(0,0,0,0.2)";
+                inputNom.style.color = "#ffffff";
+                localStorage.removeItem('feria_ninja_nombre');
+            }
+            window.validarFormularioVoto();
+        }
     }
+    
+    // 2. Filtro estricto para Nombre (Solo Letras y Espacios)
     if (e.target && e.target.id === 'voto-nombre') {
-        const val = e.target.value.replace(/[0-9]/g, '').trim();
+        let val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+        e.target.value = val;
         if (val.length >= 3) localStorage.setItem('feria_ninja_nombre', val);
     }
 });
@@ -104,7 +152,6 @@ window.cargarProyectoParaVotar = async function() {
                 const tituloEl = document.getElementById('votar-titulo');
                 const formEl = document.getElementById('form-votacion');
 
-                // 🔥 GOLPE NINJA INMEDIATO 🔥: Le preguntamos al backend ANTES de mostrar el formulario
                 let celVerificacion = savedCelular || "0000"; 
                 try {
                     const resVerif = await fetch(`/api/verificar_permiso_voto/${celVerificacion}/${idProy}/${deviceId}`);
@@ -135,11 +182,10 @@ window.cargarProyectoParaVotar = async function() {
                                 </div>
                             `;
                         }
-                        return; // Detiene la carga de la pantalla de votación
+                        return; 
                     }
                 } catch(e) {}
 
-                // Si pasa el escudo ninja, mostramos el proyecto
                 tituloEl.innerText = proyecto.titulo;
                 document.getElementById('voto-idProy').value = proyecto.id;
 
@@ -148,7 +194,6 @@ window.cargarProyectoParaVotar = async function() {
                     savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
                 }
 
-                // Congelamiento Visual
                 if (savedNombre && inputNom) {
                     inputNom.value = savedNombre;
                     inputNom.readOnly = true;
@@ -196,6 +241,7 @@ window.marcarEstrellas = function(cantidad) {
     window.validarFormularioVoto(); 
 };
 
+// 🔥 REVISIÓN FINAL ANTES DE HABILITAR EL BOTÓN DE VOTO 🔥
 window.validarFormularioVoto = async function() {
     const celInput = document.getElementById('voto-celular').value.trim();
     const nomInput = document.getElementById('voto-nombre').value.trim();
@@ -204,9 +250,12 @@ window.validarFormularioVoto = async function() {
     const msj = document.getElementById('mensaje-validacion-voto');
     const btn = document.getElementById('btnEnviarVoto');
 
-    if (celInput.length < 8 || nomInput.length < 3) {
+    // EXIGIR EXACTAMENTE 8 DÍGITOS PARA EL CELULAR
+    if (celInput.length !== 8 || nomInput.length < 3) {
         btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "not-allowed";
-        msj.innerHTML = "";
+        if (msj && celInput.length > 0 && celInput.length < 8) {
+            msj.innerHTML = `<span style="color: #f39c12;"><i class="fas fa-exclamation-triangle"></i> El celular debe tener 8 números.</span>`;
+        }
         return;
     }
 
@@ -224,7 +273,10 @@ window.validarFormularioVoto = async function() {
                 msj.innerHTML = `<span style="color: #d32f2f;"><i class="fas fa-ban"></i> El número ingresado ya emitió un voto aquí.</span>`;
             }
         } else {
-            msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Datos válidos. Puedes calificar.</span>`;
+            // El mensaje de "Usuario verificado" ya se puso en el filtro de input, no lo sobreescribimos
+            if (!msj.innerHTML.includes("Usuario verificado")) {
+                msj.innerHTML = `<span style="color: #28a745;"><i class="fas fa-check-circle"></i> Datos válidos. Puedes calificar.</span>`;
+            }
             if (window.calificacionActual > 0) {
                 btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
             }

@@ -92,7 +92,6 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
 
-        // 🔥 ACTA DE EVOLUCIÓN: Agregamos Huella Digital a la Base de Datos
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
 
         console.log('✅ Base de datos verificada y optimizada.');
@@ -236,6 +235,22 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
         if (!rolEncontrado) return res.status(404).json({ error: "Usuario no encontrado." });
         res.json({ rol: rolEncontrado, datos: datosEncontrados });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
+});
+
+// 🔥 NUEVO: AUTO-LLENADO BUSCANDO POR NÚMERO DE CELULAR 🔥
+app.get('/api/usuario_por_celular/:celular', async (req, res) => {
+    const { celular } = req.params;
+    try {
+        const exp = await db.query('SELECT nombre_completo FROM expositores WHERE celular = $1 LIMIT 1', [celular]);
+        if (exp.rows.length > 0) return res.json({ encontrado: true, nombre: exp.rows[0].nombre_completo });
+
+        const vis = await db.query('SELECT nombre_completo FROM visitantes WHERE celular = $1 LIMIT 1', [celular]);
+        if (vis.rows.length > 0) return res.json({ encontrado: true, nombre: vis.rows[0].nombre_completo });
+
+        res.json({ encontrado: false });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno al buscar celular." });
+    }
 });
 
 app.post('/api/restablecer_password_directo', async (req, res) => {
@@ -530,23 +545,19 @@ app.post('/api/visitantes', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
 });
 
-// 🔥 NUEVO: VERIFICACIÓN INTELIGENTE CON HUELLA DE DISPOSITIVO 🔥
 app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, res) => {
     try {
         const { celular, idProy, deviceId } = req.params;
 
-        // 1. ¿Ya votó este dispositivo físico? (Aunque ponga otro número)
         if (deviceId && deviceId !== "null" && deviceId !== "undefined") {
             const dupDev = await db.query('SELECT id FROM votos_publico WHERE device_id = $1 AND id_proyecto = $2', [deviceId, idProy]);
             if (dupDev.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_dispositivo' });
         }
 
-        // 2. ¿Ya votó por este proyecto con este número de celular?
         if (celular && celular !== "0000" && celular !== "null") {
             const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celular, idProy]);
             if (dup.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_celular' });
             
-            // 3. ¿Es autor o integrante del proyecto?
             const proy = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProy]);
             if (proy.rows.length > 0) {
                 const ciPropietario = proy.rows[0].ci_propietario;
@@ -569,7 +580,6 @@ app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, re
     }
 });
 
-// 🔥 NUEVO: REGISTRO DE VOTO CON CELULAR Y HUELLA DIGITAL 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, celular, nombre, nota, lat, lon, deviceId } = req.body;
     try {
@@ -580,11 +590,9 @@ app.post('/api/votar', async (req, res) => {
         const nomReal = nombre || "Visitante";
         const devId = deviceId || "DEV-UNKNOWN";
 
-        // Huella Digital Device Check en Backend
         const dupDev = await db.query('SELECT id FROM votos_publico WHERE device_id = $1 AND id_proyecto = $2', [devId, idProyecto]);
         if (dupDev.rows.length > 0) return res.status(400).json({ error: "⛔ Fraude Detectado: Este dispositivo ya emitió un voto para este proyecto." });
 
-        // Doble verificación anti-fraude celular
         const proyCheck = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProyecto]);
         if (proyCheck.rows.length > 0) {
             const ciPropietario = proyCheck.rows[0].ci_propietario;
@@ -601,10 +609,8 @@ app.post('/api/votar', async (req, res) => {
         const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celReal, idProyecto]);
         if (dup.rows.length > 0) return res.status(400).json({ error: "Ya calificaste este proyecto anteriormente con este número." });
 
-        // Guardar al visitante
         await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, 'Visitante Público', $1) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo`, [celReal, nomReal]);
 
-        // Guardar el voto incluyendo el device_id
         await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud, device_id) VALUES ($1, $2, $3, $4, $5, $6)', [idProyecto, celReal, parseInt(nota, 10), lat, lon, devId]);
         
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
