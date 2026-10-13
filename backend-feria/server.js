@@ -204,7 +204,7 @@ app.delete('/api/instituciones/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar institución" }); }
 });
 
-// 🔥 CORRECCIÓN 1: SISTEMA DE LOGIN Y SESIÓN REPARADO PARA TRIBUNALES 🔥
+// 🔥 SOLUCIÓN: TRIBUNAL SE LOGUEA ÚNICA Y EXCLUSIVAMENTE CON SU USUARIO 🔥
 app.post('/api/login', async (req, res) => {
     const { identificador, password } = req.body;
     try {
@@ -212,7 +212,8 @@ app.post('/api/login', async (req, res) => {
         const queries = [
             { rol: 'ADMIN', query: 'SELECT * FROM administradores WHERE ci = $1 OR correo = $1' },
             { rol: 'EXPOSITOR', query: 'SELECT * FROM expositores WHERE ci = $1 OR correo = $1' },
-            { rol: 'TRIBUNAL', query: 'SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1 OR ci = $1' }
+            // El tribunal ya NO usa CI para iniciar sesión, usa su USUARIO o CORREO oficial.
+            { rol: 'TRIBUNAL', query: 'SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1' }
         ];
 
         for (let q of queries) {
@@ -234,9 +235,12 @@ app.post('/api/login', async (req, res) => {
             if (!hashBd || !(await bcrypt.compare(password, hashBd))) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
         }
 
-        // Obligamos a que la sesión se guarde con el CI o Usuario de forma consistente
-        let idReal = datosEncontrados.ci || datosEncontrados.usuario_tribunal || identificador;
-        datosEncontrados.ci = idReal; 
+        // Asignamos la Llave Primaria exacta para la sesión
+        let idReal = "";
+        if (rolEncontrado === 'TRIBUNAL') idReal = datosEncontrados.usuario_tribunal;
+        else idReal = datosEncontrados.ci;
+        
+        datosEncontrados.id_sesion_oficial = idReal;
 
         const nuevoToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
         
@@ -248,14 +252,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/verificar_sesion/:identificador/:token', async (req, res) => {
     try {
         const { identificador, token } = req.params;
-        
-        let idReal = identificador;
-        const searchTrib = await db.query('SELECT ci, usuario_tribunal FROM tribunales WHERE ci=$1 OR usuario_tribunal=$1 OR correo=$1', [identificador]);
-        if (searchTrib.rows.length > 0) {
-            idReal = searchTrib.rows[0].ci || searchTrib.rows[0].usuario_tribunal || identificador;
-        }
-
-        const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1 OR ci_usuario = $2', [identificador, idReal]);
+        const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1', [identificador]);
         if (result.rows.length === 0) return res.json({ valida: false });
         
         res.json({ valida: result.rows[0].token === token }); 
@@ -689,7 +686,7 @@ app.delete('/api/votos_admin/:id', async (req, res) => {
 
 app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
     try {
-        const evCheck = await db.query('SELECT id_proyecto FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
+        const evCheck = await db.query('SELECT id_proyecto FROM evaluations_tribunal WHERE id = $1', [req.params.id]);
         if (evCheck.rows.length > 0) {
             const idProyecto = evCheck.rows[0].id_proyecto;
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
@@ -701,7 +698,7 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
 
 app.get('/api/tribunal_id/:id', async (req, res) => {
     try {
-        const tribunal = await db.query('SELECT * FROM tribunales WHERE ci = $1 OR usuario_tribunal = $1 OR correo = $1', [req.params.id]);
+        const tribunal = await db.query('SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [req.params.id]);
         res.json(tribunal.rows[0] || null);
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
@@ -714,7 +711,7 @@ app.post('/api/evaluar', async (req, res) => {
             return res.status(403).json({ error: "⛔ El periodo oficial de evaluación aún no ha comenzado. Solo puede revisar los documentos técnicos." });
         }
 
-        const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE ci = $1 OR usuario_tribunal = $1 OR correo = $1', [identificadorTribunal]);
+        const tribunalData = await db.query('SELECT usuario_tribunal FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [identificadorTribunal]);
         if (tribunalData.rows.length === 0) return res.status(404).json({ error: "Tribunal no encontrado." });
         const usuarioTribunal = tribunalData.rows[0].usuario_tribunal;
 
@@ -723,8 +720,6 @@ app.post('/api/evaluar', async (req, res) => {
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, observaciones) VALUES ($1, $2, $3, $4)', [idProyecto, usuarioTribunal, notaTribunal, observaciones]);
 
         const notaPonderada = notaTribunal * 0.80;
-        
-        // 🔥 CORRECCIÓN: Todos los proyectos evaluados pasan directo a Resultados 🔥
         let estado = 'Evaluado';
 
         await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, observaciones_tribunal = $3, estado_evaluacion = $4 WHERE id = $5', [notaTribunal, notaPonderada, observaciones, estado, idProyecto]);
@@ -767,7 +762,6 @@ app.get('/api/resultados', async (req, res) => {
 
         if (checkTime.rows[0].resultados_ocultos && !esAdmin) return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
 
-        // 🔥 CORRECCIÓN: Mostrar cualquier proyecto que haya sido "Evaluado" o "Pre-seleccionado" 🔥
         const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Evaluado' OR p.estado_evaluacion = 'Pre-seleccionado'`;
         const resultados = await db.query(query);
         

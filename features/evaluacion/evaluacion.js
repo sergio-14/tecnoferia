@@ -11,7 +11,7 @@ window.cargarProyectosParaEvaluar = async function() {
     select.innerHTML = '<option value="" disabled selected>Buscando proyectos asignados a su perfil...</option>';
     
     try {
-        const idTribunal = localStorage.getItem("feria_ci") || localStorage.getItem("feria_correo");
+        const idTribunal = localStorage.getItem("feria_ci");
         
         if (!idTribunal) { 
             select.innerHTML = '<option value="" disabled selected>Sesión inválida</option>'; return; 
@@ -25,17 +25,16 @@ window.cargarProyectosParaEvaluar = async function() {
             return;
         }
 
-        // 🔥 CORRECCIÓN: Soporte para múltiples categorías 🔥
-        let categoriasAsignadas = [];
+        // 🔥 CORRECCIÓN: Filtramos EXCLUSIVAMENTE por los IDs que asignó el Admin 🔥
+        let proyectosAsignadosArray = [];
         try { 
-            categoriasAsignadas = JSON.parse(datosTribunal.categoria_asignada || "[]"); 
-        } catch(e) { 
-            if (typeof datosTribunal.categoria_asignada === 'string') categoriasAsignadas = [datosTribunal.categoria_asignada]; 
-        }
+            proyectosAsignadosArray = JSON.parse(datosTribunal.proyectos_asignados || "[]"); 
+            proyectosAsignadosArray = proyectosAsignadosArray.map(id => String(id));
+        } catch(e){}
 
-        let proyectosAsignadosArray = "TODOS";
-        if (datosTribunal.proyectos_asignados && datosTribunal.proyectos_asignados !== "TODOS") {
-            try { proyectosAsignadosArray = JSON.parse(datosTribunal.proyectos_asignados); } catch(e){}
+        if (proyectosAsignadosArray.length === 0) {
+            select.innerHTML = '<option value="" disabled selected>Aún no se te han asignado proyectos a evaluar.</option>';
+            return;
         }
 
         const resProyectos = await fetch('/api/proyectos_admin');
@@ -45,19 +44,16 @@ window.cargarProyectosParaEvaluar = async function() {
         let proyectosEncontrados = 0;
 
         todosLosProyectos.forEach(p => {
-            if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-            
-            const matchCategoria = categoriasAsignadas.some(cat => p.categoria.includes(cat));
-            if (!matchCategoria && categoriasAsignadas.length > 0) return;
+            // Solo carga los proyectos cuyo ID está explícitamente en la lista de asignación
+            if (!proyectosAsignadosArray.includes(String(p.id))) return;
 
-            if (Array.isArray(proyectosAsignadosArray) && !proyectosAsignadosArray.includes(String(p.id))) return;
-
-            opcionesHTML += `<option value="${p.id}" data-url="${p.enlace_pdf || ''}">${p.titulo}</option>`;
+            let extraText = (p.estado_evaluacion === 'Evaluado' || p.estado_evaluacion === 'Pre-seleccionado') ? ' ✅ (Ya evaluado)' : '';
+            opcionesHTML += `<option value="${p.id}" data-url="${p.enlace_pdf || ''}">${p.titulo}${extraText}</option>`;
             proyectosEncontrados++;
         });
 
         if (proyectosEncontrados === 0) {
-            select.innerHTML = '<option value="" disabled selected>No tienes proyectos pendientes en tu categoría.</option>';
+            select.innerHTML = '<option value="" disabled selected>No tienes proyectos pendientes en tu lista.</option>';
         } else {
             select.innerHTML = opcionesHTML;
         }
@@ -111,7 +107,7 @@ window.guardarEvaluacionTribunal = async function(e) {
     btn.disabled = true;
 
     try {
-        const idTribunal = localStorage.getItem("feria_ci") || localStorage.getItem("feria_correo");
+        const idTribunal = localStorage.getItem("feria_ci"); 
 
         const respuesta = await fetch('/api/evaluar', {
             method: 'POST',
@@ -132,10 +128,8 @@ window.guardarEvaluacionTribunal = async function(e) {
         }
 
         let mensajeCorreo = "";
-        if (dataRespuesta.estado === "Pre-seleccionado") {
-            mensajeCorreo = `¡Felicidades! Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/80 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\n¡Ha superado la etapa de Pre-selección!`;
-        } else {
-            mensajeCorreo = `Su proyecto "${dataRespuesta.tituloProyecto}" ha sido evaluado.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/80 ponderados).\n\n📝 Retroalimentación:\n"${observaciones}"\n\nNo alcanzó la nota mínima de aprobación. Gracias por participar.`;
+        if (dataRespuesta.estado === "Pre-seleccionado" || dataRespuesta.estado === "Evaluado") {
+            mensajeCorreo = `¡Felicidades! Su proyecto "${dataRespuesta.tituloProyecto}" ha finalizado su evaluación.\nObtuvo ${nota}/100 puntos brutos (${dataRespuesta.notaPonderada}/80 ponderados).\n\n📝 Retroalimentación del jurado:\n"${observaciones}"\n\nPuede ver su posición oficial en el ranking a través de la pestaña de Resultados del sistema.`;
         }
 
         let correoEnviado = false;
@@ -156,7 +150,7 @@ window.guardarEvaluacionTribunal = async function(e) {
         }
 
         if(correoEnviado) {
-            alert(` ¡Calificación Guardada Oficialmente!\n\nSe envió un correo de notificación automática al expositor informando su nota de ${nota}/100 y si aprobó a la siguiente fase.`);
+            alert(` ¡Calificación Guardada Oficialmente!\n\nSe envió un correo de notificación automática al expositor informando que su proyecto ha sido evaluado.`);
         } else {
             alert(` ¡Calificación Guardada Oficialmente en la Base de Datos!\n\n⚠️ NOTA: Tu navegador bloqueó EmailJS, por lo que el expositor no recibió el correo automático, pero la nota de ${nota}/100 ya está registrada y procesada en los resultados.`);
         }
