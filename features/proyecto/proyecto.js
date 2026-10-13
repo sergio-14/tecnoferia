@@ -103,8 +103,8 @@ window.agregarCasillaIntegranteProyecto = async function(nombre = '', ci = '', c
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button type="button" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
-                    <button type="button" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash"></i></button>
+                    <button type="button" class="btn-editar-int" onclick="window.editarIntegranteProyecto('${idUnico}')" style="background: rgba(255,255,255,0.1); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Editar"><i class="fas fa-pencil-alt"></i></button>
+                    <button type="button" class="btn-quitar-int" onclick="document.getElementById('${idUnico}').remove(); window.contadorIntegrantesProyecto--;" style="background: rgba(220,53,69,0.15); color: #ff6b6b; border: 1px solid rgba(220,53,69,0.3); border-radius: 6px; padding: 8px 12px; cursor: pointer; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash"></i></button>
                 </div>
             </div>
         </div>
@@ -155,7 +155,8 @@ window.editarIntegranteProyecto = function(idUnico) {
 window.habilitarCasillasIntegrantes = function(habilitar) {
     const contenedor = document.getElementById('contenedor-integrantes-proyecto');
     if (contenedor) {
-        contenedor.querySelectorAll('input, select, button').forEach(n => n.disabled = !habilitar);
+        contenedor.querySelectorAll('input, select').forEach(n => n.disabled = !habilitar);
+        contenedor.querySelectorAll('.btn-editar-int, .btn-quitar-int').forEach(b => b.style.display = habilitar ? 'inline-block' : 'none');
     }
     const btnAdd = document.getElementById('btn-add-integrante-proy');
     if (btnAdd) btnAdd.style.display = habilitar ? 'block' : 'none';
@@ -303,7 +304,6 @@ window.cargarDatosProyecto = async function() {
             
             let mensajeEstado = esLider ? "Usted ya subió un proyecto para ser evaluado en la feria." : "Usted ya pertenece a un proyecto en espera a ser evaluado en la feria.";
 
-            // 🔥 NUEVA LÓGICA: Ya no hay rechazos. Solo muestra que terminó y manda a resultados 🔥
             if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
                 tituloCartel = "Evaluación Finalizada"; iconoCartel = "fas fa-flag-checkered"; colorPrimario = "#ffc107";
                 colorFondo = "rgba(255, 193, 7, 0.12)"; colorBorde = "rgba(255, 193, 7, 0.5)"; 
@@ -339,9 +339,14 @@ window.cargarDatosProyecto = async function() {
             } else {
                 mensajeExtra = tiempoAgotado ? `<div style="background: rgba(220, 53, 69, 0.15); color: #ff6b6b; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid rgba(220, 53, 69, 0.3);"><i class="fas fa-lock"></i> <b>Bloqueado:</b> El plazo de modificaciones ha finalizado.</div>` : `<div style="background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 12px; margin-bottom: 20px;">Puedes editar los datos hasta el <b>${fechaFormateada}</b>.</div>`;
                 
-                // Si la fecha límite no ha pasado, le mostramos el botón de editar
-                if (!tiempoAgotado && estadoActual === "Pendiente") {
-                    botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
+                // 🔥 AQUÍ ESTÁ EL CAMBIO DE LÓGICA PARA PERMITIR EDICIÓN POST-EVALUACIÓN 🔥
+                if (!tiempoAgotado) {
+                    if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
+                        // Muestra un botón diferente si ya fue evaluado
+                        botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #17a2b8; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #fff;"><i class="fas fa-file-pdf"></i> Actualizar Documento Final</button>`;
+                    } else {
+                        botonEdicionHTML = `<button type="button" id="btnActivarEdicion" style="background: #ffc107; padding: 12px 25px; border-radius: 6px; font-weight: bold; cursor: pointer; border:none; color: #000;"><i class="fas fa-edit"></i> Editar Proyecto</button>`;
+                    }
                 }
             }
 
@@ -421,12 +426,37 @@ window.cargarDatosProyecto = async function() {
                             }
                         }
 
-                        document.getElementById('proyTitulo').disabled = false;
-                        document.getElementById('proyEje').disabled = false;
-                        window.habilitarCasillasIntegrantes(true);
+                        // 🔥 LÓGICA DE BLOQUEO PARCIAL SI YA FUE EVALUADO 🔥
+                        const formInterno = tarjetaBlanca.querySelector('form');
+                        const oldAlert = document.getElementById('aviso-bloqueo-parcial');
+                        if(oldAlert) oldAlert.remove();
+
+                        if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
+                            // Bloquear campos de texto
+                            document.getElementById('proyTitulo').disabled = true;
+                            document.getElementById('proyEje').disabled = true;
+                            window.habilitarCasillasIntegrantes(false);
+                            
+                            // Mostrar cartel azul explicativo
+                            const alertaPDF = document.createElement('div');
+                            alertaPDF.id = 'aviso-bloqueo-parcial';
+                            alertaPDF.style.cssText = 'background: rgba(23, 162, 184, 0.15); color: #4db8ff; padding: 15px; border-radius: 6px; border: 1px solid rgba(23, 162, 184, 0.3); margin-bottom: 20px; font-size: 0.95rem;';
+                            alertaPDF.innerHTML = '<i class="fas fa-info-circle"></i> <b>Aviso de Seguridad:</b> El jurado ya calificó su proyecto, por lo tanto, los datos generales han sido bloqueados. <b>Solamente se le permite subir una actualización de su documento PDF.</b>';
+                            if (formInterno) formInterno.insertBefore(alertaPDF, formInterno.firstChild);
+
+                        } else {
+                            // Si no ha sido evaluado, todo desbloqueado
+                            document.getElementById('proyTitulo').disabled = false;
+                            document.getElementById('proyEje').disabled = false;
+                            window.habilitarCasillasIntegrantes(true);
+                        }
 
                         if(btnSubir) {
-                            btnSubir.innerHTML = 'Actualizar Proyecto';
+                            if (estadoActual === "Evaluado" || estadoActual === "Pre-seleccionado") {
+                                btnSubir.innerHTML = '<i class="fas fa-file-upload"></i> Subir Nuevo PDF';
+                            } else {
+                                btnSubir.innerHTML = 'Actualizar Proyecto';
+                            }
                             btnSubir.disabled = false; 
                             btnSubir.style.cursor = 'pointer';
                             btnSubir.style.opacity = '1';
@@ -519,10 +549,12 @@ window.subirProyectoFeria = async function(e) {
     const inputTipo = document.getElementById('proyTipo');
     const inputEje = document.getElementById('proyEje');
     
+    // Almacenamos si estaban bloqueados para restaurarlos luego
     const estabaTituloBloqueado = inputTitulo.disabled;
     const estabaTipoBloqueado = inputTipo.disabled;
     const estabaEjeBloqueado = inputEje.disabled;
     
+    // Los desbloqueamos por 1 milisegundo para que FormData pueda leer su contenido interno
     inputTitulo.disabled = false; inputTipo.disabled = false; inputEje.disabled = false;
 
     try {
@@ -593,6 +625,7 @@ window.subirProyectoFeria = async function(e) {
         btn.innerHTML = textoOriginal; 
         btn.disabled = false;
     } finally {
+        // Restauramos los bloqueos a como estaban por seguridad
         inputTitulo.disabled = estabaTituloBloqueado;
         inputTipo.disabled = estabaTipoBloqueado;
         inputEje.disabled = estabaEjeBloqueado;

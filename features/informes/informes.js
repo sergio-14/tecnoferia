@@ -378,7 +378,7 @@ window.generarVistaPrevia = async function() {
             return roles;
         };
 
-        // 🔥 NUEVO INFORME DE TERNAS ASIGNADAS 🔥
+        // 🔥 NUEVA LÓGICA DE TERNA ASIGNADA (SINCRONIZADA CON EL ADMIN Y TRIBUNAL) 🔥
         if (valor === 'terna') {
             let html = `<div style="text-align:center; margin-bottom:20px;">
                             <h2 style="color:#002b5c; margin-bottom:5px;">ACTA DE ASIGNACIÓN DE TERNAS Y TRIBUNALES</h2>
@@ -391,16 +391,19 @@ window.generarVistaPrevia = async function() {
                 html += `<p style="text-align:center; color:red; font-weight:bold;">Aún no se han asignado proyectos a ningún tribunal.</p>`;
             } else {
                 const categorias = [
-                    { id: 'estudiante', nombre: '1. ESTUDIANTES (Pregrado)' },
+                    { id: 'estudiante', nombre: '1. ESTUDIANTES UNIVERSITARIOS' },
                     { id: 'docente', nombre: '2. DOCENTES INVESTIGADORES' },
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
+                // Filtramos los que el admin ya descartó para que los números cuadren
+                const proyectosValidosGlobales = proyectos.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+
                 categorias.forEach(cat => {
                     html += `<h3 style="background:#002b5c; color:white; padding:10px; margin-top:30px; border-radius:4px;">${cat.nombre}</h3>`;
                     
-                    // Proyectos de esta categoría con su numeración oficial
-                    const proyectosCat = proyectos.filter(p => p.categoria.includes(cat.id));
+                    // Calculamos la numeración oficial (1, 2, 3...) idéntica a la que ve el admin
+                    const proyectosCat = proyectosValidosGlobales.filter(p => p.categoria.includes(cat.id));
                     let mapeoNumeracion = {};
                     proyectosCat.forEach((p, index) => { mapeoNumeracion[String(p.id)] = index + 1; });
 
@@ -470,7 +473,7 @@ window.generarVistaPrevia = async function() {
             const diccionarioProyectos = {}; 
 
             proyectos.forEach(p => {
-                if (p.estado_evaluacion === "Pre-seleccionado") {
+                if (p.estado_evaluacion === "Evaluado" || p.estado_evaluacion === "Pre-seleccionado") {
                     let catName = p.categoria.includes('estudiante') ? "proyectos_estudiantes" : p.categoria.includes('docente') ? "proyectos_docentes" : "proyectos_emprendimientos";
                     let nombreLiderReal = "Desconocido";
                     const expLider = expositores.find(e => e.ci === p.ci_propietario);
@@ -690,7 +693,7 @@ window.generarVistaPrevia = async function() {
                 if (p.visitas > 0) listaProy.push({ titulo: p.titulo, categoria: p.categoria, visitas: p.visitas, prom: p.sumaNotas / p.visitas, pts20: (p.sumaNotas / p.visitas) * 0.20 }); 
             });
 
-            const totalProyValidos = proyectos.filter(p => p.estado_evaluacion === 'Pre-seleccionado').length;
+            const totalProyValidos = proyectos.filter(p => p.estado_evaluacion === 'Pre-seleccionado' || p.estado_evaluacion === 'Evaluado').length;
             const promVotosProyecto = totalProyValidos > 0 ? (votos.length / totalProyValidos).toFixed(2) : "0.00";
 
             const generarTablaV = (cat) => {
@@ -950,40 +953,6 @@ window.generarVistaPrevia = async function() {
                 <div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Comité Organizador</p></div>
-                </div>`;
-        }
-        
-        else if (valor === "9" || valor === "no_clasificados" || valor.includes("No Clasificados")) {
-            let html = `<table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; font-family: Arial, sans-serif;">
-                <thead><tr style="background-color: #002b5c; color: white;"><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 10px; border: 1px solid #ccc; width: 25%;">Título del Proyecto</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Categoría</th><th style="padding: 10px; border: 1px solid #ccc; width: 20%;">Integrantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Tribunal</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Nota Ponderada (80%)</th><th style="padding: 10px; border: 1px solid #ccc; width: 15%;">Observaciones</th></tr></thead><tbody>`;
-
-            let cont = 0;
-            proyectos.forEach(p => {
-                if (p.estado_evaluacion === "Evaluado (No clasifica)") {
-                    cont++;
-                    let cat = p.categoria.includes('docente') ? "Docentes" : p.categoria.includes('emprendimiento') ? "Emprendimientos" : "Estudiantes";
-                    let nombreLiderReal = "Desconocido";
-                    const expLider = expositores.find(e => e.ci === p.ci_propietario);
-                    if(expLider) nombreLiderReal = expLider.nombre_completo;
-                    
-                    html += `<tr style="border-bottom: 1px solid #eee;">
-                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;"><b>${cont}</b></td>
-                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; color: #002b5c;">${p.titulo || "Sin título"}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc;">${cat}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc;">${extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal)}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">${p.nota_tribunal ? Number(p.nota_tribunal).toFixed(1) : "0.0"} / 100</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-weight: bold; color: #d32f2f;">${p.nota_ponderada ? Number(p.nota_ponderada).toFixed(1) : "0.0"} pts</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; font-style: italic; color: #444; font-size: 11px;">"${p.observaciones_tribunal || "Sin observaciones."}"</td>
-                    </tr>`;
-                }
-            });
-
-            if (cont === 0) html += `<tr><td colspan="7" style="text-align: center; padding: 25px; color: #666; font-style: italic;">No hay proyectos no clasificados registrados en el sistema en este momento.</td></tr>`;
-
-            areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE PROYECTOS NO CLASIFICADOS", "Proyectos evaluados en la Etapa 1 que no alcanzaron el puntaje mínimo ponderado de aprobación (51 pts).") + html + `</tbody></table>
-                <div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Evaluador</p></div>
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
                 </div>`;
         }
 

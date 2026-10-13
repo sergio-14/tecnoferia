@@ -477,6 +477,10 @@ window.cargarFechasActuales = async function() {
         document.getElementById('confGpsLat').value = data.gps_latitud || '';
         document.getElementById('confGpsLon').value = data.gps_longitud || '';
         document.getElementById('confGpsRadio').value = data.gps_radio || '';
+
+        // 🔥 LEEMOS EL ESTADO DEL BOTÓN DE PREMIOS EXTRA 🔥
+        const btnPremios = document.getElementById('confMostrarPremios');
+        if (btnPremios) btnPremios.checked = data.mostrar_premios_extra || false;
         
     } catch (error) { console.error("No se pudieron cargar las configuraciones.", error); }
 };
@@ -490,6 +494,9 @@ window.guardarNuevasFechas = async function() {
     const lat = document.getElementById('confGpsLat').value;
     const lon = document.getElementById('confGpsLon').value;
     const rad = document.getElementById('confGpsRadio').value;
+    
+    // 🔥 CAPTURAMOS EL ESTADO DEL BOTÓN DE PREMIOS EXTRA 🔥
+    const mostrarPremiosExtra = document.getElementById('confMostrarPremios') ? document.getElementById('confMostrarPremios').checked : false;
 
     if (!reg || !sub || !res || !cierreVot || !lat || !lon || !rad || !apeTrib) { 
         alert("⚠️ Por favor, complete todos los campos de configuración antes de guardar."); 
@@ -507,7 +514,8 @@ window.guardarNuevasFechas = async function() {
                 fechaCierreVotacion: cierreVot, 
                 gpsLatitud: lat, 
                 gpsLongitud: lon, 
-                gpsRadio: rad 
+                gpsRadio: rad,
+                mostrarPremiosExtra: mostrarPremiosExtra 
             })
         });
         if (!respuesta.ok) throw new Error("Error del servidor");
@@ -675,7 +683,6 @@ window.cargarUsuariosGlobal = async function() {
         const data = await res.json();
         window.usuariosCargadosBD = data;
         
-        // 🔥 MAGIA: Llenar el buscador de certificados con todos los usuarios 🔥
         const datalist = document.getElementById('lista-usuarios-cert');
         if (datalist) {
             datalist.innerHTML = '';
@@ -734,11 +741,9 @@ window.filtrarUsuariosGlobal = function() {
         const ciTribunal = u.ci || u.id; 
         const instOEspec = u.institucion || "<span style='color:#94a3b8; font-size:0.8rem;'>Sin asignar</span>";
         
-        // 🔥 BOTÓN EDITAR Y ELIMINAR 🔥
         const btnEditar = `<button onclick="window.abrirModalEdicion('${window.subTabUsuariosActual}', '${idUnico}', '${ciTribunal}', '${u.nombre_completo.replace(/'/g, "\\'")}', '${u.celular || ''}', '${u.correo || ''}', '${u.institucion || ''}')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-right: 5px;" title="Editar"><i class="fas fa-edit"></i></button>`;
         const btnEliminar = `<button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${u.nombre_completo.replace(/'/g, "\\'")}')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
 
-        // 🔥 DISEÑO ARREGLADO Y SEPARADO 🔥
         tbody.innerHTML += `
             <tr style="border-bottom: 1px solid #e2e8f0 !important; background-color: #ffffff !important;">
                 <td style="padding: 12px !important; color: #0f172a !important;">
@@ -762,7 +767,6 @@ window.filtrarUsuariosGlobal = function() {
     });
 };
 
-// 🔥 LÓGICA DE LA VENTANA DE EDICIÓN 🔥
 window.abrirModalEdicion = function(rol, idOriginal, ciActual, nombre, celular, correo, institucion) {
     document.getElementById('edit-rol').value = rol;
     document.getElementById('edit-idOriginal').value = idOriginal;
@@ -849,7 +853,6 @@ window.eliminarUsuarioTotal = async function(rol, idUsuario, nombre) {
     }
 };
 
-// 🔥 NUEVO FLUJO DE TRIBUNALES (CREACIÓN Y ASIGNACIÓN SEPARADA) 🔥
 window.tribunalesGlobalesBD = [];
 
 window.registrarNuevoTribunalBase = async function(e) {
@@ -876,14 +879,13 @@ window.registrarNuevoTribunalBase = async function(e) {
         const resData = await res.json();
         if (!res.ok) throw new Error(resData.error || "Error al crear tribunal");
         
-        // 🔥 MAGIA: ENVIAR CORREO AUTOMÁTICO DE NOTIFICACIÓN DE CUENTA AL TRIBUNAL 🔥
         try {
             if (typeof emailjs !== 'undefined') {
                 emailjs.init({ publicKey: "njcIu3KNPNiVrfy9f" }); 
                 await emailjs.send("service_m4ueyce", "template_0a9gr2t", {
                     to_email: data.correo,
                     to_name: data.nombre, 
-                    message: `¡Bienvenido al Comité Evaluador de la TecnoFeria 2026!\n\nSe ha creado su cuenta de Tribunal.\n\nUsuario o CI: ${data.ci}\nContraseña: ${data.password}\n\nPor favor, ingrese al sistema para visualizar los proyectos asignados.`
+                    message: `¡Bienvenido al Comité Evaluador de la TecnoFeria 2026!\n\nSe ha creado su cuenta de Tribunal.\n\nUsuario de Acceso: ${data.usuario}\nContraseña: ${data.password}\n\nPor favor, ingrese al sistema para visualizar los proyectos asignados.`
                 }, "njcIu3KNPNiVrfy9f"); 
             }
         } catch(err) { console.warn("Error al enviar correo", err); }
@@ -916,7 +918,6 @@ window.cargarTribunalesParaAsignacion = async function() {
             select.innerHTML += `<option value="${t.id}">${t.nombre_completo} (${t.id})</option>`;
         });
         
-        // Limpiamos los checks al recargar
         document.querySelectorAll('.check-cat-trib').forEach(chk => chk.checked = false);
         document.getElementById('contenedor-lista-proyectos-check').innerHTML = '<p style="color: #cbd5e1; font-size: 0.9rem; margin: 0; text-align: left;">Seleccione un tribunal y al menos una categoría arriba.</p>';
         
@@ -925,7 +926,6 @@ window.cargarTribunalesParaAsignacion = async function() {
     }
 };
 
-// Al abrir la pestaña de tribunales, cargar la lista automáticamente
 document.addEventListener('click', function(e) {
     if (e.target.innerText && e.target.innerText.includes('Tribunales')) {
         window.cargarTribunalesParaAsignacion();
@@ -953,7 +953,6 @@ window.alSeleccionarTribunal = function() {
     }
 };
 
-// 🔥 LA LÓGICA DE NUMERACIÓN (Del 1 al N por categoría) 🔥
 window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPreviamente = "[]") {
     const contenedor = document.getElementById('contenedor-lista-proyectos-check');
     const checkboxesCat = document.querySelectorAll('.check-cat-trib:checked');
@@ -988,7 +987,6 @@ window.cargarProyectosParaAsignarCheckbox = async function(proyectosAsignadosPre
         asignadosArr = asignadosArr.map(id => String(id));
 
         let html = '';
-        // Contadores independientes por categoría
         let cEst = 1, cDoc = 1, cEmp = 1;
 
         proyectosFiltrados.forEach(p => {

@@ -1,5 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/resultados/resultados.js
+// FUNCIÓN: Generación del Ranking Oficial en Tiempo Real y Ganadores
 // =========================================================================
 
 let chartEstudiante = null;
@@ -11,7 +12,6 @@ window.calcularResultadosEnTiempoReal = async function() {
         const resConf = await fetch('/api/configuraciones');
         const conf = await resConf.json();
         
-        //  FIX FRONTEND: Armando la fecha manualmente 
         let fechaResultados = new Date(NaN);
         const resStr = conf.fecha_resultados;
         if (resStr) {
@@ -24,7 +24,6 @@ window.calcularResultadosEnTiempoReal = async function() {
         const ahora = new Date();
         const rolActual = localStorage.getItem("feria_rol") || "";
 
-        const contenedorPrincipal = document.querySelector('#resultados .container');
         const idsA_Ocultar = ['bloque-res-est', 'bloque-res-doc', 'bloque-res-emp', 'btn-mas-detalle', 'tabla-detalles'];
 
         let cartelBloqueo = document.getElementById('panel-candado-resultados');
@@ -43,10 +42,19 @@ window.calcularResultadosEnTiempoReal = async function() {
             cartelBloqueo.insertAdjacentElement('afterend', alertaAdmin);
         }
 
+        let panelGanadores = document.getElementById('contenedor-ganadores-extra');
+        if (!panelGanadores) {
+            panelGanadores = document.createElement('div');
+            panelGanadores.id = 'contenedor-ganadores-extra';
+            const btnDet = document.getElementById('btn-mas-detalle');
+            if(btnDet) btnDet.insertAdjacentElement('beforebegin', panelGanadores);
+        }
+
         if (!isNaN(fechaResultados.getTime()) && ahora < fechaResultados && rolActual !== "ADMIN") {
             
             idsA_Ocultar.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
             alertaAdmin.style.display = 'none';
+            panelGanadores.style.display = 'none';
             
             if(chartEstudiante) { chartEstudiante.destroy(); chartEstudiante = null; }
             if(chartDocente) { chartDocente.destroy(); chartDocente = null; }
@@ -84,12 +92,15 @@ window.renderizarTablasRanking = async function() {
     try {
         const ciFeria = localStorage.getItem("feria_ci") || "publico";
         const respuesta = await fetch(`/api/resultados?ci=${ciFeria}`);
-        const data = await respuesta.json();
+        const dataRes = await respuesta.json();
 
-        if (data.error) {
-            console.warn(data.error);
+        if (dataRes.error) {
+            console.warn(dataRes.error);
             return;
         }
+
+        const data = dataRes.resultados || [];
+        const mostrarPremiosExtra = dataRes.mostrarPremios === true;
 
         const rolActual = localStorage.getItem("feria_rol") || "";
         let verEst = true, verDoc = true, verEmp = true;
@@ -172,7 +183,7 @@ window.renderizarTablasRanking = async function() {
             if (!tbTop || !tbRank) return;
 
             if (arreglo.length === 0) {
-                tbTop.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:15px; color:#fff;">Sin proyectos pre-seleccionados</td></tr>';
+                tbTop.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:15px; color:#fff;">Sin proyectos evaluados</td></tr>';
                 tbRank.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:15px;">Sin datos</td></tr>';
                 return;
             }
@@ -191,6 +202,87 @@ window.renderizarTablasRanking = async function() {
         inyectarFilas(dataEst, 'top-estudiantes', 'ranking-estudiantes');
         inyectarFilas(dataDoc, 'top-docentes', 'ranking-docentes');
         inyectarFilas(dataEmp, 'top-emprendimientos', 'ranking-emprendimientos');
+
+        // 🔥 DIBUJAR LOS PREMIOS EXTRA 🔥
+        const panelGanadores = document.getElementById('contenedor-ganadores-extra');
+        if (panelGanadores) {
+            if (mostrarPremiosExtra && (dataEst.length > 0 || dataDoc.length > 0 || dataEmp.length > 0)) {
+                
+                const premioImpacto = [...data].sort((a, b) => b.nota_impacto - a.nota_impacto)[0];
+                const premioPublico = [...data].sort((a, b) => b.promedio_publico_bruto - a.promedio_publico_bruto)[0];
+
+                let htmlExtra = '';
+                
+                if (premioImpacto && premioImpacto.nota_impacto > 0) {
+                    htmlExtra += `
+                    <div style="background: rgba(30, 41, 59, 0.7); border-radius: 12px; padding: 25px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <h3 style="color: #2ecc71; margin-top: 0; font-size: 1.4rem; margin-bottom: 10px;"><i class="fas fa-leaf"></i> PREMIO AL IMPACTO SOCIAL</h3>
+                        <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 20px;">Otorgado al proyecto con la mejor calificación del jurado en el rubro de pertinencia e impacto para el departamento del Beni.</p>
+                        
+                        <div style="max-width: 600px; margin: 0 auto; background: #2a2a2a; border-radius: 8px; overflow: hidden; border: 1px solid #444;">
+                            <div style="background-color: #28a745; color: white; padding: 12px; font-weight: bold; font-size: 1.1rem; text-transform: uppercase;">
+                                GANADOR - IMPACTO SOCIAL
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; text-align: center; color: white;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #555;">
+                                        <th style="padding: 15px; width: 70%; text-align: left; padding-left: 20px;">Proyecto</th>
+                                        <th style="padding: 15px; width: 30%;">Nota Final</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="padding: 20px; text-align: left; border-right: 1px solid #444;">
+                                            <i class="fas fa-trophy" style="color: #ffc107; margin-right: 8px;"></i> <b>${premioImpacto.titulo}</b>
+                                        </td>
+                                        <td style="padding: 20px; font-size: 1.2rem; font-weight: bold; color: #4db8ff;">
+                                            ${premioImpacto.nota_impacto} / 15 pts
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                }
+
+                if (premioPublico && premioPublico.promedio_publico_bruto > 0) {
+                    htmlExtra += `
+                    <div style="background: rgba(30, 41, 59, 0.7); border-radius: 12px; padding: 25px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.1); text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <h3 style="color: #ff6b6b; margin-top: 0; font-size: 1.4rem; margin-bottom: 10px;"><i class="fas fa-heart"></i> PREMIO DEL PÚBLICO</h3>
+                        <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 20px;">Otorgado al proyecto más querido y votado por la audiencia y visitantes de la feria.</p>
+                        
+                        <div style="max-width: 600px; margin: 0 auto; background: #2a2a2a; border-radius: 8px; overflow: hidden; border: 1px solid #444;">
+                            <div style="background-color: #dc3545; color: white; padding: 12px; font-weight: bold; font-size: 1.1rem; text-transform: uppercase;">
+                                GANADOR - VOTACIÓN DEL PÚBLICO
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; text-align: center; color: white;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid #555;">
+                                        <th style="padding: 15px; width: 70%; text-align: left; padding-left: 20px;">Proyecto</th>
+                                        <th style="padding: 15px; width: 30%;">Votos Promedio</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="padding: 20px; text-align: left; border-right: 1px solid #444;">
+                                            <i class="fas fa-trophy" style="color: #ffc107; margin-right: 8px;"></i> <b>${premioPublico.titulo}</b>
+                                        </td>
+                                        <td style="padding: 20px; font-size: 1.2rem; font-weight: bold; color: #4db8ff;">
+                                            ${premioPublico.promedio_publico_bruto.toFixed(2)} / 100 pts
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>`;
+                }
+
+                panelGanadores.innerHTML = htmlExtra;
+                panelGanadores.style.display = 'block';
+            } else {
+                panelGanadores.style.display = 'none';
+            }
+        }
 
         const crearGraficoPastel = (canvasId, arregloDatos, chartVariable) => {
             const ctx = document.getElementById(canvasId);

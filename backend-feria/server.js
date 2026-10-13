@@ -83,6 +83,7 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS configuraciones (id SERIAL PRIMARY KEY, fecha_registro TIMESTAMP, fecha_subida TIMESTAMP, fecha_resultados TIMESTAMP, fecha_cierre_votacion TIMESTAMP DEFAULT '2026-12-31 23:59:59', gps_latitud DECIMAL(15,8) DEFAULT -14.83391721, gps_longitud DECIMAL(15,8) DEFAULT -64.89965234, gps_radio INTEGER DEFAULT 5000);`);
         
         try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS fecha_apertura_tribunal TIMESTAMP DEFAULT '2026-01-01 00:00:00';`); } catch(e) {}
+        try { await db.query(`ALTER TABLE configuraciones ADD COLUMN IF NOT EXISTS mostrar_premios_extra BOOLEAN DEFAULT FALSE;`); } catch(e) {}
 
         await db.query(`INSERT INTO configuraciones (id, fecha_registro, fecha_subida, fecha_resultados) VALUES (1, '2026-08-29 22:20:00', '2026-09-06 23:59:59', '2026-07-22 18:00:00') ON CONFLICT (id) DO NOTHING;`);
         await db.query(`CREATE TABLE IF NOT EXISTS instituciones (id SERIAL PRIMARY KEY, nombre VARCHAR(255) NOT NULL, tipo VARCHAR(100) NOT NULL);`);
@@ -97,13 +98,19 @@ db.connect()
 
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE evaluaciones_tribunal ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
+        try { await db.query(`ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
 
         try {
             await db.query(`UPDATE proyectos SET categoria = REPLACE(categoria, 'emprendimiento', 'estudiante') WHERE categoria LIKE '%emprendimiento%';`);
-            console.log('✅ Base de datos verificada. Proyectos mudados correctamente.');
-        } catch(e) {
-            console.log('✅ Base de datos verificada.');
-        }
+        } catch(e) {}
+
+        // 🔥 FUNCIÓN DE AUTO-SANEAMIENTO (Limpia los proyectos fantasmas) 🔥
+        try {
+            await db.query(`UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE estado_evaluacion IS NOT NULL AND id NOT IN (SELECT id_proyecto FROM evaluaciones_tribunal)`);
+            console.log('✅ Saneamiento: Se corrigieron los proyectos con estados huérfanos.');
+        } catch(e) { console.error("Error en saneamiento", e); }
+
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
 
@@ -142,6 +149,7 @@ app.post('/api/editar_usuario', async (req, res) => {
     }
 });
 
+// 🔥 CORRECCIÓN: Borrado en cascada para reiniciar los proyectos si se elimina un tribunal 🔥
 app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
     const { rol, id } = req.params;
     try {
@@ -155,6 +163,13 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
             await db.query('DELETE FROM expositores WHERE ci = $1', [id]);
         } 
         else if (rol === 'tribunal') {
+            // Buscamos los proyectos que este tribunal evaluó
+            const evals = await db.query('SELECT id_proyecto FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
+            for (let ev of evals.rows) {
+                // Reiniciamos los proyectos a estado "Pendiente"
+                await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [ev.id_proyecto]);
+            }
+            // Borramos el tribunal y sus evaluaciones
             await db.query('DELETE FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
             await db.query('DELETE FROM tribunales WHERE usuario_tribunal = $1', [id]);
         } 
@@ -168,16 +183,16 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
 
 app.get('/api/configuraciones', async (req, res) => {
     try {
-        const query = `SELECT TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro, TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida, TO_CHAR(fecha_apertura_tribunal, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_apertura_tribunal, TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados, TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`;
+        const query = `SELECT TO_CHAR(fecha_registro, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_registro, TO_CHAR(fecha_subida, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_subida, TO_CHAR(fecha_apertura_tribunal, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_apertura_tribunal, TO_CHAR(fecha_resultados, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_resultados, TO_CHAR(fecha_cierre_votacion, 'YYYY-MM-DD"T"HH24:MI:SS') as fecha_cierre_votacion, gps_latitud, gps_longitud, gps_radio, mostrar_premios_extra FROM configuraciones WHERE id = 1`;
         const conf = await db.query(query);
         res.json(conf.rows[0] || {});
     } catch (error) { res.status(500).json({ error: "Error al obtener configuraciones" }); }
 });
 
 app.post('/api/configuraciones', async (req, res) => {
-    const { fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio } = req.body;
+    const { fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio, mostrarPremiosExtra } = req.body;
     try {
-        await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_apertura_tribunal=$3, fecha_resultados=$4, fecha_cierre_votacion=$5, gps_latitud=$6, gps_longitud=$7, gps_radio=$8 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio]);
+        await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_apertura_tribunal=$3, fecha_resultados=$4, fecha_cierre_votacion=$5, gps_latitud=$6, gps_longitud=$7, gps_radio=$8, mostrar_premios_extra=$9 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio, mostrarPremiosExtra]);
         res.json({ mensaje: "Configuraciones actualizadas correctamente" });
     } catch (error) { res.status(500).json({ error: "Error al actualizar fechas" }); }
 });
@@ -204,7 +219,6 @@ app.delete('/api/instituciones/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al eliminar institución" }); }
 });
 
-// 🔥 SOLUCIÓN: TRIBUNAL SE LOGUEA ÚNICA Y EXCLUSIVAMENTE CON SU USUARIO 🔥
 app.post('/api/login', async (req, res) => {
     const { identificador, password } = req.body;
     try {
@@ -212,7 +226,6 @@ app.post('/api/login', async (req, res) => {
         const queries = [
             { rol: 'ADMIN', query: 'SELECT * FROM administradores WHERE ci = $1 OR correo = $1' },
             { rol: 'EXPOSITOR', query: 'SELECT * FROM expositores WHERE ci = $1 OR correo = $1' },
-            // El tribunal ya NO usa CI para iniciar sesión, usa su USUARIO o CORREO oficial.
             { rol: 'TRIBUNAL', query: 'SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1' }
         ];
 
@@ -235,7 +248,6 @@ app.post('/api/login', async (req, res) => {
             if (!hashBd || !(await bcrypt.compare(password, hashBd))) return res.status(401).json({ error: "Usuario o contraseña incorrectos." });
         }
 
-        // Asignamos la Llave Primaria exacta para la sesión
         let idReal = "";
         if (rolEncontrado === 'TRIBUNAL') idReal = datosEncontrados.usuario_tribunal;
         else idReal = datosEncontrados.ci;
@@ -254,7 +266,6 @@ app.get('/api/verificar_sesion/:identificador/:token', async (req, res) => {
         const { identificador, token } = req.params;
         const result = await db.query('SELECT token FROM sesiones_activas WHERE ci_usuario = $1', [identificador]);
         if (result.rows.length === 0) return res.json({ valida: false });
-        
         res.json({ valida: result.rows[0].token === token }); 
     } catch (error) { res.status(500).json({ valida: true }); }
 });
@@ -686,11 +697,11 @@ app.delete('/api/votos_admin/:id', async (req, res) => {
 
 app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
     try {
-        const evCheck = await db.query('SELECT id_proyecto FROM evaluations_tribunal WHERE id = $1', [req.params.id]);
+        const evCheck = await db.query('SELECT id_proyecto FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
         if (evCheck.rows.length > 0) {
             const idProyecto = evCheck.rows[0].id_proyecto;
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
-            await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
+            await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
         }
         res.json({ mensaje: "Evaluación eliminada." });
     } catch (error) { res.status(500).json({ error: "Error al eliminar la evaluación." }); }
@@ -704,7 +715,7 @@ app.get('/api/tribunal_id/:id', async (req, res) => {
 });
 
 app.post('/api/evaluar', async (req, res) => {
-    const { idProyecto, identificadorTribunal, notaTribunal, observaciones } = req.body;
+    const { idProyecto, identificadorTribunal, notaTribunal, notaImpacto, observaciones } = req.body;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_apertura_tribunal) as tribunal_bloqueado FROM configuraciones WHERE id = 1`);
         if (checkTime.rows[0].tribunal_bloqueado) {
@@ -717,12 +728,12 @@ app.post('/api/evaluar', async (req, res) => {
 
         if ((await db.query('SELECT id FROM evaluaciones_tribunal WHERE id_proyecto = $1 AND usuario_tribunal = $2', [idProyecto, usuarioTribunal])).rows.length > 0) return res.status(400).json({ error: "⛔ Ya registraste una calificación." });
 
-        await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, observaciones) VALUES ($1, $2, $3, $4)', [idProyecto, usuarioTribunal, notaTribunal, observaciones]);
+        await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, nota_impacto, observaciones) VALUES ($1, $2, $3, $4, $5)', [idProyecto, usuarioTribunal, notaTribunal, notaImpacto, observaciones]);
 
         const notaPonderada = notaTribunal * 0.80;
         let estado = 'Evaluado';
 
-        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, observaciones_tribunal = $3, estado_evaluacion = $4 WHERE id = $5', [notaTribunal, notaPonderada, observaciones, estado, idProyecto]);
+        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3, observaciones_tribunal = $4, estado_evaluacion = $5 WHERE id = $6', [notaTribunal, notaPonderada, notaImpacto, observaciones, estado, idProyecto]);
 
         const proyData = await db.query('SELECT p.titulo, e.correo, e.nombre_completo FROM proyectos p JOIN expositores e ON p.ci_propietario = e.ci WHERE p.id = $1', [idProyecto]);
 
@@ -754,7 +765,7 @@ app.get('/api/datos_informes', async (req, res) => {
 app.get('/api/resultados', async (req, res) => {
     const { ci } = req.query;
     try {
-        const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_resultados) as resultados_ocultos FROM configuraciones WHERE id = 1`);
+        const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_resultados) as resultados_ocultos, mostrar_premios_extra FROM configuraciones WHERE id = 1`);
         let esAdmin = false;
         if (ci && ci !== "publico") {
             if ((await db.query('SELECT ci FROM administradores WHERE ci = $1', [ci])).rows.length > 0) esAdmin = true;
@@ -762,17 +773,28 @@ app.get('/api/resultados', async (req, res) => {
 
         if (checkTime.rows[0].resultados_ocultos && !esAdmin) return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
 
-        const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Evaluado' OR p.estado_evaluacion = 'Pre-seleccionado'`;
+        const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE(p.nota_impacto, 0) as nota_impacto, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Evaluado' OR p.estado_evaluacion = 'Pre-seleccionado'`;
         const resultados = await db.query(query);
         
         const dataFinal = resultados.rows.map(r => {
             const t80 = parseFloat(r.tribunal_80) || 0;
             const promVotos = parseFloat(r.promedio_votos_100) || 0;
             const p20 = promVotos * 0.20; 
-            return { titulo: r.titulo, categoria: r.categoria, tribunal_80: t80, publico_20: p20, nota_final: t80 + p20 };
+            return { 
+                titulo: r.titulo, 
+                categoria: r.categoria, 
+                tribunal_80: t80, 
+                publico_20: p20, 
+                nota_final: t80 + p20,
+                nota_impacto: parseFloat(r.nota_impacto) || 0,
+                promedio_publico_bruto: promVotos
+            };
         }).sort((a, b) => b.nota_final - a.nota_final);
         
-        res.json(dataFinal);
+        res.json({
+            resultados: dataFinal,
+            mostrarPremios: checkTime.rows[0].mostrar_premios_extra
+        });
     } catch (error) { res.status(500).json({ error: "Error al calcular estadísticas" }); }
 });
 

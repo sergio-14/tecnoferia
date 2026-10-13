@@ -25,7 +25,6 @@ window.cargarProyectosParaEvaluar = async function() {
             return;
         }
 
-        // 🔥 CORRECCIÓN: Filtramos EXCLUSIVAMENTE por los IDs que asignó el Admin 🔥
         let proyectosAsignadosArray = [];
         try { 
             proyectosAsignadosArray = JSON.parse(datosTribunal.proyectos_asignados || "[]"); 
@@ -38,17 +37,36 @@ window.cargarProyectosParaEvaluar = async function() {
         }
 
         const resProyectos = await fetch('/api/proyectos_admin');
-        const todosLosProyectos = await resProyectos.json();
+        const todosLosProyectosRaw = await resProyectos.json();
+
+        // 🔥 LÓGICA DE NUMERACIÓN SINCRONIZADA CON EL ADMIN 🔥
+        // 1. Descartamos los proyectos eliminados/rechazados
+        const todosLosProyectosValidos = todosLosProyectosRaw.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
+        
+        // 2. Creamos un diccionario de números exactos por categoría
+        let cEst = 1, cDoc = 1, cEmp = 1;
+        let mapeoNumerosGlobales = {};
+        
+        todosLosProyectosValidos.forEach(p => {
+            if(p.categoria.includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
+            else if(p.categoria.includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
+            else if(p.categoria.includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
+        });
 
         let opcionesHTML = '<option value="" disabled selected>Seleccione un proyecto a evaluar...</option>';
         let proyectosEncontrados = 0;
 
-        todosLosProyectos.forEach(p => {
+        todosLosProyectosValidos.forEach(p => {
             // Solo carga los proyectos cuyo ID está explícitamente en la lista de asignación
             if (!proyectosAsignadosArray.includes(String(p.id))) return;
 
+            // Extraemos el número oficial del proyecto
+            let numeroOficial = mapeoNumerosGlobales[p.id] || 0;
+            
+            // Marca de "Ya evaluado"
             let extraText = (p.estado_evaluacion === 'Evaluado' || p.estado_evaluacion === 'Pre-seleccionado') ? ' ✅ (Ya evaluado)' : '';
-            opcionesHTML += `<option value="${p.id}" data-url="${p.enlace_pdf || ''}">${p.titulo}${extraText}</option>`;
+            
+            opcionesHTML += `<option value="${p.id}" data-url="${p.enlace_pdf || ''}">#${numeroOficial} - ${p.titulo}${extraText}</option>`;
             proyectosEncontrados++;
         });
 
@@ -95,12 +113,15 @@ window.guardarEvaluacionTribunal = async function(e) {
     }
     
     let incompletos = false;
-    document.querySelectorAll('.trib-nota').forEach(inp => { if(inp.value === "") incompletos = true; });
+    const inputsRubrica = document.querySelectorAll('.trib-nota');
+    inputsRubrica.forEach(inp => { if(inp.value === "") incompletos = true; });
     
     if (incompletos || isNaN(nota) || nota < 1 || nota > 100) {
         alert("⛔ VALOR INVÁLIDO:\nDebe completar las 6 casillas de la rúbrica correctamente (sin ceros ni espacios vacíos).");
         return;
     }
+
+    const notaImpacto = inputsRubrica.length > 4 ? parseInt(inputsRubrica[4].value) : 0;
 
     const textoOriginal = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando y Evaluando...';
@@ -116,6 +137,7 @@ window.guardarEvaluacionTribunal = async function(e) {
                 idProyecto: select.value,
                 identificadorTribunal: idTribunal,
                 notaTribunal: nota,
+                notaImpacto: notaImpacto,
                 observaciones: observaciones || "El tribunal no dejó comentarios adicionales."
             })
         });
@@ -158,7 +180,7 @@ window.guardarEvaluacionTribunal = async function(e) {
         document.getElementById('form-evaluacion-tribunal').reset();
         document.getElementById('eval-btn-doc').href = "#";
         document.getElementById('eval-btn-doc').style.opacity = "0.5";
-        window.cargarProyectosParaEvaluar();
+        window.cargarProyectosParaEvaluar(); // 🔥 Actualiza la lista para que aparezca "✅ (Ya evaluado)"
 
     } catch (error) {
         console.error("Error guardando nota:", error);
