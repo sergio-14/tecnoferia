@@ -20,7 +20,7 @@ window.obtenerHuellaDispositivo = function() {
 
 window.obtenerHuellaDispositivo();
 
-// 🔥 FILTROS ESTRICTOS (SIN GUARDAR HASTA QUE SE CONFIRME EL VOTO) 🔥
+// 🔥 FILTROS ESTRICTOS Y AUTOLLENADO (SIN GUARDAR HASTA QUE SE CONFIRME EL VOTO) 🔥
 document.addEventListener('input', async function(e) {
     // 1. Filtro estricto para Celular (Solo números, máximo 8)
     if (e.target && e.target.id === 'voto-celular') {
@@ -32,7 +32,7 @@ document.addEventListener('input', async function(e) {
             if (msj) msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando datos...</span>';
             
             try {
-                // Auto-llenado Mágico desde la BD
+                // Auto-llenado Mágico desde la BD (NO SE GUARDA EN MEMORIA AÚN)
                 const res = await fetch(`/api/usuario_por_celular/${val}`);
                 const data = await res.json();
                 const inputNom = document.getElementById('voto-nombre');
@@ -136,6 +136,17 @@ window.cargarProyectoParaVotar = async function() {
         
         let savedCelular = localStorage.getItem('feria_ninja_celular');
         let savedNombre = localStorage.getItem('feria_ninja_nombre');
+        let proyectosVotados = JSON.parse(localStorage.getItem('feria_historial_votos') || '[]');
+
+        // 🔥 AUTO-REPARACIÓN DE DATOS FANTASMAS (Para limpiar tu caché de pruebas anteriores) 🔥
+        if (savedCelular && !savedNombre) {
+            localStorage.removeItem('feria_ninja_celular');
+            savedCelular = null;
+        }
+        if (savedNombre && !savedCelular) {
+            localStorage.removeItem('feria_ninja_nombre');
+            savedNombre = null;
+        }
 
         if(btnEnviar) { btnEnviar.disabled = true; btnEnviar.style.opacity = "0.5"; btnEnviar.style.cursor = "not-allowed"; }
 
@@ -188,19 +199,20 @@ window.cargarProyectoParaVotar = async function() {
                     savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
                 }
 
-                if (savedNombre && inputNom) {
-                    inputNom.value = savedNombre;
-                    inputNom.readOnly = true;
-                    inputNom.style.backgroundColor = "rgba(0,0,0,0.5)";
-                    inputNom.style.color = "#94a3b8";
-                }
-                
-                if (savedCelular && inputCel) {
-                    inputCel.value = savedCelular;
-                    inputCel.readOnly = true;
-                    inputCel.style.backgroundColor = "rgba(0,0,0,0.5)";
-                    inputCel.style.color = "#94a3b8";
-                    
+                // 3. CONGELAMIENTO: Rellenado y Bloqueo de Campos (Solo si AMBOS datos están guardados)
+                if (savedNombre && savedCelular) {
+                    if (inputNom) {
+                        inputNom.value = savedNombre;
+                        inputNom.readOnly = true;
+                        inputNom.style.backgroundColor = "rgba(0,0,0,0.5)";
+                        inputNom.style.color = "#94a3b8";
+                    }
+                    if (inputCel) {
+                        inputCel.value = savedCelular;
+                        inputCel.readOnly = true;
+                        inputCel.style.backgroundColor = "rgba(0,0,0,0.5)";
+                        inputCel.style.color = "#94a3b8";
+                    }
                     window.validarFormularioVoto();
                 }
 
