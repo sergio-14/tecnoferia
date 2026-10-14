@@ -389,17 +389,7 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
-                const proyectosValidosGlobales = proyectos
-                    .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
-
-                let cEst = 1, cDoc = 1, cEmp = 1;
-                let mapeoNumerosGlobales = {};
-                proyectosValidosGlobales.forEach(p => {
-                    if(p.categoria.includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
-                    else if(p.categoria.includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
-                    else if(p.categoria.includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
-                });
+                const proyectosValidosGlobales = proyectos.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
 
                 categorias.forEach(cat => {
                     html += `<h3 style="background:#002b5c; color:white; padding:10px; margin-top:30px; border-radius:4px;">${cat.nombre}</h3>`;
@@ -431,28 +421,28 @@ window.generarVistaPrevia = async function() {
                                         </thead>
                                         <tbody>
                             `;
-                            
-                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
 
-                            let contoProyectosTribunal = 0;
-                            proyAsignados.forEach(idProy => {
-                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id));
-                                if (proyectoDetalle) {
-                                    contoProyectosTribunal++;
-                                    let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
-                                                                                    .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
-                                                                                    .replace(/\|\|\|.*/g, ''); 
-                                    html += `
-                                        <tr style="page-break-inside: avoid;">
-                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(idProy)]}</td>
-                                            <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
-                                            <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
-                                        </tr>
-                                    `;
-                                }
+                            // 🔥 CORRECCIÓN: Filtrar solo proyectos de la categoría actual y del tribunal 🔥
+                            const proyectosDeEsteTribunal = proyAsignados
+                                .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id)))
+                                .filter(p => p !== undefined);
+
+                            let numeracionCorregida = 1;
+
+                            proyectosDeEsteTribunal.forEach(proyectoDetalle => {
+                                let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
+                                                                                .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
+                                                                                .replace(/\|\|\|.*/g, ''); 
+                                html += `
+                                    <tr style="page-break-inside: avoid;">
+                                        <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${numeracionCorregida++}</td>
+                                        <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
+                                        <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
+                                    </tr>
+                                `;
                             });
 
-                            if (contoProyectosTribunal === 0) {
+                            if (proyectosDeEsteTribunal.length === 0) {
                                 html += `<tr><td colspan="3" style="padding:8px; border:1px solid #ccc; text-align:center; font-style:italic; color:#777;">No se le han marcado proyectos específicos en esta categoría.</td></tr>`;
                             }
 
@@ -614,7 +604,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 NUEVO REPORTE: COLABORADORES DE LA FERIA 🔥
         else if (valor === "colaboradores") {
             const listaColab = colaboradores || [];
             listaColab.sort((a, b) => (a.nombre_completo || "").localeCompare(b.nombre_completo || ""));
