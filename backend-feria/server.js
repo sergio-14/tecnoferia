@@ -95,18 +95,21 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS proyectos (id SERIAL PRIMARY KEY, ci_propietario VARCHAR(50) REFERENCES expositores(ci), titulo VARCHAR(500), categoria VARCHAR(255), integrantes TEXT, eje_tematico VARCHAR(255), enlace_pdf TEXT, fecha_ultima_edicion TIMESTAMP DEFAULT CURRENT_TIMESTAMP, estado_evaluacion VARCHAR(100), nota_tribunal NUMERIC, nota_ponderada NUMERIC, observaciones_tribunal TEXT)`);
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
+        
+        // 🔥 TABLA: COLABORADORES 🔥
+        await db.query(`CREATE TABLE IF NOT EXISTS colaboradores (id SERIAL PRIMARY KEY, nombre_completo VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50))`);
 
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
         try { await db.query(`ALTER TABLE evaluaciones_tribunal ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
         try { await db.query(`ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
 
-        // Parche de Rescate (Devuelve los proyectos movidos accidentalmente a Estudiantes Universitarios)
+        // Parche de Rescate
         try {
             await db.query(`UPDATE proyectos SET categoria = 'estudiantes' WHERE titulo ILIKE '%Contabeni%' OR titulo ILIKE '%Sensor de medicion%' OR titulo ILIKE '%Ubistock%' OR titulo ILIKE '%Trinidad Reporta%' OR titulo ILIKE '%NIVA%'`);
         } catch(e) {}
 
-        // Auto-saneamiento de proyectos fantasmas
+        // Auto-saneamiento
         try {
             await db.query(`UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE estado_evaluacion IS NOT NULL AND id NOT IN (SELECT id_proyecto FROM evaluaciones_tribunal)`);
         } catch(e) { }
@@ -121,6 +124,23 @@ app.get('/api/usuarios_admin', async (req, res) => {
         const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
         res.json({ expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows });
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
+});
+
+// 🔥 RUTA PARA GUARDAR COLABORADORES CON PROTECCIÓN ANTI-DUPLICADOS 🔥
+app.post('/api/colaboradores', async (req, res) => {
+    const { nombre, correo, celular } = req.body;
+    try {
+        // Verificar si el colaborador ya existe por nombre y celular
+        const check = await db.query('SELECT id FROM colaboradores WHERE nombre_completo = $1 AND celular = $2', [nombre, celular]);
+        if (check.rows.length > 0) {
+            return res.status(400).json({ error: "⚠️ Este colaborador ya se encuentra registrado en el sistema." });
+        }
+
+        await db.query('INSERT INTO colaboradores (nombre_completo, correo, celular) VALUES ($1, $2, $3)', [nombre, correo, celular]);
+        res.status(201).json({ mensaje: "✅ Colaborador habilitado exitosamente en la feria." });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno al intentar guardar el colaborador." });
+    }
 });
 
 app.post('/api/editar_usuario', async (req, res) => {
@@ -166,7 +186,6 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
             await db.query('DELETE FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
             
             for (let ev of evals.rows) {
-                // 🔥 Recalcular el PROMEDIO de impacto al borrar un tribunal 🔥
                 const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [ev.id_proyecto]);
                 const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
                 
@@ -297,6 +316,21 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
         if (!rolEncontrado) return res.status(404).json({ error: "Usuario no encontrado." });
         res.json({ rol: rolEncontrado, datos: datosEncontrados });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor." }); }
+});
+
+app.get('/api/usuario_por_celular/:celular', async (req, res) => {
+    const { celular } = req.params;
+    try {
+        const exp = await db.query('SELECT nombre_completo FROM expositores WHERE celular = $1 LIMIT 1', [celular]);
+        if (exp.rows.length > 0) return res.json({ encontrado: true, nombre: exp.rows[0].nombre_completo });
+
+        const vis = await db.query('SELECT nombre_completo FROM visitantes WHERE celular = $1 LIMIT 1', [celular]);
+        if (vis.rows.length > 0) return res.json({ encontrado: true, nombre: vis.rows[0].nombre_completo });
+
+        res.json({ encontrado: false });
+    } catch (error) {
+        res.status(500).json({ error: "Error interno al buscar celular." });
+    }
 });
 
 app.post('/api/restablecer_password_directo', async (req, res) => {
@@ -586,9 +620,16 @@ app.post('/api/visitantes', async (req, res) => {
     const { ci, nombreCompleto, institucion, celular } = req.body;
     try {
         if ((await db.query('SELECT * FROM visitantes WHERE ci = $1', [ci])).rows.length > 0) return res.status(400).json({ error: "C.I. ya habilitado." });
-        let nombreFinal = nombreCompleto; let institucionFinal = institucion;
+        
+        let nombreFinal = (nombreCompleto || "").toUpperCase(); 
+        let institucionFinal = institucion;
+        
         const checkExpositor = await db.query('SELECT * FROM expositores WHERE ci = $1', [ci]);
-        if (checkExpositor.rows.length > 0) { nombreFinal = checkExpositor.rows[0].nombre_completo; institucionFinal = checkExpositor.rows[0].institucion; }
+        if (checkExpositor.rows.length > 0) { 
+            nombreFinal = checkExpositor.rows[0].nombre_completo.toUpperCase(); 
+            institucionFinal = checkExpositor.rows[0].institucion; 
+        }
+        
         const nuevoVisitante = await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, $3, $4) RETURNING *`, [ci, nombreFinal, institucionFinal, celular]);
         res.status(201).json({ mensaje: "✅ Visitante habilitado", visitante: nuevoVisitante.rows[0] });
     } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
@@ -636,7 +677,7 @@ app.post('/api/votar', async (req, res) => {
         if (checkTime.rows[0].votacion_cerrada) return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado." });
 
         const celReal = celular; 
-        const nomReal = nombre || "Visitante";
+        const nomReal = (nombre || "Visitante").toUpperCase(); 
         const devId = deviceId || "DEV-UNKNOWN";
 
         const dupDev = await db.query('SELECT id FROM votos_publico WHERE device_id = $1 AND id_proyecto = $2', [devId, idProyecto]);
@@ -688,7 +729,6 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
             const idProyecto = evCheck.rows[0].id_proyecto;
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
             
-            // 🔥 CORRECCIÓN APLICADA AQUÍ: Promediar también el impacto con AVG al eliminar 🔥
             const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
             const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
             
@@ -711,7 +751,6 @@ app.get('/api/tribunal_id/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
-// 🔥 LÓGICA DE PROMEDIO PARA MÚLTIPLES TRIBUNALES (NOTA E IMPACTO) 🔥
 app.post('/api/evaluar', async (req, res) => {
     const { idProyecto, identificadorTribunal, notaTribunal, notaImpacto, observaciones } = req.body;
     try {
@@ -739,11 +778,10 @@ app.post('/api/evaluar', async (req, res) => {
 
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, nota_impacto, observaciones) VALUES ($1, $2, $3, $4, $5)', [idProyecto, usuarioTribunal, notaTribunal, notaImpacto, observaciones]);
 
-        // 🔥 CORRECCIÓN APLICADA AQUÍ: OBTENEMOS EL PROMEDIO MATEMÁTICO (AVG) TANTO DE LA NOTA GENERAL COMO DEL IMPACTO SOCIAL 🔥
         const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
         const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
         const avgImpacto = parseFloat(avgQuery.rows[0].avg_impacto) || 0;
-        const notaPonderada = promedioBruto * 0.80; // 80% del promedio general
+        const notaPonderada = promedioBruto * 0.80; 
 
         let estado = 'Evaluado';
 
@@ -771,8 +809,9 @@ app.get('/api/datos_informes', async (req, res) => {
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
+        const colaboradores = await db.query('SELECT * FROM colaboradores'); 
 
-        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows });
+        res.json({ proyectos: proyectos.rows, expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows, votos: votos.rows, evaluaciones: evaluaciones.rows, colaboradores: colaboradores.rows });
     } catch (error) { res.status(500).json({ error: "Error al empaquetar los datos" }); }
 });
 

@@ -1073,3 +1073,34 @@ window.guardarAsignacionTribunal = async function(e) {
         btn.disabled = false;
     }
 };
+window.registrarColaborador = async function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnGuardarColaborador');
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
+    btn.disabled = true;
+
+    // Se asegura de que se guarde en MAYÚSCULA
+    const data = {
+        nombre: document.getElementById('colabNombre').value.trim().toUpperCase(),
+        correo: document.getElementById('colabCorreo').value.trim(),
+        celular: document.getElementById('colabCelular').value.trim()
+    };
+
+    try {
+        const res = await fetch('/api/colaboradores', {
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(data)
+        });
+        const resData = await res.json();
+        if (!res.ok) throw new Error(resData.error);
+        alert(resData.mensaje);
+        e.target.reset(); // Limpia la ventanita
+    } catch (err) {
+        alert("❌ Error: " + err.message);
+    } finally {
+        btn.innerHTML = original;
+        btn.disabled = false;
+    }
+};

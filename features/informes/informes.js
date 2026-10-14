@@ -327,7 +327,7 @@ window.generarVistaPrevia = async function() {
     try {
         const res = await fetch('/api/datos_informes');
         const db = await res.json();
-        const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones } = db;
+        const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones, colaboradores } = db;
 
         const obtenerRolesDeProyectos = (ci, nombre) => {
             const roles = [];
@@ -552,6 +552,103 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         } 
 
+        else if (valor === "premios_especiales") {
+            const diccionarioPremios = {};
+            proyectos.forEach(p => {
+                if (p.estado_evaluacion === "Evaluado" || p.estado_evaluacion === "Pre-seleccionado") {
+                    diccionarioPremios[p.id] = {
+                        titulo: p.titulo || "Sin Título",
+                        nota_impacto: parseFloat(p.nota_impacto) || 0,
+                        sumaPublico: 0,
+                        cantidadPublico: 0
+                    };
+                }
+            });
+
+            votos.forEach(v => {
+                if (diccionarioPremios[v.id_proyecto]) {
+                    diccionarioPremios[v.id_proyecto].sumaPublico += Math.min(parseFloat(v.nota) || 0, 100);
+                    diccionarioPremios[v.id_proyecto].cantidadPublico += 1;
+                }
+            });
+
+            const listaPremios = Object.values(diccionarioPremios).map(p => ({
+                titulo: p.titulo,
+                nota_impacto: p.nota_impacto,
+                promedio_publico: p.cantidadPublico > 0 ? p.sumaPublico / p.cantidadPublico : 0
+            }));
+
+            const premioImpacto = [...listaPremios].sort((a, b) => b.nota_impacto - a.nota_impacto)[0];
+            const premioPublico = [...listaPremios].sort((a, b) => b.promedio_publico - a.promedio_publico)[0];
+
+            let htmlPremios = "";
+            
+            if (premioImpacto && premioImpacto.nota_impacto > 0) {
+                htmlPremios += `
+                    <div style="border: 2px solid #28a745; padding: 25px; border-radius: 8px; margin-bottom: 40px; background-color: #f8fff9;">
+                        <h3 style="color: #28a745; margin-top: 0; border-bottom: 2px solid #28a745; padding-bottom: 10px; font-family: Arial, sans-serif;">🏆 PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO</h3>
+                        <p style="font-family: Arial, sans-serif; font-size: 15px; margin-bottom: 15px; color: #333;"><strong>Proyecto Ganador:</strong> <span style="font-size: 17px; color: #000;">${premioImpacto.titulo}</span></p>
+                        <p style="font-family: Arial, sans-serif; font-size: 15px; margin-bottom: 0; color: #333;"><strong>Calificación Promedio del Tribunal:</strong> <span style="font-weight: bold; font-size: 18px; color: #28a745;">${premioImpacto.nota_impacto.toFixed(2)} / 15 pts</span></p>
+                    </div>
+                `;
+            } else {
+                htmlPremios += `<p style="font-family: Arial, sans-serif; color: #666; text-align: center;">No hay ganador de Impacto Social aún.</p>`;
+            }
+
+            if (premioPublico && premioPublico.promedio_publico > 0) {
+                htmlPremios += `
+                    <div style="border: 2px solid #dc3545; padding: 25px; border-radius: 8px; margin-bottom: 30px; background-color: #fff8f9;">
+                        <h3 style="color: #dc3545; margin-top: 0; border-bottom: 2px solid #dc3545; padding-bottom: 10px; font-family: Arial, sans-serif;">🏆 PREMIO DEL PÚBLICO (VOTACIÓN ASISTENTES)</h3>
+                        <p style="font-family: Arial, sans-serif; font-size: 15px; margin-bottom: 15px; color: #333;"><strong>Proyecto Ganador:</strong> <span style="font-size: 17px; color: #000;">${premioPublico.titulo}</span></p>
+                        <p style="font-family: Arial, sans-serif; font-size: 15px; margin-bottom: 0; color: #333;"><strong>Promedio de Votos:</strong> <span style="font-weight: bold; font-size: 18px; color: #dc3545;">${premioPublico.promedio_publico.toFixed(2)} / 100 pts</span></p>
+                    </div>
+                `;
+            } else {
+                htmlPremios += `<p style="font-family: Arial, sans-serif; color: #666; text-align: center;">No hay ganador del Público aún.</p>`;
+            }
+
+            areaImpresion.innerHTML = generarCabeceraOficial("ACTA DE GANADORES: PREMIOS ESPECIALES", "Este reporte certifica a los proyectos ganadores en las categorías especiales, obtenidos mediante el promedio general del jurado (Impacto Social) y el promedio directo de la votación externa (Público).") + htmlPremios + `
+                <div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
+                </div>`;
+        }
+
+        // 🔥 NUEVO REPORTE: COLABORADORES DE LA FERIA 🔥
+        else if (valor === "colaboradores") {
+            const listaColab = colaboradores || [];
+            listaColab.sort((a, b) => (a.nombre_completo || "").localeCompare(b.nombre_completo || ""));
+
+            let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">Padrón Oficial de Colaboradores (Total: ${listaColab.length})</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 45%;">Nombre Completo</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 25%;">Correo Electrónico</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 25%;">Celular</th>
+                </tr></thead><tbody>`;
+
+            if (listaColab.length === 0) {
+                htmlTabla += `<tr><td colspan="4" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay colaboradores registrados.</td></tr>`;
+            } else {
+                listaColab.forEach((c, i) => {
+                    htmlTabla += `<tr>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${c.nombre_completo}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center; color: var(--azul-uab);">${c.correo || "N/A"}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${c.celular || "N/A"}</td>
+                    </tr>`;
+                });
+            }
+            htmlTabla += `</tbody></table>`;
+
+            areaImpresion.innerHTML = generarCabeceraOficial("COLABORADORES DE LA TECNOFERIA 2026", "Registro oficial del personal logístico y de apoyo para el evento.") + htmlTabla +
+                `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador</p></div>
+                </div>`;
+        }
+
         else if (valor === "ejes") {
             const ejesOficiales = ["Sistemas de Información para el Desarrollo Regional", "Tecnologías Emergentes y Transformación Digital", "Ingeniería de Software y Aplicaciones Web/Móviles", "Gobierno Electrónico y Transparencia Pública", "TIC para la Gestión Ambiental y Agropecuaria"];
             const proyectosPorEje = {};
@@ -743,104 +840,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        else if (valor === "documentos") {
-            const ciConProy = new Set();
-            const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "4. PENDIENTES (SIN PROYECTO REGISTRADO)": [] };
-
-            proyectos.forEach(p => {
-                if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-                
-                ciConProy.add(String(p.ci_propietario).trim()); 
-                
-                if (p.integrantes && p.integrantes.includes('|||')) {
-                    try {
-                        const arrInts = JSON.parse(p.integrantes.split('|||')[1].trim());
-                        arrInts.forEach(miembro => {
-                            if(miembro.ci) ciConProy.add(String(miembro.ci).trim());
-                        });
-                    } catch(e) {}
-                }
-
-                let cat = p.categoria.includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : p.categoria.includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
-                
-                let nombreLiderReal = "Desconocido";
-                const expLider = expositores.find(e => e.ci === p.ci_propietario);
-                if(expLider) nombreLiderReal = expLider.nombre_completo;
-
-                grupos[cat].push({ titulo: p.titulo || "Sin Título", integrantes: extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal), eje: p.eje_tematico || "Sin Línea Definida", tienePDF: !!p.enlace_pdf });
-            });
-
-            expositores.forEach(exp => {
-                const roles = obtenerRolesDeProyectos(exp.ci, exp.nombre_completo);
-                if (roles.length === 0 && !ciConProy.has(String(exp.ci).trim())) {
-                    grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"].push({ titulo: "No registró información", integrantes: exp.nombre_completo, eje: "-", tienePDF: false });
-                }
-            });
-
-            Object.values(grupos).forEach(g => g.sort((a, b) => a.titulo.localeCompare(b.titulo)));
-
-            const generarTablaD = (tCat, lista) => {
-                let html = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${tCat} (Total: ${lista.length})</h3>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
-                    <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 30%;">Título del Proyecto</th><th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 35%;">Autores / Expositores</th><th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 20%;">Línea de Investigación</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Archivo PDF</th>
-                    </tr></thead><tbody>`;
-                if (lista.length === 0) html += `<tr><td colspan="4" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay registros.</td></tr>`;
-                else lista.forEach(p => html += `<tr><td style="padding: 10px; border: 1px solid #ccc; ${(p.titulo === "No registró información") ? "color: #dc3545; font-style: italic;" : "font-weight: bold;"}">${p.titulo}</td><td style="padding: 10px; border: 1px solid #ccc;">${p.integrantes}</td><td style="padding: 10px; border: 1px solid #ccc;">${p.eje}</td><td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-size: 11px;">${p.tienePDF ? `<span style="color: #28a745; font-weight: bold;">✓<br>RECIBIDO</span>` : `<span style="color: #dc3545; font-weight: bold;">❌<br>FALTANTE</span>`}</td></tr>`);
-                return html + `</tbody></table>`;
-            };
-
-            areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE INSCRIPCIÓN Y CONTROL DE DOCUMENTACIÓN", `Fecha de auditoría: ${new Date().toLocaleDateString()} — Estado: Concluido`) + 
-                generarTablaD("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + generarTablaD("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTablaD("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTablaD("4. PENDIENTES (SIN PROYECTO REGISTRADO)", grupos["4. PENDIENTES (SIN PROYECTO REGISTRADO)"]) +
-                `<div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Recibido y Verificado por:<br>Encargado de Soporte Técnico</p></div>
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Sello de Conformidad<br>Instituto de Investigación</p></div>
-                </div>`;
-        }
-
-        else if (valor === "expositores") {
-            const grupos = { "1. Estudiantes Universitarios": [], "2. Docentes Investigadores": [], "3. Emprendimientos Tecnológicos": [], "4. Registrados sin Proyecto Subido (Pendientes)": [] };
-
-            expositores.forEach(e => {
-                let cat = "4. Registrados sin Proyecto Subido (Pendientes)";
-                const roles = obtenerRolesDeProyectos(e.ci, e.nombre_completo);
-
-                if (roles.length > 0) {
-                    const proyPrincipal = roles.find(r => r.tipo === 'LIDER')?.proyecto || roles[0].proyecto;
-                    cat = proyPrincipal.categoria.includes('estudiante') ? "1. Estudiantes Universitarios" : proyPrincipal.categoria.includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
-                }
-
-                const nombreCapitalizado = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-
-                grupos[cat].push({ 
-                    nombre_html: nombreCapitalizado, 
-                    ci: e.ci || "N/A", 
-                    institucion: e.institucion || "N/A", 
-                    correo: (e.correo || "").toLowerCase(), 
-                    celular: e.celular || "N/A",
-                    orden: e.nombre_completo 
-                });
-            });
-
-            Object.values(grupos).forEach(g => g.sort((a, b) => a.orden.localeCompare(b.orden)));
-
-            const generarTablaE = (tCat, lista) => {
-                if(lista.length === 0) return ""; 
-                let html = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${tCat} (Total: ${lista.length})</h3>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
-                    <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;"><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 25%;">Nombre Completo</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 10%;">C.I.</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 25%;">Institución</th><th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 20%;">Correo Electrónico</th><th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th></tr></thead><tbody>`;
-                lista.forEach((e, i) => html += `<tr><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td><td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${e.nombre_html}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.ci}</td><td style="padding: 8px; border: 1px solid #ccc;">${e.institucion}</td><td style="padding: 8px; border: 1px solid #ccc; color: #0056b3;">${e.correo}</td><td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${e.celular}</td></tr>`);
-                return html + `</tbody></table>`;
-            };
-
-            areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE EXPOSITORES REGISTRADOS") +
-                generarTablaE("1. Estudiantes Universitarios", grupos["1. Estudiantes Universitarios"]) + generarTablaE("2. Docentes Investigadores", grupos["2. Docentes Investigadores"]) + generarTablaE("3. Emprendimientos Tecnológicos", grupos["3. Emprendimientos Tecnológicos"]) + generarTablaE("4. Registrados sin Proyecto Subido (Pendientes)", grupos["4. Registrados sin Proyecto Subido (Pendientes)"]) +
-                `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador</p></div>
-                </div>`;
-        }
-
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
                 n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
@@ -885,7 +884,6 @@ window.generarVistaPrevia = async function() {
     } 
 };
 
-// 🔥 FUNCIÓN DE IMPRESIÓN LIMPIA Y PROFESIONAL 🔥
 window.imprimirInformeActual = function(event) {
     if (event) event.preventDefault(); 
     const areaImpresion = document.getElementById('informe-impresion');
@@ -935,7 +933,6 @@ window.imprimirInformeActual = function(event) {
                     -webkit-print-color-adjust: exact; 
                     print-color-adjust: exact; 
                 }
-                /* 🔥 Forzamos al navegador a respetar las hojas en PDF 🔥 */
                 @page { 
                     size: A4 portrait; 
                     margin: 15mm; 
