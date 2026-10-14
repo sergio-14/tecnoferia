@@ -391,7 +391,7 @@ window.generarVistaPrevia = async function() {
 
                 const proyectosValidosGlobales = proyectos
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
+                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
                 let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
@@ -432,27 +432,28 @@ window.generarVistaPrevia = async function() {
                                         <tbody>
                             `;
                             
-                            // 🔥 FIX: Respetar y ordenar los proyectos usando la numeración global 🔥
-                            const proyectosDeEsteTribunal = proyAsignados
-                                .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").includes(cat.id)))
-                                .filter(p => p !== undefined);
+                            // Ordenamos los proyectos para que se impriman manteniendo el orden de su número global
+                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
 
-                            proyectosDeEsteTribunal.sort((a, b) => mapeoNumerosGlobales[String(a.id)] - mapeoNumerosGlobales[String(b.id)]);
-
-                            proyectosDeEsteTribunal.forEach(proyectoDetalle => {
-                                let cleanIntegrantes = (proyectoDetalle.integrantes || "").replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
-                                                                                .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
-                                                                                .replace(/\|\|\|.*/g, ''); 
-                                html += `
-                                    <tr style="page-break-inside: avoid;">
-                                        <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(proyectoDetalle.id)]}</td>
-                                        <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
-                                        <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
-                                    </tr>
-                                `;
+                            let contoProyectosTribunal = 0;
+                            proyAsignados.forEach(idProy => {
+                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id));
+                                if (proyectoDetalle) {
+                                    contoProyectosTribunal++;
+                                    let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
+                                                                                    .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
+                                                                                    .replace(/\|\|\|.*/g, ''); 
+                                    html += `
+                                        <tr style="page-break-inside: avoid;">
+                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(idProy)]}</td>
+                                            <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
+                                            <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
+                                        </tr>
+                                    `;
+                                }
                             });
 
-                            if (proyectosDeEsteTribunal.length === 0) {
+                            if (contoProyectosTribunal === 0) {
                                 html += `<tr><td colspan="3" style="padding:8px; border:1px solid #ccc; text-align:center; font-style:italic; color:#777;">No se le han marcado proyectos específicos en esta categoría.</td></tr>`;
                             }
 
@@ -871,6 +872,46 @@ window.generarVistaPrevia = async function() {
                 <div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Comité Organizador</p></div>
+                </div>`;
+        }
+        
+        else if (valor === "no_clasificados") {
+            const noClasificados = proyectos.filter(p => p.estado_evaluacion === 'Evaluado (No clasifica)');
+            noClasificados.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || ""));
+
+            let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #dc3545; padding: 8px; margin-top: 25px; margin-bottom: 0;">Proyectos No Clasificados a la Etapa Final (Total: ${noClasificados.length})</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 40%;">Título del Proyecto</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 35%;">Líder y Equipo</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 20%;">Categoría</th>
+                </tr></thead><tbody>`;
+
+            if (noClasificados.length === 0) {
+                htmlTabla += `<tr><td colspan="4" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay proyectos en esta categoría.</td></tr>`;
+            } else {
+                noClasificados.forEach((p, i) => {
+                    let nombreLiderReal = "Desconocido";
+                    const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                    if(expLider) nombreLiderReal = expLider.nombre_completo;
+                    const ints = extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal);
+                    let catName = (p.categoria || "").includes('estudiante') ? "Estudiante (Pregrado)" : (p.categoria || "").includes('docente') ? "Docente" : "Emprendimiento";
+
+                    htmlTabla += `<tr>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; color: #dc3545;">${p.titulo}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">${ints}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${catName}</td>
+                    </tr>`;
+                });
+            }
+            htmlTabla += `</tbody></table>`;
+
+            areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE PROYECTOS NO CLASIFICADOS (PRE-SELECCIÓN)", "Los proyectos listados a continuación no alcanzaron el puntaje mínimo requerido en la evaluación técnica del jurado y no pasan a la fase de exposición presencial.") + htmlTabla +
+                `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
                 </div>`;
         }
 
