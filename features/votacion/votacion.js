@@ -78,16 +78,6 @@ document.addEventListener('input', async function(e) {
 
 window.calificacionActual = 0; 
 
-function calcularDistanciaMetros(lat1, lon1, lat2, lon2) {
-    const R = 6371e3; 
-    const radLat1 = lat1 * Math.PI / 180;
-    const radLat2 = lat2 * Math.PI / 180;
-    const deltaLat = (lat2 - lat1) * Math.PI / 180;
-    const deltaLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-}
-
 window.ingresarComoPublico = async function() {
     const panelVoto = document.getElementById('votar-proyecto');
     if (panelVoto) panelVoto.style.display = 'none';
@@ -136,9 +126,7 @@ window.cargarProyectoParaVotar = async function() {
         
         let savedCelular = localStorage.getItem('feria_ninja_celular');
         let savedNombre = localStorage.getItem('feria_ninja_nombre');
-        let proyectosVotados = JSON.parse(localStorage.getItem('feria_historial_votos') || '[]');
 
-        // 🔥 AUTO-REPARACIÓN DE DATOS FANTASMAS (Para limpiar tu caché de pruebas anteriores) 🔥
         if (savedCelular && !savedNombre) {
             localStorage.removeItem('feria_ninja_celular');
             savedCelular = null;
@@ -199,7 +187,6 @@ window.cargarProyectoParaVotar = async function() {
                     savedCelular = localStorage.getItem('feria_ninja_celular') || savedCelular;
                 }
 
-                // 3. CONGELAMIENTO: Rellenado y Bloqueo de Campos (Solo si AMBOS datos están guardados)
                 if (savedNombre && savedCelular) {
                     if (inputNom) {
                         inputNom.value = savedNombre;
@@ -291,22 +278,6 @@ window.validarFormularioVoto = async function() {
     }
 };
 
-function obtenerUbicacionGPS() {
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) { reject(new Error("Tu dispositivo no soporta geolocalización.")); }
-        navigator.geolocation.getCurrentPosition(
-            (position) => resolve(position),
-            (error) => {
-                let msg = "Error al obtener ubicación.";
-                if (error.code === 1) msg = "DENEGADO: Debes darle 'Permitir' a la ubicación GPS para poder votar.";
-                if (error.code === 2) msg = "NO DISPONIBLE: No se pudo conectar al satélite GPS.";
-                if (error.code === 3) msg = "TIEMPO AGOTADO: El GPS tardó demasiado.";
-                reject(new Error(msg));
-            }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
-    });
-}
-
 window.enviarCalificacion = async function(e) {
     e.preventDefault();
     const btn = document.getElementById('btnEnviarVoto');
@@ -316,31 +287,10 @@ window.enviarCalificacion = async function(e) {
     const nomInput = document.getElementById('voto-nombre').value.trim();
     const nota = document.getElementById('voto-puntaje').value;
 
-    btn.innerHTML = '<i class="fas fa-map-marker-alt"></i> Verificando GPS...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
     btn.disabled = true; btn.style.opacity = "0.7"; btn.style.cursor = "wait";
 
     try {
-        const resConf = await fetch('/api/configuraciones');
-        const configuracion = await resConf.json();
-        
-        const position = await obtenerUbicacionGPS();
-        const userLat = parseFloat(position.coords.latitude);
-        const userLon = parseFloat(position.coords.longitude);
-
-        const LAT_FERIA = parseFloat(configuracion.gps_latitud);
-        const LON_FERIA = parseFloat(configuracion.gps_longitud);
-        const RADIO_FERIA = parseInt(configuracion.gps_radio, 10);
-
-        const distanciaMetros = calcularDistanciaMetros(LAT_FERIA, LON_FERIA, userLat, userLon);
-
-        if (distanciaMetros > RADIO_FERIA) {
-            alert(`⛔ ALERTA: ESTÁS DEMASIADO LEJOS\n\nEstás a ${distanciaMetros.toFixed(0)} metros.\nSolo se permite votar dentro de un radio de ${RADIO_FERIA} metros de la feria.`);
-            btn.innerHTML = 'Confirmar Voto'; btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
-            return;
-        }
-
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
-
         const res = await fetch('/api/votar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -349,8 +299,6 @@ window.enviarCalificacion = async function(e) {
                 celular: celInput,
                 nombre: nomInput,
                 nota: nota,
-                lat: userLat,
-                lon: userLon,
                 deviceId: window.obtenerHuellaDispositivo()
             })
         });
@@ -358,11 +306,9 @@ window.enviarCalificacion = async function(e) {
         const resData = await res.json();
         if (!res.ok) throw new Error(resData.error || "Error al registrar el voto.");
 
-        // 🔥 AQUI GUARDAMOS LA HUELLA NINJA SOLO SI EL VOTO FUE EXITOSO 🔥
         localStorage.setItem('feria_ninja_celular', celInput);
         localStorage.setItem('feria_ninja_nombre', nomInput);
 
-        // Guardamos el proyecto en el historial local
         let proyectosVotados = JSON.parse(localStorage.getItem('feria_historial_votos') || '[]');
         if (!proyectosVotados.includes(String(idProy))) {
             proyectosVotados.push(String(idProy));

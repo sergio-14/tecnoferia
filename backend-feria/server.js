@@ -96,7 +96,6 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS votos_publico (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, ci_visitante VARCHAR(50) REFERENCES visitantes(ci), nota NUMERIC, latitud DECIMAL(15,8), longitud DECIMAL(15,8))`);
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
         
-        // 🔥 TABLA: COLABORADORES 🔥
         await db.query(`CREATE TABLE IF NOT EXISTS colaboradores (id SERIAL PRIMARY KEY, nombre_completo VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50))`);
 
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
@@ -104,12 +103,10 @@ db.connect()
         try { await db.query(`ALTER TABLE evaluaciones_tribunal ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
         try { await db.query(`ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
 
-        // Parche de Rescate
         try {
             await db.query(`UPDATE proyectos SET categoria = 'estudiantes' WHERE titulo ILIKE '%Contabeni%' OR titulo ILIKE '%Sensor de medicion%' OR titulo ILIKE '%Ubistock%' OR titulo ILIKE '%Trinidad Reporta%' OR titulo ILIKE '%NIVA%'`);
         } catch(e) {}
 
-        // Auto-saneamiento
         try {
             await db.query(`UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE estado_evaluacion IS NOT NULL AND id NOT IN (SELECT id_proyecto FROM evaluaciones_tribunal)`);
         } catch(e) { }
@@ -126,11 +123,9 @@ app.get('/api/usuarios_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
 });
 
-// 🔥 RUTA PARA GUARDAR COLABORADORES CON PROTECCIÓN ANTI-DUPLICADOS 🔥
 app.post('/api/colaboradores', async (req, res) => {
     const { nombre, correo, celular } = req.body;
     try {
-        // Verificar si el colaborador ya existe por nombre y celular
         const check = await db.query('SELECT id FROM colaboradores WHERE nombre_completo = $1 AND celular = $2', [nombre, celular]);
         if (check.rows.length > 0) {
             return res.status(400).json({ error: "⚠️ Este colaborador ya se encuentra registrado en el sistema." });
@@ -670,10 +665,11 @@ app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, re
     }
 });
 
+// 🔥 VOTO ACTUALIZADO: YA NO SE EXIGE LAT Y LON DESDE EL FRONTEND 🔥
 app.post('/api/votar', async (req, res) => {
-    const { idProyecto, celular, nombre, nota, lat, lon, deviceId } = req.body;
+    const { idProyecto, celular, nombre, nota, deviceId } = req.body;
     try {
-        const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada, gps_latitud, gps_longitud, gps_radio FROM configuraciones WHERE id = 1`);
+        const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' > fecha_cierre_votacion) as votacion_cerrada FROM configuraciones WHERE id = 1`);
         if (checkTime.rows[0].votacion_cerrada) return res.status(400).json({ error: "⏳ El periodo de votación del público ha finalizado." });
 
         const celReal = celular; 
@@ -701,7 +697,8 @@ app.post('/api/votar', async (req, res) => {
 
         await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, 'Visitante Público', $1) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo`, [celReal, nomReal]);
 
-        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud, device_id) VALUES ($1, $2, $3, $4, $5, $6)', [idProyecto, celReal, parseInt(nota, 10), lat, lon, devId]);
+        // 🔥 Insertamos con lat/lon en 0 para evitar errores en PostgreSQL 🔥
+        await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud, device_id) VALUES ($1, $2, $3, 0, 0, $4)', [idProyecto, celReal, parseInt(nota, 10), devId]);
         
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
     } catch (error) { res.status(500).json({ error: "Error en la Base de Datos: " + error.message }); }
