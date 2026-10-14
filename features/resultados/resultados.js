@@ -236,7 +236,7 @@ window.renderizarTablasRanking = async function() {
                                             <i class="fas fa-trophy" style="color: #ffc107; margin-right: 8px;"></i> <b>${premioImpacto.titulo}</b>
                                         </td>
                                         <td style="padding: 20px; font-size: 1.2rem; font-weight: bold; color: #4db8ff;">
-                                            ${premioImpacto.nota_impacto} / 15 pts
+                                            ${premioImpacto.nota_impacto.toFixed(2)} / 15 pts
                                         </td>
                                     </tr>
                                 </tbody>

@@ -101,13 +101,12 @@ db.connect()
         try { await db.query(`ALTER TABLE evaluaciones_tribunal ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
         try { await db.query(`ALTER TABLE proyectos ADD COLUMN IF NOT EXISTS nota_impacto NUMERIC DEFAULT 0;`); } catch(e) {}
 
-        // 🔥 PARCHE DE RESCATE: Devuelve los proyectos mencionados a la categoría de Estudiantes 🔥
+        // Parche de Rescate (Devuelve los proyectos movidos accidentalmente a Estudiantes Universitarios)
         try {
             await db.query(`UPDATE proyectos SET categoria = 'estudiantes' WHERE titulo ILIKE '%Contabeni%' OR titulo ILIKE '%Sensor de medicion%' OR titulo ILIKE '%Ubistock%' OR titulo ILIKE '%Trinidad Reporta%' OR titulo ILIKE '%NIVA%'`);
-            console.log('✅ Parche Aplicado: Proyectos reubicados a Estudiantes Universitarios.');
         } catch(e) {}
 
-        // Limpieza de estados huérfanos
+        // Auto-saneamiento de proyectos fantasmas
         try {
             await db.query(`UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE estado_evaluacion IS NOT NULL AND id NOT IN (SELECT id_proyecto FROM evaluaciones_tribunal)`);
         } catch(e) { }
@@ -167,13 +166,14 @@ app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
             await db.query('DELETE FROM evaluaciones_tribunal WHERE usuario_tribunal = $1', [id]);
             
             for (let ev of evals.rows) {
-                const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [ev.id_proyecto]);
+                // 🔥 Recalcular el PROMEDIO de impacto al borrar un tribunal 🔥
+                const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [ev.id_proyecto]);
                 const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
                 
                 if (promedioBruto > 0) {
-                    const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
+                    const avgImpacto = parseFloat(avgQuery.rows[0].avg_impacto) || 0;
                     const notaPonderada = promedioBruto * 0.80;
-                    await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, maxImpacto, ev.id_proyecto]);
+                    await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, avgImpacto, ev.id_proyecto]);
                 } else {
                     await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [ev.id_proyecto]);
                 }
@@ -594,6 +594,41 @@ app.post('/api/visitantes', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al habilitar." }); }
 });
 
+app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, res) => {
+    try {
+        const { celular, idProy, deviceId } = req.params;
+
+        if (deviceId && deviceId !== "null" && deviceId !== "undefined") {
+            const dupDev = await db.query('SELECT id FROM votos_publico WHERE device_id = $1 AND id_proyecto = $2', [deviceId, idProy]);
+            if (dupDev.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_dispositivo' });
+        }
+
+        if (celular && celular !== "0000" && celular !== "null") {
+            const dup = await db.query('SELECT id FROM votos_publico WHERE ci_visitante = $1 AND id_proyecto = $2', [celular, idProy]);
+            if (dup.rows.length > 0) return res.json({ permitido: false, razon: 'ya_voto_celular' });
+            
+            const proy = await db.query('SELECT ci_propietario, integrantes FROM proyectos WHERE id = $1', [idProy]);
+            if (proy.rows.length > 0) {
+                const ciPropietario = proy.rows[0].ci_propietario;
+                
+                const propData = await db.query('SELECT celular FROM expositores WHERE ci = $1', [ciPropietario]);
+                if (propData.rows.length > 0 && propData.rows[0].celular === celular) {
+                    return res.json({ permitido: false, razon: 'es_autor' });
+                }
+                
+                const integrantes = proy.rows[0].integrantes || "";
+                if (integrantes.includes(`"celular":"${celular}"`) || integrantes.includes(`Celular: ${celular}`)) {
+                    return res.json({ permitido: false, razon: 'es_autor' });
+                }
+            }
+        }
+
+        res.json({ permitido: true });
+    } catch (err) {
+        res.status(500).json({ error: "Error en el servidor." });
+    }
+});
+
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, celular, nombre, nota, lat, lon, deviceId } = req.body;
     try {
@@ -653,14 +688,14 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
             const idProyecto = evCheck.rows[0].id_proyecto;
             await db.query('DELETE FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
             
-            // Recalcular promedio de los tribunales que quedan
-            const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
+            // 🔥 CORRECCIÓN APLICADA AQUÍ: Promediar también el impacto con AVG al eliminar 🔥
+            const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
             const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
             
             if (promedioBruto > 0) {
-                const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
+                const avgImpacto = parseFloat(avgQuery.rows[0].avg_impacto) || 0;
                 const notaPonderada = promedioBruto * 0.80;
-                await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, maxImpacto, idProyecto]);
+                await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3 WHERE id = $4', [promedioBruto, notaPonderada, avgImpacto, idProyecto]);
             } else {
                 await db.query('UPDATE proyectos SET nota_tribunal=NULL, nota_ponderada=NULL, nota_impacto=0, observaciones_tribunal=NULL, estado_evaluacion=NULL WHERE id = $1', [idProyecto]);
             }
@@ -676,7 +711,7 @@ app.get('/api/tribunal_id/:id', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
 
-// 🔥 LÓGICA DE PROMEDIO PARA 3 TRIBUNALES 🔥
+// 🔥 LÓGICA DE PROMEDIO PARA MÚLTIPLES TRIBUNALES (NOTA E IMPACTO) 🔥
 app.post('/api/evaluar', async (req, res) => {
     const { idProyecto, identificadorTribunal, notaTribunal, notaImpacto, observaciones } = req.body;
     try {
@@ -704,15 +739,15 @@ app.post('/api/evaluar', async (req, res) => {
 
         await db.query('INSERT INTO evaluaciones_tribunal (id_proyecto, usuario_tribunal, nota, nota_impacto, observaciones) VALUES ($1, $2, $3, $4, $5)', [idProyecto, usuarioTribunal, notaTribunal, notaImpacto, observaciones]);
 
-        // SACAMOS EL PROMEDIO MATEMÁTICO DE TODOS LOS TRIBUNALES QUE CALIFICARON ESTE PROYECTO
-        const avgQuery = await db.query('SELECT AVG(nota) as promedio, MAX(nota_impacto) as max_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
+        // 🔥 CORRECCIÓN APLICADA AQUÍ: OBTENEMOS EL PROMEDIO MATEMÁTICO (AVG) TANTO DE LA NOTA GENERAL COMO DEL IMPACTO SOCIAL 🔥
+        const avgQuery = await db.query('SELECT AVG(nota) as promedio, AVG(nota_impacto) as avg_impacto FROM evaluaciones_tribunal WHERE id_proyecto = $1', [idProyecto]);
         const promedioBruto = parseFloat(avgQuery.rows[0].promedio) || 0;
-        const maxImpacto = parseFloat(avgQuery.rows[0].max_impacto) || 0;
-        const notaPonderada = promedioBruto * 0.80; // 80% del promedio
+        const avgImpacto = parseFloat(avgQuery.rows[0].avg_impacto) || 0;
+        const notaPonderada = promedioBruto * 0.80; // 80% del promedio general
 
         let estado = 'Evaluado';
 
-        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3, observaciones_tribunal = $4, estado_evaluacion = $5 WHERE id = $6', [promedioBruto, notaPonderada, maxImpacto, observaciones, estado, idProyecto]);
+        await db.query('UPDATE proyectos SET nota_tribunal = $1, nota_ponderada = $2, nota_impacto = $3, observaciones_tribunal = $4, estado_evaluacion = $5 WHERE id = $6', [promedioBruto, notaPonderada, avgImpacto, observaciones, estado, idProyecto]);
 
         const proyData = await db.query('SELECT p.titulo, e.correo, e.nombre_completo FROM proyectos p JOIN expositores e ON p.ci_propietario = e.ci WHERE p.id = $1', [idProyecto]);
 
