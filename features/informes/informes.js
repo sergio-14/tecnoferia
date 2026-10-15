@@ -194,7 +194,7 @@ window.generarCertificadoParticipacion = async function(ci) {
                     body { font-family: 'Times New Roman', serif; background: #525659; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
 
                     .instruccion-flotante { position: fixed; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); color: white; padding: 20px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 0.95rem; max-width: 320px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; line-height: 1.5; }
-                    .btn-imprimir { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
+                    .btn-imprimir { fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
                     .btn-imprimir:hover { background: #218838; transform: scale(1.05); }
 
                     .certificado-container {
@@ -393,12 +393,14 @@ window.generarVistaPrevia = async function() {
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
                     .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
-                let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
+                
+                // Mapeo general para ordenar, pero NO se mostrará en este reporte
+                let cEstGlob = 1, cDocGlob = 1, cEmpGlob = 1;
                 proyectosValidosGlobales.forEach(p => {
-                    if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
-                    else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
-                    else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
+                    if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEstGlob++;
+                    else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDocGlob++;
+                    else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmpGlob++;
                 });
 
                 categorias.forEach(cat => {
@@ -431,29 +433,31 @@ window.generarVistaPrevia = async function() {
                                         </thead>
                                         <tbody>
                             `;
-                            
-                            // Ordenamos los proyectos para que se impriman manteniendo el orden de su número global
-                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
 
-                            let contoProyectosTribunal = 0;
-                            proyAsignados.forEach(idProy => {
-                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id));
-                                if (proyectoDetalle) {
-                                    contoProyectosTribunal++;
-                                    let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
-                                                                                    .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
-                                                                                    .replace(/\|\|\|.*/g, ''); 
-                                    html += `
-                                        <tr style="page-break-inside: avoid;">
-                                            <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(idProy)]}</td>
-                                            <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
-                                            <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
-                                        </tr>
-                                    `;
-                                }
+                            const proyectosDeEsteTribunal = proyAsignados
+                                .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").includes(cat.id)))
+                                .filter(p => p !== undefined);
+
+                            // Ordenamos usando el mapeo global para mantener la consistencia
+                            proyectosDeEsteTribunal.sort((a, b) => mapeoNumerosGlobales[String(a.id)] - mapeoNumerosGlobales[String(b.id)]);
+
+                            // 🔥 CORRECCIÓN CLAVE: Numeración Secuencial Independiente (1, 2, 3...) para CADA TRIBUNAL 🔥
+                            let numeracionLocalSecuencial = 1;
+
+                            proyectosDeEsteTribunal.forEach(proyectoDetalle => {
+                                let cleanIntegrantes = (proyectoDetalle.integrantes || "").replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
+                                                                                .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
+                                                                                .replace(/\|\|\|.*/g, ''); 
+                                html += `
+                                    <tr style="page-break-inside: avoid;">
+                                        <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${numeracionLocalSecuencial++}</td>
+                                        <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
+                                        <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
+                                    </tr>
+                                `;
                             });
 
-                            if (contoProyectosTribunal === 0) {
+                            if (proyectosDeEsteTribunal.length === 0) {
                                 html += `<tr><td colspan="3" style="padding:8px; border:1px solid #ccc; text-align:center; font-style:italic; color:#777;">No se le han marcado proyectos específicos en esta categoría.</td></tr>`;
                             }
 
@@ -491,7 +495,7 @@ window.generarVistaPrevia = async function() {
             });
 
             votos.forEach(v => {
-                if (diccionarioPremios[v.id_proyecto]) {
+                if (diccionarioProyectos[v.id_proyecto]) {
                     let notaP = parseFloat(v.nota) || 0; 
                     if (notaP > 100) notaP = 100;
                     diccionarioProyectos[v.id_proyecto].sumaPublico += notaP;
