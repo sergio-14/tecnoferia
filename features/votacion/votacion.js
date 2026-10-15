@@ -20,7 +20,7 @@ window.obtenerHuellaDispositivo = function() {
 
 window.obtenerHuellaDispositivo();
 
-// 🔥 FILTROS ESTRICTOS Y AUTOLLENADO (SIN GUARDAR HASTA QUE SE CONFIRME EL VOTO) 🔥
+// 🔥 FILTROS ESTRICTOS Y AUTOLLENADO (EN MAYÚSCULAS) 🔥
 document.addEventListener('input', async function(e) {
     // 1. Filtro estricto para Celular (Solo números, máximo 8)
     if (e.target && e.target.id === 'voto-celular') {
@@ -32,13 +32,13 @@ document.addEventListener('input', async function(e) {
             if (msj) msj.innerHTML = '<span style="color: #4db8ff;"><i class="fas fa-spinner fa-spin"></i> Buscando datos...</span>';
             
             try {
-                // Auto-llenado Mágico desde la BD (NO SE GUARDA EN MEMORIA AÚN)
+                // Auto-llenado Mágico desde la BD
                 const res = await fetch(`/api/usuario_por_celular/${val}`);
                 const data = await res.json();
                 const inputNom = document.getElementById('voto-nombre');
                 
                 if (data.encontrado && inputNom) {
-                    inputNom.value = data.nombre;
+                    inputNom.value = (data.nombre || "").toUpperCase();
                     inputNom.readOnly = true;
                     inputNom.style.backgroundColor = "rgba(0,0,0,0.5)";
                     inputNom.style.color = "#94a3b8";
@@ -57,7 +57,6 @@ document.addEventListener('input', async function(e) {
             }
             window.validarFormularioVoto();
         } else {
-            // Si borran un número y quedan 7 o menos, habilitamos de nuevo la caja de nombre
             const inputNom = document.getElementById('voto-nombre');
             if (inputNom && inputNom.readOnly) {
                 inputNom.value = "";
@@ -69,9 +68,9 @@ document.addEventListener('input', async function(e) {
         }
     }
     
-    // 2. Filtro estricto para Nombre (Solo Letras y Espacios)
+    // 2. Filtro estricto para Nombre (Solo Letras, Espacios y MAYÚSCULAS)
     if (e.target && e.target.id === 'voto-nombre') {
-        let val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+        let val = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '').toUpperCase();
         e.target.value = val;
     }
 });
@@ -189,7 +188,7 @@ window.cargarProyectoParaVotar = async function() {
 
                 if (savedNombre && savedCelular) {
                     if (inputNom) {
-                        inputNom.value = savedNombre;
+                        inputNom.value = savedNombre.toUpperCase();
                         inputNom.readOnly = true;
                         inputNom.style.backgroundColor = "rgba(0,0,0,0.5)";
                         inputNom.style.color = "#94a3b8";
@@ -236,7 +235,7 @@ window.marcarEstrellas = function(cantidad) {
 
 window.validarFormularioVoto = async function() {
     const celInput = document.getElementById('voto-celular').value.trim();
-    const nomInput = document.getElementById('voto-nombre').value.trim();
+    const nomInput = document.getElementById('voto-nombre').value.trim().toUpperCase();
     const idProy = document.getElementById('voto-idProy').value;
     const deviceId = window.obtenerHuellaDispositivo();
     const msj = document.getElementById('mensaje-validacion-voto');
@@ -284,7 +283,7 @@ window.enviarCalificacion = async function(e) {
     
     const idProy = document.getElementById('voto-idProy').value;
     const celInput = document.getElementById('voto-celular').value.trim();
-    const nomInput = document.getElementById('voto-nombre').value.trim();
+    const nomInput = document.getElementById('voto-nombre').value.trim().toUpperCase();
     const nota = document.getElementById('voto-puntaje').value;
 
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';

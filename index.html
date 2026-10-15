@@ -544,7 +544,7 @@
                     <button class="tab-btn" onclick="openTab(event, 'tab-tribunales')">Tribunales</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-registrar-admin')">Registrar Admin</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-admin-visitantes')">Habilitar Visitante</button>
-                    <button class="tab-btn" onclick="openAdminTab('tab-colaboradores', this)">Habilitar Colaborador</button>
+                    <button class="tab-btn" onclick="openTab(event, 'tab-colaboradores')">Habilitar Colaborador</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-visitantes'); window.cargarVotosPublico()">Votos del Público</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-votos-tribunal'); window.cargarVotosTribunal()">Votos del Tribunal</button>
                     <button class="tab-btn" onclick="openTab(event, 'tab-fechas'); window.cargarFechasActuales()">Configuraciones</button>
@@ -756,6 +756,7 @@
                                 </div>
                             </div>
                         </div>
+                        
 
                         <!-- HABILITAR COLABORADOR -->
                         <div id="tab-colaboradores" class="tab-content section-animate" style="display: none;">
@@ -771,10 +772,6 @@
                                         <div class="form-group">
                                             <label>Correo Electrónico</label>
                                             <input type="email" id="colabCorreo" required placeholder="ejemplo@correo.com">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Celular</label>
-                                            <input type="tel" id="colabCelular" required placeholder="Ej. 71234567">
                                         </div>
                                     </div>
                                     <button type="submit" id="btnGuardarColaborador" class="btn-save" style="background: #17a2b8; width: 100%; border: none; padding: 12px; color: white; border-radius: 6px; font-weight: bold; cursor: pointer;">

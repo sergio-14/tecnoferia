@@ -6,6 +6,40 @@
 // Variable para almacenar proyectos en memoria y filtrarlos rápido
 window.proyectosGlobalesBD = [];
 
+// 🔥 PARCHE PARA ACTIVAR EL BOTÓN "HABILITAR COLABORADOR" 🔥
+window.openAdminTab = function(tabId, btnElement) {
+    if (typeof window.openTab === 'function') {
+        window.openTab({ currentTarget: btnElement }, tabId);
+    } else {
+        document.querySelectorAll('#registro .tab-content').forEach(el => {
+            el.style.display = 'none';
+            el.classList.remove('active');
+        });
+        document.querySelectorAll('#registro .tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        const target = document.getElementById(tabId);
+        if (target) {
+            target.style.display = 'block';
+            target.classList.add('active');
+        }
+        if (btnElement) btnElement.classList.add('active');
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const inputCelColab = document.getElementById('colabCelular');
+    if (inputCelColab) {
+        inputCelColab.removeAttribute('required');
+        const formGroupCel = inputCelColab.closest('.form-group');
+        if (formGroupCel) {
+            formGroupCel.style.display = 'none';
+            if (formGroupCel.parentElement && formGroupCel.parentElement.style.display === 'grid') {
+                formGroupCel.parentElement.style.display = 'block';
+            }
+        }
+    }
+});
+
 window.cargarProyectosAdmin = async function() {
     const btn = document.getElementById('btnActualizarAdmin');
     const textoOriginal = btn.innerHTML;
@@ -16,14 +50,11 @@ window.cargarProyectosAdmin = async function() {
         const respuesta = await fetch('/api/proyectos_admin');
         const proyectosBD = await respuesta.json();
 
-        // Guardamos en memoria solo los que no están eliminados en evaluación
         window.proyectosGlobalesBD = proyectosBD.filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)');
         
-        // Limpiamos el buscador si recargamos la lista
         const buscador = document.getElementById('buscador-proyectos-admin');
         if (buscador) buscador.value = '';
 
-        // Ejecutamos el filtro inicial (que mostrará todos)
         window.filtrarProyectosAdmin();
 
     } catch (error) {
@@ -34,7 +65,6 @@ window.cargarProyectosAdmin = async function() {
     }
 };
 
-// 🔥 NUEVA FUNCIÓN: BUSCADOR INTELIGENTE EN TIEMPO REAL 🔥
 window.filtrarProyectosAdmin = function() {
     const termino = document.getElementById('buscador-proyectos-admin').value.toLowerCase().trim();
     
@@ -50,7 +80,6 @@ window.filtrarProyectosAdmin = function() {
         });
     }
 
-    // Separar por categorías y renderizar
     const est = proyectosFiltrados.filter(p => p.categoria.includes('estudiante'));
     const doc = proyectosFiltrados.filter(p => p.categoria.includes('docente'));
     const emp = proyectosFiltrados.filter(p => p.categoria.includes('emprendimiento'));
@@ -330,7 +359,7 @@ window.cargarVotosPublico = async function() {
                 tr.style.borderBottom = "1px solid rgba(255, 255, 255, 0.1)";
                 tr.innerHTML = `
                     <td style="padding: 12px;">
-                        <b style="color: #ffffff; font-size: 0.95rem;">${voto.nombre_visitante || "Visitante"}</b><br>
+                        <b style="color: #ffffff; font-size: 0.95rem;">${(voto.nombre_visitante || "VISITANTE").toUpperCase()}</b><br>
                         <span style="color:#93c5fd; font-size:0.75rem;">${voto.institucion || "Sin institución"}</span>
                     </td>
                     <td style="padding: 12px; color: #e2e8f0;">${voto.nombre_proyecto || "Sin nombre"}</td>
@@ -478,7 +507,6 @@ window.cargarFechasActuales = async function() {
         document.getElementById('confGpsLon').value = data.gps_longitud || '';
         document.getElementById('confGpsRadio').value = data.gps_radio || '';
 
-        // 🔥 LEEMOS EL ESTADO DEL BOTÓN DE PREMIOS EXTRA 🔥
         const btnPremios = document.getElementById('confMostrarPremios');
         if (btnPremios) btnPremios.checked = data.mostrar_premios_extra || false;
         
@@ -495,7 +523,6 @@ window.guardarNuevasFechas = async function() {
     const lon = document.getElementById('confGpsLon').value;
     const rad = document.getElementById('confGpsRadio').value;
     
-    // 🔥 CAPTURAMOS EL ESTADO DEL BOTÓN DE PREMIOS EXTRA 🔥
     const mostrarPremiosExtra = document.getElementById('confMostrarPremios') ? document.getElementById('confMostrarPremios').checked : false;
 
     if (!reg || !sub || !res || !cierreVot || !lat || !lon || !rad || !apeTrib) { 
@@ -590,7 +617,7 @@ window.cargarTablaInstituciones = async function() {
             `;
         });
     } catch (error) { 
-        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red !important;">Error al cargar las institutions.</td></tr>'; 
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: red !important;">Error al cargar las instituciones.</td></tr>'; 
     }
 };
 
@@ -687,7 +714,7 @@ window.cargarUsuariosGlobal = async function() {
         if (datalist) {
             datalist.innerHTML = '';
             [...data.expositores, ...data.tribunales, ...data.visitantes].forEach(u => {
-                datalist.innerHTML += `<option value="${u.id}">${u.nombre_completo} (${u.institucion || 'S/I'})</option>`;
+                datalist.innerHTML += `<option value="${u.id}">${(u.nombre_completo || "").toUpperCase()} (${u.institucion || 'S/I'})</option>`;
             });
         }
         
@@ -740,16 +767,17 @@ window.filtrarUsuariosGlobal = function() {
         const idUnico = u.id;
         const ciTribunal = u.ci || u.id; 
         const instOEspec = u.institucion || "<span style='color:#94a3b8; font-size:0.8rem;'>Sin asignar</span>";
+        const nombreMayus = (u.nombre_completo || "SIN NOMBRE").toUpperCase();
         
-        const btnEditar = `<button onclick="window.abrirModalEdicion('${window.subTabUsuariosActual}', '${idUnico}', '${ciTribunal}', '${u.nombre_completo.replace(/'/g, "\\'")}', '${u.celular || ''}', '${u.correo || ''}', '${u.institucion || ''}')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-right: 5px;" title="Editar"><i class="fas fa-edit"></i></button>`;
-        const btnEliminar = `<button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${u.nombre_completo.replace(/'/g, "\\'")}')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
+        const btnEditar = `<button onclick="window.abrirModalEdicion('${window.subTabUsuariosActual}', '${idUnico}', '${ciTribunal}', '${nombreMayus.replace(/'/g, "\\'")}', '${u.celular || ''}', '${u.correo || ''}', '${u.institucion || ''}')" style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-right: 5px;" title="Editar"><i class="fas fa-edit"></i></button>`;
+        const btnEliminar = `<button onclick="window.eliminarUsuarioTotal('${window.subTabUsuariosActual}', '${idUnico}', '${nombreMayus.replace(/'/g, "\\'")}')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
 
         tbody.innerHTML += `
             <tr style="border-bottom: 1px solid #e2e8f0 !important; background-color: #ffffff !important;">
                 <td style="padding: 12px !important; color: #0f172a !important;">
                     <div style="display:flex; flex-direction:column; gap:4px; text-align: left;">
-                        <strong style="font-size: 1.05rem; color: #002b5c;"><i class="fas fa-user-circle" style="color: #4db8ff; margin-right:5px;"></i> ${u.nombre_completo || 'Sin Nombre'}</strong>
-                        <span style="color: #475569; font-size: 0.85rem;"><i class="fas fa-phone-alt" style="color: #28a745; margin-right:5px;"></i> ${u.celular || 'S/N'}</span>
+                        <strong style="font-size: 1.05rem; color: #002b5c !important;"><i class="fas fa-user-circle" style="color: #4db8ff; margin-right:5px;"></i> ${nombreMayus}</strong>
+                        <span style="color: #475569 !important; font-size: 0.85rem;"><i class="fas fa-phone-alt" style="color: #28a745; margin-right:5px;"></i> ${u.celular || 'S/N'}</span>
                     </div>
                 </td>
                 <td style="padding: 12px !important; color: #0f172a !important;">
@@ -757,7 +785,7 @@ window.filtrarUsuariosGlobal = function() {
                 </td>
                 <td style="padding: 12px !important; color: #334155 !important; font-size: 0.9rem !important;">
                     ${instOEspec}<br>
-                    <span style="color: #3b82f6; font-size: 0.8rem;">${u.correo || ''}</span>
+                    <span style="color: #3b82f6 !important; font-size: 0.8rem;">${u.correo || ''}</span>
                 </td>
                 <td style="padding: 12px !important; text-align: center !important; white-space: nowrap;">
                     ${btnEditar} ${btnEliminar}
@@ -771,7 +799,7 @@ window.abrirModalEdicion = function(rol, idOriginal, ciActual, nombre, celular, 
     document.getElementById('edit-rol').value = rol;
     document.getElementById('edit-idOriginal').value = idOriginal;
     document.getElementById('edit-ci').value = ciActual;
-    document.getElementById('edit-nombre').value = nombre;
+    document.getElementById('edit-nombre').value = (nombre || "").toUpperCase();
     document.getElementById('edit-celular').value = celular;
     document.getElementById('edit-correo').value = correo;
     document.getElementById('edit-institucion').value = institucion;
@@ -802,7 +830,7 @@ window.guardarEdicionUsuario = async function(e) {
         rol: document.getElementById('edit-rol').value,
         idOriginal: document.getElementById('edit-idOriginal').value,
         ci: document.getElementById('edit-ci').value.trim(),
-        nombre: document.getElementById('edit-nombre').value.trim(),
+        nombre: document.getElementById('edit-nombre').value.trim().toUpperCase(),
         celular: document.getElementById('edit-celular').value.trim(),
         correo: document.getElementById('edit-correo').value.trim(),
         institucion: document.getElementById('edit-institucion').value.trim()
@@ -1073,6 +1101,7 @@ window.guardarAsignacionTribunal = async function(e) {
         btn.disabled = false;
     }
 };
+
 window.registrarColaborador = async function(e) {
     e.preventDefault();
     const btn = document.getElementById('btnGuardarColaborador');
@@ -1080,11 +1109,11 @@ window.registrarColaborador = async function(e) {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando...';
     btn.disabled = true;
 
-    // Se asegura de que se guarde en MAYÚSCULA
+    const inputCel = document.getElementById('colabCelular');
     const data = {
         nombre: document.getElementById('colabNombre').value.trim().toUpperCase(),
         correo: document.getElementById('colabCorreo').value.trim(),
-        celular: document.getElementById('colabCelular').value.trim()
+        celular: (inputCel && inputCel.value.trim() !== "") ? inputCel.value.trim() : "S/N"
     };
 
     try {
@@ -1096,7 +1125,7 @@ window.registrarColaborador = async function(e) {
         const resData = await res.json();
         if (!res.ok) throw new Error(resData.error);
         alert(resData.mensaje);
-        e.target.reset(); // Limpia la ventanita
+        e.target.reset();
     } catch (err) {
         alert("❌ Error: " + err.message);
     } finally {

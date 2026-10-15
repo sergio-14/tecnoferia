@@ -329,6 +329,20 @@ window.generarVistaPrevia = async function() {
         const db = await res.json();
         const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones, colaboradores } = db;
 
+        // 🔥 DICCIONARIO CENTRALIZADO DE NUMERACIÓN OFICIAL (ID DESCENDENTE: LETRERO2F = #1, DIE-CERT = #11, GEOVECTOR = #19) 🔥
+        const proyectosValidosGlobales = [...proyectos]
+            .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
+            .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
+
+        let cEstGlobal = 1, cDocGlobal = 1, cEmpGlobal = 1;
+        const mapeoNumerosGlobales = {};
+        proyectosValidosGlobales.forEach(p => {
+            const cat = (p.categoria || "").toLowerCase();
+            if (cat.includes('estudiante')) mapeoNumerosGlobales[String(p.id)] = cEstGlobal++;
+            else if (cat.includes('docente')) mapeoNumerosGlobales[String(p.id)] = cDocGlobal++;
+            else if (cat.includes('emprendimiento')) mapeoNumerosGlobales[String(p.id)] = cEmpGlobal++;
+        });
+
         const obtenerRolesDeProyectos = (ci, nombre) => {
             const roles = [];
             const ciStr = String(ci).trim();
@@ -389,19 +403,6 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
-                // 🔥 ORDENACIÓN GLOBAL EXACTA: Ascendente (Más viejos primero = #1) 🔥
-                const proyectosValidosGlobales = proyectos
-                    .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
-
-                let cEst = 1, cDoc = 1, cEmp = 1;
-                let mapeoNumerosGlobales = {};
-                proyectosValidosGlobales.forEach(p => {
-                    if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
-                    else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
-                    else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
-                });
-
                 categorias.forEach(cat => {
                     html += `<h3 style="background:#002b5c; color:white; padding:10px; margin-top:30px; border-radius:4px;">${cat.nombre}</h3>`;
                     
@@ -434,17 +435,15 @@ window.generarVistaPrevia = async function() {
                             `;
 
                             const proyectosDeEsteTribunal = proyAsignados
-                                .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").includes(cat.id)))
+                                .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").toLowerCase().includes(cat.id)))
                                 .filter(p => p !== undefined);
 
-                            // Ordenamos los proyectos manteniendo el orden de su número global asignado
-                            proyectosDeEsteTribunal.sort((a, b) => mapeoNumerosGlobales[String(a.id)] - mapeoNumerosGlobales[String(b.id)]);
+                            proyectosDeEsteTribunal.sort((a, b) => (mapeoNumerosGlobales[String(a.id)] || 999) - (mapeoNumerosGlobales[String(b.id)] || 999));
 
                             proyectosDeEsteTribunal.forEach(proyectoDetalle => {
                                 let cleanIntegrantes = (proyectoDetalle.integrantes || "").replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
                                                                                 .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
                                                                                 .replace(/\|\|\|.*/g, ''); 
-                                // 🔥 IMPRIMIMOS EL NÚMERO GLOBAL EXACTO (Ej. #1, #11, #19) 🔥
                                 html += `
                                     <tr style="page-break-inside: avoid;">
                                         <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(proyectoDetalle.id)]}</td>
@@ -616,6 +615,7 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // 🔥 PADRÓN DE COLABORADORES (NOMBRE COMPLETO Y CORREO) 🔥
         else if (valor === "colaboradores") {
             const listaColab = colaboradores || [];
             listaColab.sort((a, b) => (a.nombre_completo || "").localeCompare(b.nombre_completo || ""));
@@ -623,21 +623,19 @@ window.generarVistaPrevia = async function() {
             let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">Padrón Oficial de Colaboradores (Total: ${listaColab.length})</h3>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
                 <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 45%;">Nombre Completo</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 25%;">Correo Electrónico</th>
-                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 25%;">Celular</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 8%;">N°</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 52%;">Nombre Completo</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 40%;">Correo Electrónico</th>
                 </tr></thead><tbody>`;
 
             if (listaColab.length === 0) {
-                htmlTabla += `<tr><td colspan="4" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay colaboradores registrados.</td></tr>`;
+                htmlTabla += `<tr><td colspan="3" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay colaboradores registrados.</td></tr>`;
             } else {
                 listaColab.forEach((c, i) => {
                     htmlTabla += `<tr>
                         <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${c.nombre_completo}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center; color: var(--azul-uab);">${c.correo || "N/A"}</td>
-                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${c.celular || "N/A"}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${(c.nombre_completo || "").toUpperCase()}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; color: var(--azul-uab);">${c.correo || "N/A"}</td>
                     </tr>`;
                 });
             }
@@ -717,15 +715,15 @@ window.generarVistaPrevia = async function() {
                     cat = (proyPrincipal.categoria || "").includes('estudiante') ? "1. Estudiantes Universitarios" : (proyPrincipal.categoria || "").includes('docente') ? "2. Docentes Investigadores" : "3. Emprendimientos Tecnológicos";
                 }
 
-                const nombreCapitalizado = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                const nombreMayuscula = (e.nombre_completo || "SIN NOMBRE").trim().toUpperCase();
 
                 grupos[cat].push({ 
-                    nombre_html: nombreCapitalizado, 
+                    nombre_html: nombreMayuscula, 
                     ci: e.ci || "N/A", 
                     institucion: e.institucion || "N/A", 
                     correo: (e.correo || "").toLowerCase(), 
                     celular: e.celular || "N/A",
-                    orden: e.nombre_completo || "Sin Nombre"
+                    orden: nombreMayuscula
                 });
             });
 
@@ -748,6 +746,7 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // 🔥 PADRÓN DE VISITANTES Y VOTACIÓN ESTRICTAMENTE EN MAYÚSCULAS 🔥
         else if (valor === "padron_visitantes") {
             const filtroSelect = document.getElementById('institucion-select');
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
@@ -759,7 +758,8 @@ window.generarVistaPrevia = async function() {
                 const i = (v.institucion || "N/A").trim();
                 const cel = v.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
-                    let n = (v.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                    const nombreBase = (v.nombre_completo || "SIN NOMBRE").trim().toUpperCase();
+                    let n = `<strong>${nombreBase}</strong>`;
                     const roles = obtenerRolesDeProyectos(v.ci, v.nombre_completo);
                     
                     if (roles.length > 0) {
@@ -768,7 +768,7 @@ window.generarVistaPrevia = async function() {
                             return `<br><span style="color: #008080; font-size: 0.82rem;">🟢 <b>Co-Expositor</b> — <i>"${r.proyecto.titulo}"</i></span>`;
                         }).join('');
                     }
-                    lVis.push({ n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
+                    lVis.push({ orden: nombreBase, n, ci: String(v.ci).trim(), i, cel, v: ciQueVotaron.has(String(v.ci).trim()) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
                 }
             });
 
@@ -777,7 +777,8 @@ window.generarVistaPrevia = async function() {
                 const cel = e.celular || "Sin número"; 
                 if (institucionElegida === "TODOS" || institucionElegida.toLowerCase() === i.toLowerCase()) {
                     const c = String(e.ci).trim();
-                    let n = (e.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+                    const nombreBase = (e.nombre_completo || "SIN NOMBRE").trim().toUpperCase();
+                    let n = `<strong>${nombreBase}</strong>`;
                     const roles = obtenerRolesDeProyectos(e.ci, e.nombre_completo);
                     
                     if (roles.length > 0) {
@@ -790,12 +791,12 @@ window.generarVistaPrevia = async function() {
                     }
 
                     const idx = lVis.findIndex(v => v.ci === c);
-                    if (idx === -1) lVis.push({ n, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
-                    else { lVis[idx].n = n; lVis[idx].cel = cel; } 
+                    if (idx === -1) lVis.push({ orden: nombreBase, n, ci: c, i, cel, v: ciQueVotaron.has(c) ? `<span style="color:#28a745; font-weight:bold;">✓ SÍ</span>` : `<span style="color:#dc3545; font-weight:bold;">❌ NO</span>` });
+                    else { lVis[idx].orden = nombreBase; lVis[idx].n = n; lVis[idx].cel = cel; } 
                 }
             });
 
-            lVis.sort((a, b) => a.n.localeCompare(b.n));
+            lVis.sort((a, b) => a.orden.localeCompare(b.orden));
             let titTab = institucionElegida === "TODOS" ? "Padrón General (Visitantes y Expositores)" : (/colegio|unidad|escuela|uab|universidad|instituto/i.test(institucionElegida)) ? `Lista de Asistencia: ${institucionElegida}` : `Visitantes Externos: ${institucionElegida}`;
 
             let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${titTab} (Total: ${lVis.length})</h3>
@@ -885,22 +886,9 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 ACTA DETALLADA DE TRIBUNALES AGRUPADA POR PROYECTO 🔥
+        // 🔥 ACTA DETALLADA DE TRIBUNALES AGRUPADA POR PROYECTO (USANDO NUMERACIÓN OFICIAL) 🔥
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
-
-            // 🔥 ORDENACIÓN GLOBAL EXACTA: Ascendente (Más viejos primero = #1) 🔥
-            const proyectosValidosGlobales = proyectos
-                .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
-
-            let cEst = 1, cDoc = 1, cEmp = 1;
-            let mapeoNumerosGlobales = {};
-            proyectosValidosGlobales.forEach(p => {
-                if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
-                else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
-                else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
-            });
 
             const proyectosEvaluados = {};
 
@@ -914,7 +902,7 @@ window.generarVistaPrevia = async function() {
                             id: proy.id,
                             titulo: proy.titulo,
                             categoria: cat,
-                            numGlobal: mapeoNumerosGlobales[proy.id] || "N/A",
+                            numGlobal: mapeoNumerosGlobales[String(proy.id)] || "N/A",
                             evaluaciones: []
                         };
                         grupos[cat].push(proyectosEvaluados[proy.id]);
@@ -1029,20 +1017,23 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // 🔥 PADRÓN DE TRIBUNALES CON LOS CAMPOS REALES DEL FORMULARIO 🔥
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
-                n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
-                e: t.especialidad || "No especificada", 
+                n: (t.nombre_completo || "SIN NOMBRE").trim().toUpperCase(), 
+                ci: t.ci || "S/N",
+                u: t.usuario_tribunal || "N/A",
                 c: t.correo || "No registrado",
                 cel: t.celular || "Sin número"
             })).sort((a, b) => a.n.localeCompare(b.n));
 
             let htmlF = "";
-            if (lTrib.length === 0) htmlF = `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
+            if (lTrib.length === 0) htmlF = `<tr><td colspan="6" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
             else lTrib.forEach((t, i) => htmlF += `<tr>
                 <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
                 <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${t.n}</td>
-                <td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.ci}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-family: monospace;">${t.u}</td>
                 <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.cel}</td>
                 <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
             </tr>`);
@@ -1051,10 +1042,11 @@ window.generarVistaPrevia = async function() {
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
                     <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;">
                         <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre del Tribunal</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Especialidad</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Correo Electrónico</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 32%;">Nombre del Evaluador</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 13%;">C.I.</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Usuario Asignado</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 13%;">Celular</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 22%;">Correo Electrónico</th>
                     </tr></thead>
                     <tbody>${htmlF}</tbody>
                 </table>
