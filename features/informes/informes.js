@@ -391,7 +391,7 @@ window.generarVistaPrevia = async function() {
 
                 const proyectosValidosGlobales = proyectos
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
+                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
                 let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
@@ -432,14 +432,15 @@ window.generarVistaPrevia = async function() {
                                         <tbody>
                             `;
                             
-                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[String(a)] || 999) - (mapeoNumerosGlobales[String(b)] || 999));
+                            // Ordenamos los proyectos para que se impriman manteniendo el orden de su número global
+                            proyAsignados.sort((a, b) => (mapeoNumerosGlobales[a] || 999) - (mapeoNumerosGlobales[b] || 999));
 
                             let contoProyectosTribunal = 0;
                             proyAsignados.forEach(idProy => {
-                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").includes(cat.id));
+                                const proyectoDetalle = proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && p.categoria.includes(cat.id));
                                 if (proyectoDetalle) {
                                     contoProyectosTribunal++;
-                                    let cleanIntegrantes = (proyectoDetalle.integrantes || "").replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
+                                    let cleanIntegrantes = proyectoDetalle.integrantes.replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
                                                                                     .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
                                                                                     .replace(/\|\|\|.*/g, ''); 
                                     html += `
@@ -490,7 +491,7 @@ window.generarVistaPrevia = async function() {
             });
 
             votos.forEach(v => {
-                if (diccionarioProyectos[v.id_proyecto]) {
+                if (diccionarioPremios[v.id_proyecto]) {
                     let notaP = parseFloat(v.nota) || 0; 
                     if (notaP > 100) notaP = 100;
                     diccionarioProyectos[v.id_proyecto].sumaPublico += notaP;
@@ -825,41 +826,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        else if (valor === "padron_tribunales") {
-            const lTrib = tribunales.map(t => ({ 
-                n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
-                e: t.especialidad || "No especificada", 
-                c: t.correo || "No registrado",
-                cel: t.celular || "Sin número"
-            })).sort((a, b) => a.n.localeCompare(b.n));
-
-            let htmlF = "";
-            if (lTrib.length === 0) htmlF = `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
-            else lTrib.forEach((t, i) => htmlF += `<tr>
-                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
-                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${t.n}</td>
-                <td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td>
-                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.cel}</td>
-                <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
-            </tr>`);
-
-            areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE TRIBUNALES EVALUADORES") + `
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
-                    <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;">
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre del Tribunal</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Especialidad</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
-                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Correo Electrónico</th>
-                    </tr></thead>
-                    <tbody>${htmlF}</tbody>
-                </table>
-                <div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
-                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Comité Organizador</p></div>
-                </div>`;
-        }
-        
         else if (valor === "ejes") {
             const ejesOficiales = ["Sistemas de Información para el Desarrollo Regional", "Tecnologías Emergentes y Transformación Digital", "Ingeniería de Software y Aplicaciones Web/Móviles", "Gobierno Electrónico y Transparencia Pública", "TIC para la Gestión Ambiental y Agropecuaria"];
             const proyectosPorEje = {};
@@ -918,60 +884,146 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
+        // 🔥 ACTA DETALLADA DE TRIBUNALES AGRUPADA POR PROYECTO 🔥
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
-            evaluaciones.forEach(ev => { 
-                const proy = proyectos.find(p => p.id === ev.id_proyecto);
-                const trib = tribunales.find(t => t.usuario_tribunal === ev.usuario_tribunal);
-                const nombreTribunalReal = trib ? trib.nombre_completo : (ev.usuario_tribunal || "Evaluador");
-                let cat = "OTRAS EVALUACIONES (Registros sin categoría)";
-                
-                if (proy) {
-                    cat = (proy.categoria || "").includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : (proy.categoria || "").includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
-                }
-                grupos[cat].push({ tituloProyecto: proy ? proy.titulo : "Proyecto Desconocido", nombreTribunal: nombreTribunalReal, notaTribunal: ev.nota, observaciones: ev.observaciones });
+            const proyectosValidosGlobales = proyectos
+                .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
+                .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
+
+            let cEst = 1, cDoc = 1, cEmp = 1;
+            let mapeoNumerosGlobales = {};
+            proyectosValidosGlobales.forEach(p => {
+                if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
+                else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
+                else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
             });
 
-            const generarTabla = (tituloCat, lista) => {
-                if (lista.length === 0 && tituloCat === "OTRAS EVALUACIONES (Registros sin categoría)") return "";
-                lista.sort((a, b) => (parseFloat(b.notaTribunal) || 0) - (parseFloat(a.notaTribunal) || 0));
+            const proyectosEvaluados = {};
+
+            evaluaciones.forEach(ev => { 
+                const proy = proyectos.find(p => p.id === ev.id_proyecto);
+                if (proy) {
+                    let cat = (proy.categoria || "").includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : (proy.categoria || "").includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+                    
+                    if (!proyectosEvaluados[proy.id]) {
+                        proyectosEvaluados[proy.id] = {
+                            id: proy.id,
+                            titulo: proy.titulo,
+                            categoria: cat,
+                            numGlobal: mapeoNumerosGlobales[proy.id] || "N/A",
+                            evaluaciones: []
+                        };
+                        grupos[cat].push(proyectosEvaluados[proy.id]);
+                    }
+
+                    const trib = tribunales.find(t => t.usuario_tribunal === ev.usuario_tribunal);
+                    let nombreTribunalReal = trib ? trib.nombre_completo : (ev.usuario_tribunal || "Evaluador");
+                    if (!nombreTribunalReal.toLowerCase().startsWith('ing')) nombreTribunalReal = "Ing. " + nombreTribunalReal;
+                    
+                    const notaConv = ((parseFloat(ev.nota) || 0) * 0.80).toFixed(2);
+                    let obs = ev.observaciones || "Sin observaciones registradas.";
+                    if (!obs.startsWith('"')) obs = '"' + obs + '"';
+
+                    proyectosEvaluados[proy.id].evaluaciones.push({
+                        nombreTribunal: nombreTribunalReal,
+                        notaConv: notaConv,
+                        observaciones: obs
+                    });
+                }
+            });
+
+            const generarTablaAgrupada = (tituloCat, listaProyectos) => {
+                if (listaProyectos.length === 0 && tituloCat === "OTRAS EVALUACIONES (Registros sin categoría)") return "";
+                
+                listaProyectos.sort((a, b) => (a.numGlobal === "N/A" ? 999 : a.numGlobal) - (b.numGlobal === "N/A" ? 999 : b.numGlobal));
+
                 let html = `
                     <h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${tituloCat}</h3>
-                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
                         <thead>
                             <tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
-                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 20%;">Proyecto Evaluado</th>
-                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Tribunal Asignado</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">Nº</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Proyecto Evaluado</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Tribunales Asignados</th>
                                 <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Puntaje (80%)</th>
-                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 45%;">Observaciones / Retroalimentación</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 35%;">Observaciones / Retroalimentación</th>
                             </tr>
                         </thead><tbody>`;
-                if (lista.length === 0) { html += `<tr><td colspan="4" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">Aún no se han registrado calificaciones.</td></tr>`; } 
+                
+                if (listaProyectos.length === 0) { 
+                    html += `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">Aún no se han registrado calificaciones en esta categoría.</td></tr>`; 
+                } 
                 else {
-                    lista.forEach(ev => {
-                        let tribunal = ev.nombreTribunal || "Ing. Evaluador";
-                        if (!tribunal.toLowerCase().startsWith('ing')) tribunal = "Ing. " + tribunal;
-                        const notaConv = ((parseFloat(ev.notaTribunal) || 0) * 0.80).toFixed(2);
-                        let obs = ev.observaciones || "Sin observaciones registradas.";
-                        if (!obs.startsWith('"')) obs = '"' + obs + '"';
+                    listaProyectos.forEach(proy => {
+                        const numEvals = proy.evaluaciones.length;
+                        if(numEvals === 0) return;
 
-                        html += `<tr>
-                                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold; color: var(--azul-uab);">${ev.tituloProyecto}</td>
-                                <td style="padding: 10px; border: 1px solid #ccc; text-transform: capitalize;">${tribunal}</td>
-                                <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 14px;">${notaConv}</td>
-                                <td style="padding: 10px; border: 1px solid #ccc; font-style: italic;">${obs}</td>
-                            </tr>`;
+                        proy.evaluaciones.forEach((ev, idx) => {
+                            html += `<tr style="page-break-inside: avoid;">`;
+                            if (idx === 0) {
+                                html += `
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 1.1rem; color: #002b5c; background: #f9f9f9; vertical-align: middle;">#${proy.numGlobal}</td>
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; font-weight: bold; color: var(--azul-uab); vertical-align: middle;">${proy.titulo} <br><span style="font-size: 0.85rem; color: #666; font-weight: normal; margin-top:5px; display:block;"><i class="fas fa-gavel"></i> ${numEvals} evaluación(es)</span></td>
+                                `;
+                            }
+                            html += `
+                                    <td style="padding: 10px; border: 1px solid #ccc; text-transform: capitalize;">${ev.nombreTribunal}</td>
+                                    <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 12px;">${ev.notaConv}</td>
+                                    <td style="padding: 10px; border: 1px solid #ccc; font-style: italic;">${ev.observaciones}</td>
+                                </tr>`;
+                        });
                     });
                 }
                 return html + `</tbody></table>`;
             };
 
             areaImpresion.innerHTML = generarCabeceraOficial("ACTA DETALLADA DE CALIFICACIONES DE TRIBUNALES", "El puntaje aquí reflejado representa únicamente la valoración técnica del Tribunal Evaluador, la cual equivale al 80% de la calificación final del proyecto.") + 
-                generarTabla("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + generarTabla("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTabla("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTabla("OTRAS EVALUACIONES (Registros sin categoría)", grupos["OTRAS EVALUACIONES (Registros sin categoría)"]) +
+                generarTablaAgrupada("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + generarTablaAgrupada("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + generarTablaAgrupada("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) + generarTablaAgrupada("OTRAS EVALUACIONES (Registros sin categoría)", grupos["OTRAS EVALUACIONES (Registros sin categoría)"]) +
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Representante del Tribunal</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. Instituto de Investigación</p></div>
+                </div>`;
+        }
+        
+        else if (valor === "no_clasificados") {
+            const noClasificados = proyectos.filter(p => p.estado_evaluacion === 'Evaluado (No clasifica)');
+            noClasificados.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || ""));
+
+            let htmlTabla = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #dc3545; padding: 8px; margin-top: 25px; margin-bottom: 0;">Proyectos No Clasificados a la Etapa Final (Total: ${noClasificados.length})</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+                <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 40%;">Título del Proyecto</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 35%;">Líder y Equipo</th>
+                    <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 20%;">Categoría</th>
+                </tr></thead><tbody>`;
+
+            if (noClasificados.length === 0) {
+                htmlTabla += `<tr><td colspan="4" style="padding: 8px; border: 1px solid #ccc; text-align: center; color: #666;">No hay proyectos en esta categoría.</td></tr>`;
+            } else {
+                noClasificados.forEach((p, i) => {
+                    let nombreLiderReal = "Desconocido";
+                    const expLider = expositores.find(e => e.ci === p.ci_propietario);
+                    if(expLider) nombreLiderReal = expLider.nombre_completo;
+                    const ints = extraerNombresDeProyecto(p.integrantes, String(p.ci_propietario).trim(), nombreLiderReal);
+                    let catName = (p.categoria || "").includes('estudiante') ? "Estudiante (Pregrado)" : (p.categoria || "").includes('docente') ? "Docente" : "Emprendimiento";
+
+                    htmlTabla += `<tr>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold; color: #dc3545;">${p.titulo}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc;">${ints}</td>
+                        <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${catName}</td>
+                    </tr>`;
+                });
+            }
+            htmlTabla += `</tbody></table>`;
+
+            areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE PROYECTOS NO CLASIFICADOS (PRE-SELECCIÓN)", "Los proyectos listados a continuación no alcanzaron el puntaje mínimo requerido en la evaluación técnica del jurado y no pasan a la fase de exposición presencial.") + htmlTabla +
+                `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
                 </div>`;
         }
 
