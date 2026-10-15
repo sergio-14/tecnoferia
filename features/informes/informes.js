@@ -194,7 +194,7 @@ window.generarCertificadoParticipacion = async function(ci) {
                     body { font-family: 'Times New Roman', serif; background: #525659; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
 
                     .instruccion-flotante { position: fixed; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); color: white; padding: 20px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 0.95rem; max-width: 320px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; line-height: 1.5; }
-                    .btn-imprimir { fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
+                    .btn-imprimir { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
                     .btn-imprimir:hover { background: #218838; transform: scale(1.05); }
 
                     .certificado-container {
@@ -389,18 +389,17 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
+                // 🔥 ORDENACIÓN GLOBAL EXACTA (Los más nuevos primero = ID Descendente) 🔥
                 const proyectosValidosGlobales = proyectos
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
+                    .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
 
+                let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
-                
-                // Mapeo general para ordenar, pero NO se mostrará en este reporte
-                let cEstGlob = 1, cDocGlob = 1, cEmpGlob = 1;
                 proyectosValidosGlobales.forEach(p => {
-                    if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEstGlob++;
-                    else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDocGlob++;
-                    else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmpGlob++;
+                    if((p.categoria || "").includes('estudiante')) mapeoNumerosGlobales[p.id] = cEst++;
+                    else if((p.categoria || "").includes('docente')) mapeoNumerosGlobales[p.id] = cDoc++;
+                    else if((p.categoria || "").includes('emprendimiento')) mapeoNumerosGlobales[p.id] = cEmp++;
                 });
 
                 categorias.forEach(cat => {
@@ -438,19 +437,17 @@ window.generarVistaPrevia = async function() {
                                 .map(idProy => proyectosValidosGlobales.find(p => String(p.id) === String(idProy) && (p.categoria || "").includes(cat.id)))
                                 .filter(p => p !== undefined);
 
-                            // Ordenamos usando el mapeo global para mantener la consistencia
+                            // Ordenamos los proyectos manteniendo el orden de su número global asignado
                             proyectosDeEsteTribunal.sort((a, b) => mapeoNumerosGlobales[String(a.id)] - mapeoNumerosGlobales[String(b.id)]);
-
-                            // 🔥 CORRECCIÓN CLAVE: Numeración Secuencial Independiente (1, 2, 3...) para CADA TRIBUNAL 🔥
-                            let numeracionLocalSecuencial = 1;
 
                             proyectosDeEsteTribunal.forEach(proyectoDetalle => {
                                 let cleanIntegrantes = (proyectoDetalle.integrantes || "").replace(/⭐ LÍDER:/g, '<b>Líder:</b>')
                                                                                 .replace(/👥 EQUIPO:/g, '<br><b>Equipo:</b>')
                                                                                 .replace(/\|\|\|.*/g, ''); 
+                                // 🔥 IMPRIMIMOS EL NÚMERO GLOBAL EXACTO (Ej. #1, #11, #19) 🔥
                                 html += `
                                     <tr style="page-break-inside: avoid;">
-                                        <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${numeracionLocalSecuencial++}</td>
+                                        <td style="padding:8px; border:1px solid #ccc; text-align:center; font-weight:bold; font-size:1.1rem; color:#002b5c; background:#f9f9f9;">#${mapeoNumerosGlobales[String(proyectoDetalle.id)]}</td>
                                         <td style="padding:8px; border:1px solid #ccc;">${proyectoDetalle.titulo}</td>
                                         <td style="padding:8px; border:1px solid #ccc;">${cleanIntegrantes}</td>
                                     </tr>
@@ -892,9 +889,10 @@ window.generarVistaPrevia = async function() {
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
+            // 🔥 ORDENACIÓN GLOBAL EXACTA (Los más nuevos primero = ID Descendente) 🔥
             const proyectosValidosGlobales = proyectos
                 .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
+                .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
 
             let cEst = 1, cDoc = 1, cEmp = 1;
             let mapeoNumerosGlobales = {};
