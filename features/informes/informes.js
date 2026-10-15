@@ -389,10 +389,10 @@ window.generarVistaPrevia = async function() {
                     { id: 'emprendimiento', nombre: '3. EMPRENDIMIENTOS TECNOLÓGICOS' }
                 ];
 
-                // 🔥 ORDENACIÓN GLOBAL EXACTA (Los más nuevos primero = ID Descendente) 🔥
+                // 🔥 ORDENACIÓN GLOBAL EXACTA: Ascendente (Más viejos primero = #1) 🔥
                 const proyectosValidosGlobales = proyectos
                     .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                    .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
+                    .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
                 let cEst = 1, cDoc = 1, cEmp = 1;
                 let mapeoNumerosGlobales = {};
@@ -889,10 +889,10 @@ window.generarVistaPrevia = async function() {
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
-            // 🔥 ORDENACIÓN GLOBAL EXACTA (Los más nuevos primero = ID Descendente) 🔥
+            // 🔥 ORDENACIÓN GLOBAL EXACTA: Ascendente (Más viejos primero = #1) 🔥
             const proyectosValidosGlobales = proyectos
                 .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-                .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
+                .sort((a, b) => parseInt(a.id) - parseInt(b.id)); 
 
             let cEst = 1, cDoc = 1, cEmp = 1;
             let mapeoNumerosGlobales = {};
@@ -1026,6 +1026,117 @@ window.generarVistaPrevia = async function() {
                 `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
+                </div>`;
+        }
+
+        else if (valor === "padron_tribunales") {
+            const lTrib = tribunales.map(t => ({ 
+                n: (t.nombre_completo || "Sin Nombre").toLowerCase().replace(/\b\w/g, l => l.toUpperCase()), 
+                e: t.especialidad || "No especificada", 
+                c: t.correo || "No registrado",
+                cel: t.celular || "Sin número"
+            })).sort((a, b) => a.n.localeCompare(b.n));
+
+            let htmlF = "";
+            if (lTrib.length === 0) htmlF = `<tr><td colspan="5" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay tribunales registrados.</td></tr>`;
+            else lTrib.forEach((t, i) => htmlF += `<tr>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i + 1}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${t.n}</td>
+                <td style="padding: 10px; border: 1px solid #ccc;">${t.e}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${t.cel}</td>
+                <td style="padding: 10px; border: 1px solid #ccc; color: var(--azul-uab);">${t.c}</td>
+            </tr>`);
+
+            areaImpresion.innerHTML = generarCabeceraOficial("PADRÓN OFICIAL DE TRIBUNALES EVALUADORES") + `
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 50px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
+                    <thead><tr style="background-color: #002b5c; color: #fff; border-bottom: 2px solid #000;">
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 5%;">N°</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 30%;">Nombre del Tribunal</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Especialidad</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
+                        <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 25%;">Correo Electrónico</th>
+                    </tr></thead>
+                    <tbody>${htmlF}</tbody>
+                </table>
+                <div style="display: flex; justify-content: space-around; margin-top: 70px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Resp. de Registro y Admisión</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 230px;">Firma y Sello<br>Comité Organizador</p></div>
+                </div>`;
+        }
+
+        else if (valor === "visitantes") {
+            const diccProyectos = {};
+            proyectos.forEach(p => {
+                let cat = (p.categoria || "").includes('estudiante') ? "1. ESTUDIANTES UNIVERSITARIOS" : (p.categoria || "").includes('docente') ? "2. DOCENTES INVESTIGADORES" : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+                diccProyectos[p.id] = { titulo: p.titulo || "Sin Título", categoria: cat, visitas: 0, sumaNotas: 0 };
+            });
+
+            const afluenciaInst = {};
+            visitantes.forEach(v => {
+                const instNorm = (v.institucion || "Independiente").trim().toUpperCase();
+                afluenciaInst[instNorm] = (afluenciaInst[instNorm] || 0) + 1;
+            });
+
+            votos.forEach(v => {
+                if (diccProyectos[v.id_proyecto]) {
+                    diccProyectos[v.id_proyecto].visitas += 1;
+                    diccProyectos[v.id_proyecto].sumaNotas += Math.min(parseFloat(v.nota) || 0, 100);
+                }
+            });
+
+            const listaProy = [];
+            Object.values(diccProyectos).forEach(p => {
+                if (p.visitas > 0) listaProy.push({ titulo: p.titulo, categoria: p.categoria, visitas: p.visitas, prom: p.sumaNotas / p.visitas, pts20: (p.sumaNotas / p.visitas) * 0.20 }); 
+            });
+
+            const totalProyValidos = proyectos.filter(p => p.estado_evaluacion === 'Pre-seleccionado' || p.estado_evaluacion === 'Evaluado').length;
+            const promVotosProyecto = totalProyValidos > 0 ? (votos.length / totalProyValidos).toFixed(2) : "0.00";
+
+            const generarTablaV = (cat) => {
+                const filtrados = listaProy.filter(p => p.categoria === cat).sort((a, b) => b.pts20 - a.pts20);
+                let html = `<h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 20px; margin-bottom: 0;">${cat}</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
+                        <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 40%;">Nombre del Proyecto</th>
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 20%;">Visitas Recibidas</th>
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 20%;">Promedio (1-100)</th>
+                            <th style="padding: 10px; border: 1px solid #ccc; text-align: center; color: var(--azul-uab); width: 20%;">Puntaje (20%)</th>
+                        </tr></thead><tbody>`;
+                if (filtrados.length === 0) { html += `<tr><td colspan="4" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">Aún no hay votos del público en esta categoría.</td></tr>`; } 
+                else {
+                    filtrados.forEach(p => {
+                        html += `<tr>
+                            <td style="padding: 10px; border: 1px solid #ccc; font-weight: bold;">${p.titulo}</td>
+                            <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${p.visitas}</td>
+                            <td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${p.prom.toFixed(2)}</td>
+                            <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 14px; color: var(--azul-uab);">${p.pts20.toFixed(2)}</td>
+                        </tr>`;
+                    });
+                }
+                return html + `</tbody></table>`;
+            };
+
+            const listaInst = Object.keys(afluenciaInst).map(i => ({ nombre: i, cant: afluenciaInst[i], pct: visitantes.length > 0 ? Math.round((afluenciaInst[i] / visitantes.length) * 100) : 0 })).sort((a, b) => b.cant - a.cant);
+            let htmlInst = "";
+            if (listaInst.length === 0) htmlInst = `<tr><td colspan="3" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay visitantes habilitados registrados.</td></tr>`;
+            else listaInst.forEach(i => htmlInst += `<tr><td style="padding: 10px; border: 1px solid #ccc; text-transform: capitalize;">${i.nombre.toLowerCase()}</td><td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i.cant}</td><td style="padding: 10px; border: 1px solid #ccc; text-align: center;">${i.pct}%</td></tr>`);
+
+            areaImpresion.innerHTML = generarCabeceraOficial("REPORTE DE VOTACIÓN Y AFLUENCIA DEL PÚBLICO") + `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-family: Arial, sans-serif;">
+                    <div style="border: 2px solid #001f54; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Total de Visitantes</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${visitantes.length}</p></div>
+                    <div style="border: 2px solid #28a745; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Votos Emitidos</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${votos.length}</p></div>
+                    <div style="border: 2px solid #ffc107; border-radius: 8px; padding: 15px; width: 30%; text-align: center;"><h4 style="margin: 0; color: #555; font-size: 12px; text-transform: uppercase;">Promedio de Votos/Proyecto</h4><p style="margin: 10px 0 0; font-size: 24px; font-weight: bold; color: #000;">${promVotosProyecto}</p></div>
+                </div>
+                <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 30px;">A. Desglose de Votación por Proyecto (20% de la Nota Final)</h3>
+                ${generarTablaV("1. ESTUDIANTES UNIVERSITARIOS") + generarTablaV("2. DOCENTES INVESTIGADORES") + generarTablaV("3. EMPRENDIMIENTOS TECNOLÓGICOS")}
+                <h3 style="font-family: Arial, sans-serif; font-size: 15px; color: #000; border-bottom: 2px solid #001f54; padding-bottom: 5px; margin-top: 40px;">B. Afluencia por Instituciones Externas</h3>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px; font-family: Arial, sans-serif; font-size: 12px; color: #000;">
+                    <thead><tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;"><th style="padding: 10px; border: 1px solid #ccc; text-align: left;">Nombre de la Institución</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center;">Cantidad de Visitantes</th><th style="padding: 10px; border: 1px solid #ccc; text-align: center;">Porcentaje del Total</th></tr></thead>
+                    <tbody>${htmlInst}</tbody>
+                </table>
+                <div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. de Interacción Social I.I.S.P.</p></div>
+                    <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador</p></div>
                 </div>`;
         }
 
