@@ -63,9 +63,95 @@ const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "", nombreL
     return `Líder: ${nombreLiderReal}`;
 };
 
+// 🔥 FUNCIÓN PARA EXTRAER SOLAMENTE AL LÍDER DEL PROYECTO 🔥
+const extraerSoloLiderDeProyecto = (integrantesStringRaw, nombreLiderReal = "") => {
+    if (nombreLiderReal && nombreLiderReal !== "Desconocido") {
+        return nombreLiderReal.trim();
+    }
+    if (integrantesStringRaw && integrantesStringRaw.includes('⭐ LÍDER:')) {
+        return integrantesStringRaw.split('⭐ LÍDER:')[1].split('|')[0].trim();
+    }
+    return "Sin Líder Registrado";
+};
+
+// 🔥 ORDEN OFICIAL FIJO E INAMOVIBLE DE PROYECTOS 🔥
+const ORDEN_OFICIAL_ESTUDIANTES = [
+    { num: 1, clave: "letrero2f" },
+    { num: 2, clave: "siscombec" },
+    { num: 3, clave: "contabeni" },
+    { num: 4, clave: "niva" },
+    { num: 5, clave: "sensor de medicion" },
+    { num: 6, clave: "aula virtual" },
+    { num: 7, clave: "redtrampa" },
+    { num: 8, clave: "reporte ciudadano" },
+    { num: 9, clave: "estudios de campo en salud" },
+    { num: 10, clave: "benitours" },
+    { num: 11, clave: "die-cert" },
+    { num: 12, clave: "cronoclick" },
+    { num: 13, clave: "invernia" },
+    { num: 14, clave: "ubistock" },
+    { num: 15, clave: "ingreso por servicio hospitalario" },
+    { num: 16, clave: "trinidad reporta" },
+    { num: 17, clave: "cine express" },
+    { num: 18, clave: "bio-beni" },
+    { num: 19, clave: "geovector" }
+];
+
+const ORDEN_OFICIAL_DOCENTES = [
+    { num: 1, clave: "plataforma geoespacial" },
+    { num: 2, clave: "derivadas parciales" },
+    { num: 3, clave: "cabina fotografica" },
+    { num: 4, clave: "comercia" },
+    { num: 5, clave: "mis finanzas" },
+    { num: 6, clave: "feriafit" },
+    { num: 7, clave: "control ganadero" }
+];
+
+const construirMapaNumerosOficiales = (proyectos) => {
+    const proyectosValidos = [...proyectos]
+        .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
+        .sort((a, b) => parseInt(a.id) - parseInt(b.id));
+
+    const mapa = {};
+    let fallbackEst = 20, fallbackDoc = 8, fallbackEmp = 1;
+
+    proyectosValidos.forEach(p => {
+        const titNorm = normalizarNombre(p.titulo || "");
+        const cat = (p.categoria || "").toLowerCase();
+
+        if (cat.includes('estudiante')) {
+            const encontrado = ORDEN_OFICIAL_ESTUDIANTES.find(item => titNorm.includes(item.clave));
+            mapa[String(p.id)] = encontrado ? encontrado.num : fallbackEst++;
+        } else if (cat.includes('docente')) {
+            const encontrado = ORDEN_OFICIAL_DOCENTES.find(item => titNorm.includes(item.clave));
+            mapa[String(p.id)] = encontrado ? encontrado.num : fallbackDoc++;
+        } else if (cat.includes('emprendimiento')) {
+            mapa[String(p.id)] = fallbackEmp++;
+        }
+    });
+
+    return { proyectosValidos, mapa };
+};
+
 function inicializarFiltroVisitantes() {
     const tipoSelect = document.getElementById('tipo-informe-select');
     if(!tipoSelect) return;
+
+    // 🔥 INYECTAR AUTOMÁTICAMENTE LA OPCIÓN DE DETALLE DE IMPACTO SOCIAL EN EL SELECT 🔥
+    if (!tipoSelect.querySelector('option[value="detalle_impacto"]')) {
+        const optImpacto = document.createElement('option');
+        optImpacto.value = 'detalle_impacto';
+        optImpacto.style.fontWeight = 'bold';
+        optImpacto.style.color = '#198754';
+        optImpacto.textContent = '🌱 Detalle de Calificaciones: Premio al Impacto Social (Criterio 5)';
+        
+        const optPremios = tipoSelect.querySelector('option[value="premios_especiales"]');
+        if (optPremios && optPremios.nextSibling) {
+            tipoSelect.insertBefore(optImpacto, optPremios.nextSibling);
+        } else {
+            tipoSelect.appendChild(optImpacto);
+        }
+    }
 
     tipoSelect.addEventListener('change', async (e) => {
         let subContainer = document.getElementById('sub-filtro-visitantes');
@@ -329,19 +415,8 @@ window.generarVistaPrevia = async function() {
         const db = await res.json();
         const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones, colaboradores } = db;
 
-        // 🔥 DICCIONARIO CENTRALIZADO DE NUMERACIÓN OFICIAL (ID DESCENDENTE: LETRERO2F = #1, DIE-CERT = #11, GEOVECTOR = #19) 🔥
-        const proyectosValidosGlobales = [...proyectos]
-            .filter(p => p.estado_evaluacion !== 'Evaluado (No clasifica)')
-            .sort((a, b) => parseInt(b.id) - parseInt(a.id)); 
-
-        let cEstGlobal = 1, cDocGlobal = 1, cEmpGlobal = 1;
-        const mapeoNumerosGlobales = {};
-        proyectosValidosGlobales.forEach(p => {
-            const cat = (p.categoria || "").toLowerCase();
-            if (cat.includes('estudiante')) mapeoNumerosGlobales[String(p.id)] = cEstGlobal++;
-            else if (cat.includes('docente')) mapeoNumerosGlobales[String(p.id)] = cDocGlobal++;
-            else if (cat.includes('emprendimiento')) mapeoNumerosGlobales[String(p.id)] = cEmpGlobal++;
-        });
+        // 🔥 DICCIONARIO CENTRALIZADO CON EL ORDEN OFICIAL EXACTO 🔥
+        const { proyectosValidos: proyectosValidosGlobales, mapa: mapeoNumerosGlobales } = construirMapaNumerosOficiales(proyectos);
 
         const obtenerRolesDeProyectos = (ci, nombre) => {
             const roles = [];
@@ -613,6 +688,135 @@ window.generarVistaPrevia = async function() {
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Comité Organizador I.I.S.P.</p></div>
                     <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Director de Carrera UABJB</p></div>
                 </div>`;
+        }
+
+        // 🔥 NUEVO INFORME: DETALLE DE VOTACIÓN DE TRIBUNALES PARA EL PREMIO IMPACTO SOCIAL (CRITERIO 5) 🔥
+        else if (valor === "detalle_impacto") {
+            const grupos = { 
+                "1. ESTUDIANTES UNIVERSITARIOS": [], 
+                "2. DOCENTES INVESTIGADORES": [], 
+                "3. EMPRENDIMIENTOS TECNOLÓGICOS": [] 
+            };
+
+            const proyectosImpacto = {};
+
+            evaluaciones.forEach(ev => {
+                const proy = proyectos.find(p => p.id === ev.id_proyecto);
+                if (proy && proy.estado_evaluacion !== 'Evaluado (No clasifica)') {
+                    let cat = (proy.categoria || "").includes('estudiante') 
+                        ? "1. ESTUDIANTES UNIVERSITARIOS" 
+                        : (proy.categoria || "").includes('docente') 
+                            ? "2. DOCENTES INVESTIGADORES" 
+                            : "3. EMPRENDIMIENTOS TECNOLÓGICOS";
+
+                    if (!proyectosImpacto[proy.id]) {
+                        let nombreLiderReal = "Desconocido";
+                        const expLider = expositores.find(e => String(e.ci).trim() === String(proy.ci_propietario).trim());
+                        if (expLider) nombreLiderReal = expLider.nombre_completo;
+
+                        const soloLider = extraerSoloLiderDeProyecto(proy.integrantes, nombreLiderReal);
+
+                        proyectosImpacto[proy.id] = {
+                            id: proy.id,
+                            titulo: proy.titulo || "Sin Título",
+                            lider: soloLider,
+                            categoria: cat,
+                            numGlobal: mapeoNumerosGlobales[String(proy.id)] || "N/A",
+                            evaluaciones: [],
+                            sumaImpacto: 0
+                        };
+                        grupos[cat].push(proyectosImpacto[proy.id]);
+                    }
+
+                    const trib = tribunales.find(t => t.usuario_tribunal === ev.usuario_tribunal);
+                    let nombreTribunalReal = trib ? trib.nombre_completo : (ev.usuario_tribunal || "Evaluador");
+                    if (!nombreTribunalReal.toLowerCase().startsWith('ing')) nombreTribunalReal = "Ing. " + nombreTribunalReal;
+
+                    const ptsImpacto = parseFloat(ev.nota_impacto) || 0;
+                    proyectosImpacto[proy.id].sumaImpacto += ptsImpacto;
+
+                    proyectosImpacto[proy.id].evaluaciones.push({
+                        nombreTribunal: nombreTribunalReal,
+                        notaImpacto: ptsImpacto.toFixed(2)
+                    });
+                }
+            });
+
+            // Calcular el promedio global para identificar el puntaje más alto de toda la feria
+            let maxPromedioGlobal = 0;
+            Object.values(proyectosImpacto).forEach(p => {
+                p.promedioImpacto = p.evaluaciones.length > 0 ? (p.sumaImpacto / p.evaluaciones.length) : 0;
+                if (p.promedioImpacto > maxPromedioGlobal) maxPromedioGlobal = p.promedioImpacto;
+            });
+
+            const generarTablaImpacto = (tituloCat, listaProyectos) => {
+                // Ordenar estrictamente por la numeración oficial (#1, #2, #3...)
+                listaProyectos.sort((a, b) => (a.numGlobal === "N/A" ? 999 : a.numGlobal) - (b.numGlobal === "N/A" ? 999 : b.numGlobal));
+
+                let html = `
+                    <h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">${tituloCat}</h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 6%;">Nº</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 32%;">Título del Proyecto</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 22%;">Líder del Proyecto</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: left; width: 20%;">Tribunal Evaluador</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Criterio 5 (Máx 15)</th>
+                                <th style="padding: 10px; border: 1px solid #ccc; text-align: center; width: 10%;">Promedio Impacto</th>
+                            </tr>
+                        </thead><tbody>`;
+
+                if (listaProyectos.length === 0) {
+                    html += `<tr><td colspan="6" style="padding: 10px; border: 1px solid #ccc; text-align: center; color: #666;">No hay evaluaciones de impacto registradas en esta categoría.</td></tr>`;
+                } else {
+                    listaProyectos.forEach(proy => {
+                        const numEvals = proy.evaluaciones.length;
+                        if (numEvals === 0) return;
+
+                        const esMaximo = maxPromedioGlobal > 0 && Math.abs(proy.promedioImpacto - maxPromedioGlobal) < 0.001;
+                        const bgPromedio = esMaximo ? "#e8f8ee" : "#f9f9f9";
+                        const colorPromedio = esMaximo ? "#198754" : "#002b5c";
+
+                        proy.evaluaciones.forEach((ev, idx) => {
+                            html += `<tr style="page-break-inside: avoid;">`;
+                            if (idx === 0) {
+                                html += `
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 1.1rem; color: #002b5c; background: #f9f9f9; vertical-align: middle;">#${proy.numGlobal}</td>
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; font-weight: bold; color: #002b5c; vertical-align: middle;">${proy.titulo}</td>
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; vertical-align: middle;"><strong>Líder:</strong> ${proy.lider}</td>
+                                `;
+                            }
+                            html += `
+                                    <td style="padding: 10px; border: 1px solid #ccc; text-transform: capitalize;">${ev.nombreTribunal}</td>
+                                    <td style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 12px;">${ev.notaImpacto} / 15</td>
+                            `;
+                            if (idx === 0) {
+                                html += `
+                                    <td rowspan="${numEvals}" style="padding: 10px; border: 1px solid #ccc; text-align: center; font-weight: bold; font-size: 13px; color: ${colorPromedio}; background: ${bgPromedio}; vertical-align: middle;">
+                                        ${proy.promedioImpacto.toFixed(2)} / 15
+                                        ${esMaximo ? `<br><span style="font-size: 9px; color: #198754; text-transform: uppercase;">★ Mayor Puntaje</span>` : ''}
+                                    </td>
+                                `;
+                            }
+                            html += `</tr>`;
+                        });
+                    });
+                }
+                return html + `</tbody></table>`;
+            };
+
+            areaImpresion.innerHTML = generarCabeceraOficial(
+                "DETALLE DE CALIFICACIONES DE TRIBUNALES: PREMIO AL IMPACTO SOCIAL (CRITERIO 5)", 
+                "Este informe desglosa el puntaje otorgado por cada miembro del Tribunal Evaluador específicamente en el Criterio 5 de la rúbrica oficial (Impacto social, ambiental o productivo, sobre un máximo de 15 puntos), mantendo la numeración oficial de proyectos y su respectivo Líder."
+            ) + 
+            generarTablaImpacto("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + 
+            generarTablaImpacto("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + 
+            generarTablaImpacto("3. EMPRENDIMIENTOS TECNOLÓGICOS", grupos["3. EMPRENDIMIENTOS TECNOLÓGICOS"]) +
+            `<div style="display: flex; justify-content: space-around; margin-top: 60px; text-align: center; font-family: Arial, sans-serif; font-size: 13px; color: #000; page-break-inside: avoid;">
+                <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Representante del Tribunal</p></div>
+                <div><p style="margin: 0; border-top: 1px solid #000; padding-top: 5px; width: 220px;">Firma y Sello<br>Resp. Instituto de Investigación</p></div>
+            </div>`;
         }
 
         // 🔥 PADRÓN DE COLABORADORES (NOMBRE COMPLETO Y CORREO) 🔥
