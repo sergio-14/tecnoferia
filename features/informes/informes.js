@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos, Certificados y Actas de Terna
+// FUNCIÓN: Generación de reportes dinámicos, 5 Certificados Oficiales y Ternas
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -74,6 +74,55 @@ const extraerSoloLiderDeProyecto = (integrantesStringRaw, nombreLiderReal = "") 
     return "Sin Líder Registrado";
 };
 
+// 🔥 EXTRAER TODOS LOS MIEMBROS DE UN PROYECTO (LÍDER + EQUIPO) PARA CERTIFICADOS 🔥
+const obtenerMiembrosProyecto = (proy, expositores) => {
+    const miembros = [];
+    const ciLider = String(proy.ci_propietario || "").trim();
+    const expLider = expositores.find(e => String(e.ci).trim() === ciLider);
+    let nombreLider = expLider ? expLider.nombre_completo : "";
+
+    const raw = proy.integrantes || "";
+    if (!nombreLider && raw.includes('⭐ LÍDER:')) {
+        nombreLider = raw.split('⭐ LÍDER:')[1].split('|')[0].trim();
+    }
+    if (nombreLider) {
+        miembros.push({ ci: ciLider || nombreLider, nombre: nombreLider.trim(), rolProyecto: 'LÍDER DE PROYECTO' });
+    }
+
+    if (raw.includes('|||')) {
+        try {
+            const arr = JSON.parse(raw.split('|||')[1].trim());
+            arr.forEach(m => {
+                if (m && m.nombre) {
+                    const ciM = String(m.ci || m.nombre).trim();
+                    const yaEsta = miembros.some(x => (x.ci && x.ci === ciM) || normalizarNombre(x.nombre) === normalizarNombre(m.nombre));
+                    if (!yaEsta) {
+                        miembros.push({ ci: ciM, nombre: m.nombre.trim(), rolProyecto: 'EXPOSITOR(A)' });
+                    }
+                }
+            });
+        } catch (e) {}
+    } else {
+        let textoRaw = raw.replace('⭐ LÍDER:', '').replace(/\|\s*👥 EQUIPO:/, '|').trim();
+        const partes = textoRaw.split('|');
+        const eqStr = partes.length > 1 ? partes[1] : partes[0];
+        let nombresExtra = [];
+        if (/\d\./.test(eqStr)) {
+            nombresExtra = eqStr.split(/\d+\./).map(s => s.trim()).filter(s => s.length > 2);
+        } else if (eqStr.includes(',') || eqStr.toLowerCase().includes(' y ')) {
+            nombresExtra = eqStr.split(/,(?![^\(]*\))|\by\b|\(integrante\)/i).map(s => s.trim()).filter(s => s.length > 2);
+        }
+        nombresExtra.forEach(nom => {
+            const limpio = nom.replace(/\(CI:.*?\)/ig, '').trim();
+            if (limpio.length > 2 && !miembros.some(x => normalizarNombre(x.nombre) === normalizarNombre(limpio))) {
+                const expMatch = expositores.find(e => normalizarNombre(e.nombre_completo) === normalizarNombre(limpio));
+                miembros.push({ ci: expMatch ? String(expMatch.ci).trim() : limpio, nombre: limpio, rolProyecto: 'EXPOSITOR(A)' });
+            }
+        });
+    }
+    return miembros;
+};
+
 // 🔥 ORDEN OFICIAL FIJO E INAMOVIBLE DE PROYECTOS 🔥
 const ORDEN_OFICIAL_ESTUDIANTES = [
     { num: 1, clave: "letrero2f" },
@@ -133,11 +182,90 @@ const construirMapaNumerosOficiales = (proyectos) => {
     return { proyectosValidos, mapa };
 };
 
+// 🔥 CARGAR BUSCADOR INTELIGENTE DE CERTIFICADOS CON TODAS LAS TABLAS 🔥
+window.cargarBuscadorCertificadosCompleto = async function() {
+    const datalist = document.getElementById('lista-usuarios-cert');
+    if (!datalist) return;
+
+    try {
+        const res = await fetch('/api/datos_informes');
+        const db = await res.json();
+        const { proyectos, expositores, tribunales, visitantes, colaboradores } = db;
+
+        const opcionesMap = new Map();
+
+        // 1. Expositores y Co-expositores de proyectos
+        proyectos.forEach(p => {
+            if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
+            const miembros = obtenerMiembrosProyecto(p, expositores);
+            miembros.forEach(m => {
+                const clave = normalizarNombre(m.nombre);
+                const valorInput = (m.ci && m.ci !== m.nombre) ? m.ci : m.nombre;
+                opcionesMap.set(clave, {
+                    valor: valorInput,
+                    etiqueta: `${m.nombre.toUpperCase()} — Expositor: "${p.titulo}"`
+                });
+            });
+        });
+
+        // 2. Expositores sueltos
+        expositores.forEach(e => {
+            const clave = normalizarNombre(e.nombre_completo);
+            if (!opcionesMap.has(clave)) {
+                opcionesMap.set(clave, {
+                    valor: e.ci,
+                    etiqueta: `${(e.nombre_completo || "").toUpperCase()} — Expositor (${e.institucion || 'UABJB'})`
+                });
+            }
+        });
+
+        // 3. Colaboradores (Búsqueda por nombre o ID)
+        (colaboradores || []).forEach(c => {
+            const clave = normalizarNombre(c.nombre_completo);
+            opcionesMap.set(`colab_${clave}`, {
+                valor: c.nombre_completo.toUpperCase(),
+                etiqueta: `🤝 ${c.nombre_completo.toUpperCase()} — COLABORADOR OFICIAL`
+            });
+        });
+
+        // 4. Tribunales
+        (tribunales || []).forEach(t => {
+            const clave = normalizarNombre(t.nombre_completo);
+            if (!opcionesMap.has(clave)) {
+                opcionesMap.set(clave, {
+                    valor: t.ci || t.usuario_tribunal || t.nombre_completo,
+                    etiqueta: `⚖️ ${(t.nombre_completo || "").toUpperCase()} — Tribunal Evaluador`
+                });
+            }
+        });
+
+        // 5. Visitantes
+        (visitantes || []).forEach(v => {
+            const clave = normalizarNombre(v.nombre_completo);
+            if (!opcionesMap.has(clave)) {
+                opcionesMap.set(clave, {
+                    valor: v.ci,
+                    etiqueta: `${(v.nombre_completo || "").toUpperCase()} — Visitante (${v.institucion || 'Público'})`
+                });
+            }
+        });
+
+        datalist.innerHTML = '';
+        Array.from(opcionesMap.values()).forEach(op => {
+            const option = document.createElement('option');
+            option.value = op.valor;
+            option.textContent = op.etiqueta;
+            datalist.appendChild(option);
+        });
+    } catch (e) {
+        console.error("Error poblando buscador de certificados:", e);
+    }
+};
+
 function inicializarFiltroVisitantes() {
     const tipoSelect = document.getElementById('tipo-informe-select');
     if(!tipoSelect) return;
 
-    // 🔥 INYECTAR AUTOMÁTICAMENTE LA OPCIÓN DE DETALLE DE IMPACTO SOCIAL EN EL SELECT 🔥
     if (!tipoSelect.querySelector('option[value="detalle_impacto"]')) {
         const optImpacto = document.createElement('option');
         optImpacto.value = 'detalle_impacto';
@@ -210,9 +338,11 @@ window.toggleBuscadorCertificado = function() {
     if (select.value === 'certificado') {
         cajaBusqueda.style.display = 'block';
         inputCi.setAttribute('required', 'true');
+        inputCi.setAttribute('placeholder', 'Escriba el C.I. o Nombre Completo (Expositor, Colaborador, etc.)...');
         cajaBusqueda.style.opacity = '0';
         setTimeout(() => cajaBusqueda.style.opacity = '1', 50);
         cajaBusqueda.style.transition = 'opacity 0.3s ease';
+        window.cargarBuscadorCertificadosCompleto();
     } else {
         cajaBusqueda.style.display = 'none';
         inputCi.removeAttribute('required');
@@ -226,13 +356,13 @@ window.procesarInformeActual = async function(e) {
     const textoOriginal = btn.innerHTML;
 
     if (tipo === 'certificado') {
-        const ci = document.getElementById('cert-ci-input').value.trim();
-        if (!ci) { alert("⚠️ Por favor, ingrese el CI del participante."); return; }
+        const termino = document.getElementById('cert-ci-input').value.trim();
+        if (!termino) { alert("⚠️ Por favor, ingrese el C.I. o Nombre Completo de la persona."); return; }
         
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando y Generando...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando Rol y Premios...';
         btn.disabled = true;
 
-        await window.generarCertificadoParticipacion(ci);
+        await window.generarCertificadoParticipacion(termino);
         
         btn.innerHTML = textoOriginal;
         btn.disabled = false;
@@ -242,148 +372,888 @@ window.procesarInformeActual = async function(e) {
     window.imprimirInformeActual(e);
 };
 
-window.generarCertificadoParticipacion = async function(ci) {
+// =========================================================================
+// 🔥 MOTOR DE LOS 5 CERTIFICADOS OFICIALES CON DETECCIÓN AUTOMÁTICA 🔥
+// =========================================================================
+window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     try {
-        const res = await fetch(`/api/usuarios/${ci}`);
-        if (!res.ok) {
-            alert("❌ Usuario no encontrado en la base de datos. Verifique el C.I.");
+        const res = await fetch('/api/datos_informes');
+        if (!res.ok) throw new Error("Error al consultar la base de datos.");
+        const db = await res.json();
+        const { proyectos, expositores, tribunales, visitantes, votos, evaluaciones, colaboradores } = db;
+
+        const termNorm = normalizarNombre(terminoBusqueda);
+        const termRaw = String(terminoBusqueda).trim();
+
+        // 1. CALCULAR GANADORES DE CATEGORÍAS, IMPACTO SOCIAL Y VOTO DEL PÚBLICO
+        const statsProyectos = {};
+        proyectos.forEach(p => {
+            if (p.estado_evaluacion === "Evaluado" || p.estado_evaluacion === "Pre-seleccionado") {
+                const catRaw = (p.categoria || "").toLowerCase();
+                const catKey = catRaw.includes('estudiante') ? 'estudiantes' : catRaw.includes('docente') ? 'docentes' : 'emprendimientos';
+                const catNombre = catKey === 'estudiantes' 
+                    ? 'Estudiantes Universitarios (Pregrado)' 
+                    : catKey === 'docentes' 
+                        ? 'Docentes Investigadores' 
+                        : 'Emprendimientos Tecnológicos';
+
+                statsProyectos[p.id] = {
+                    proyecto: p,
+                    id: p.id,
+                    titulo: p.titulo || "Sin Título",
+                    catKey,
+                    catNombre,
+                    sumaTribunal: 0,
+                    cantTribunal: 0,
+                    sumaImpacto: 0,
+                    sumaPublico: 0,
+                    cantPublico: 0,
+                    miembros: obtenerMiembrosProyecto(p, expositores)
+                };
+            }
+        });
+
+        evaluaciones.forEach(ev => {
+            if (statsProyectos[ev.id_proyecto]) {
+                statsProyectos[ev.id_proyecto].sumaTribunal += (parseFloat(ev.nota) || 0);
+                statsProyectos[ev.id_proyecto].sumaImpacto += (parseFloat(ev.nota_impacto) || 0);
+                statsProyectos[ev.id_proyecto].cantTribunal += 1;
+            }
+        });
+
+        votos.forEach(v => {
+            if (statsProyectos[v.id_proyecto]) {
+                statsProyectos[v.id_proyecto].sumaPublico += Math.min(parseFloat(v.nota) || 0, 100);
+                statsProyectos[v.id_proyecto].cantPublico += 1;
+            }
+        });
+
+        const listaCalculada = Object.values(statsProyectos).map(sp => {
+            const promTrib = sp.cantTribunal > 0 ? (sp.sumaTribunal / sp.cantTribunal) : 0;
+            const promPub = sp.cantPublico > 0 ? (sp.sumaPublico / sp.cantPublico) : 0;
+            const promImp = sp.cantTribunal > 0 ? (sp.sumaImpacto / sp.cantTribunal) : (parseFloat(sp.proyecto.nota_impacto) || 0);
+            const notaFinal = (promTrib * 0.80) + (promPub * 0.20);
+            return { ...sp, promTrib, promPub, promImp, notaFinal };
+        });
+
+        // Podio por cada categoría (1°, 2° y 3° Lugar)
+        const podiosPorProyecto = {};
+        ['estudiantes', 'docentes', 'emprendimientos'].forEach(catK => {
+            const deCat = listaCalculada.filter(x => x.catKey === catK && x.notaFinal > 0).sort((a, b) => b.notaFinal - a.notaFinal);
+            deCat.slice(0, 3).forEach((proy, idx) => {
+                podiosPorProyecto[proy.id] = {
+                    lugar: idx + 1,
+                    etiquetaLugar: `${idx + 1}° LUGAR`,
+                    notaFinal: proy.notaFinal,
+                    catNombre: proy.catNombre
+                };
+            });
+        });
+
+        // Ganador Impacto Social (Criterio 5 sobre 15 pts)
+        const ganadorImpacto = [...listaCalculada].filter(x => x.promImp > 0).sort((a, b) => b.promImp - a.promImp)[0] || null;
+
+        // Ganador Mayor Votación del Público (sobre 100 pts)
+        const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
+
+        // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PROYECTOS
+        let personaNombre = "";
+        let personaID = termRaw;
+        const certificadosDetectados = [];
+
+        const coincidePersona = (ciComparar, nombreComparar) => {
+            const ciStr = String(ciComparar || "").trim();
+            const nomNorm = normalizarNombre(nombreComparar || "");
+            if (ciStr && ciStr.toLowerCase() === termRaw.toLowerCase()) return true;
+            if (nomNorm && termNorm.length >= 3 && (nomNorm === termNorm || nomNorm.includes(termNorm))) return true;
+            return false;
+        };
+
+        // A) Revisar si es Líder o Integrante en proyectos válidos
+        listaCalculada.forEach(sp => {
+            const miembroHallado = sp.miembros.find(m => coincidePersona(m.ci, m.nombre));
+            if (miembroHallado) {
+                personaNombre = miembroHallado.nombre;
+                if (miembroHallado.ci && miembroHallado.ci !== miembroHallado.nombre) personaID = miembroHallado.ci;
+
+                const infoPodio = podiosPorProyecto[sp.id];
+
+                // Tipo 1: Ganador de Categoría
+                if (infoPodio) {
+                    certificadosDetectados.push({
+                        tipo: 'ganador_categoria',
+                        botonLabel: `🏆 Ganador (${infoPodio.etiquetaLugar})`,
+                        colorPrimario: '#002b5c',
+                        colorAcento: '#b8860b',
+                        colorFondoSuave: '#fffdf5',
+                        iconoMedalla: 'fa-trophy',
+                        textoMedalla: `GANADOR OFICIAL · ${infoPodio.etiquetaLugar}`,
+                        tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                        subtituloCertificado: `${infoPodio.etiquetaLugar} — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
+                        cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${infoPodio.etiquetaLugar}</b> en la categoría <b>${sp.catNombre}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>alcanzando una calificación final ponderada de <b>${sp.notaFinal.toFixed(2)} / 100 puntos</b> en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                    });
+                }
+
+                // Tipo 3: Premio Especial al Impacto Social (Criterio 5 - 15 pts)
+                if (ganadorImpacto && ganadorImpacto.id === sp.id) {
+                    certificadosDetectados.push({
+                        tipo: 'premio_impacto',
+                        botonLabel: '🌱 Premio Impacto Social',
+                        colorPrimario: '#14532d',
+                        colorAcento: '#16a34a',
+                        colorFondoSuave: '#f4fdf7',
+                        iconoMedalla: 'fa-seedling',
+                        textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
+                        tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                        subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
+                        cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${sp.promImp.toFixed(2)} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.12em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                    });
+                }
+
+                // Tipo 4: Premio Especial a la Mayor Votación del Público
+                if (ganadorPublico && ganadorPublico.id === sp.id) {
+                    certificadosDetectados.push({
+                        tipo: 'premio_publico',
+                        botonLabel: '❤️ Premio Voto del Público',
+                        colorPrimario: '#7f1d1d',
+                        colorAcento: '#dc2626',
+                        colorFondoSuave: '#fff8f8',
+                        iconoMedalla: 'fa-heart',
+                        textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
+                        tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                        subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
+                        cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y visitantes, alcanzando la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${sp.promPub.toFixed(2)} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                    });
+                }
+
+                // Tipo 2: Certificado de Participación en la Feria (para los que no ganaron o como respaldo de participación)
+                certificadosDetectados.push({
+                    tipo: 'participacion',
+                    botonLabel: '🎓 Participación (Expositor)',
+                    colorPrimario: '#002b5c',
+                    colorAcento: '#0284c7',
+                    colorFondoSuave: '#f8fbff',
+                    iconoMedalla: 'fa-award',
+                    textoMedalla: 'PARTICIPACIÓN OFICIAL · EXPOSITOR',
+                    tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                    subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
+                    cuerpoHTML: `Por su destacada participación como <b>EXPOSITOR(A)</b> presentando el proyecto de investigación e innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>en el evento académico y tecnológico <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                });
+            }
+        });
+
+        // B) Revisar si está registrado en la tabla de COLABORADORES (Tipo 5)
+        const colabMatch = (colaboradores || []).find(c => coincidePersona(c.id, c.nombre_completo) || coincidePersona(c.celular, c.nombre_completo));
+        if (colabMatch) {
+            if (!personaNombre) personaNombre = colabMatch.nombre_completo;
+            if (!personaID || personaID === termRaw) personaID = `COLAB-${colabMatch.id}`;
+            certificadosDetectados.unshift({
+                tipo: 'colaborador',
+                botonLabel: '🤝 Colaborador Oficial',
+                colorPrimario: '#0f5132',
+                colorAcento: '#0d9488',
+                colorFondoSuave: '#f4fbfa',
+                iconoMedalla: 'fa-hands-helping',
+                textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario.`
+            });
+        }
+
+        // C) Revisar si es Tribunal, Expositor sin proyecto o Visitante
+        if (certificadosDetectados.length === 0) {
+            const tribMatch = (tribunales || []).find(t => coincidePersona(t.ci || t.usuario_tribunal, t.nombre_completo));
+            const expMatch = (expositores || []).find(e => coincidePersona(e.ci, e.nombre_completo));
+            const visMatch = (visitantes || []).find(v => coincidePersona(v.ci, v.nombre_completo));
+
+            if (tribMatch) {
+                personaNombre = tribMatch.nombre_completo;
+                personaID = tribMatch.ci || tribMatch.usuario_tribunal;
+                certificadosDetectados.push({
+                    tipo: 'participacion',
+                    botonLabel: '⚖️ Tribunal Evaluador',
+                    colorPrimario: '#002b5c',
+                    colorAcento: '#b8860b',
+                    colorFondoSuave: '#f8fbff',
+                    iconoMedalla: 'fa-gavel',
+                    textoMedalla: 'COMITÉ EVALUADOR OFICIAL',
+                    tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                    subtituloCertificado: 'JURADO Y TRIBUNAL EVALUADOR OFICIAL',
+                    cuerpoHTML: `Por su valiosa participación como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la valoración técnica y científica de los proyectos presentados en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                });
+            } else if (expMatch || visMatch) {
+                const u = expMatch || visMatch;
+                personaNombre = u.nombre_completo;
+                personaID = u.ci;
+                certificadosDetectados.push({
+                    tipo: 'participacion',
+                    botonLabel: '🎓 Participación en la Feria',
+                    colorPrimario: '#002b5c',
+                    colorAcento: '#0284c7',
+                    colorFondoSuave: '#f8fbff',
+                    iconoMedalla: 'fa-award',
+                    textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
+                    tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                    subtituloCertificado: 'ASISTENCIA Y PARTICIPACIÓN ACADÉMICA',
+                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                });
+            }
+        }
+
+        if (certificadosDetectados.length === 0) {
+            alert("❌ No se encontró ningún Expositor, Integrante, Colaborador, Tribunal ni Visitante con ese C.I. o Nombre. Verifique el dato ingresado.");
             return;
         }
-        const data = await res.json();
-        const nombre = data.datos.nombre_completo || "Nombre del Participante";
-        
-        const urlValidacion = `${window.location.origin}/?validar_certificado=${ci}`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(urlValidacion)}`;
+
+        // Plantillas manuales adicionales por si el administrador desea cambiar a cualquiera de los 5 modelos en vivo
+        const plantillasManuales = [
+            ...certificadosDetectados,
+            {
+                tipo: 'manual_ganador',
+                botonLabel: 'Plantilla: 1° Ganador Categoría',
+                colorPrimario: '#002b5c',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fffdf5',
+                iconoMedalla: 'fa-trophy',
+                textoMedalla: 'GANADOR OFICIAL · 1° LUGAR',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: '1° LUGAR — CATEGORÍA ESTUDIANTES / DOCENTES',
+                cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">1° LUGAR</b> en su categoría con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"TÍTULO DEL PROYECTO (CLIC PARA EDITAR)"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+            },
+            {
+                tipo: 'manual_participacion',
+                botonLabel: 'Plantilla: 2° Participación',
+                colorPrimario: '#002b5c',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f8fbff',
+                iconoMedalla: 'fa-award',
+                textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
+                tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                subtituloCertificado: 'EXPOSICIÓN ACADÉMICA Y TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+            },
+            {
+                tipo: 'manual_impacto',
+                botonLabel: 'Plantilla: 3° Impacto Social',
+                colorPrimario: '#14532d',
+                colorAcento: '#16a34a',
+                colorFondoSuave: '#f4fdf7',
+                iconoMedalla: 'fa-seedling',
+                textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
+                tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
+                cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${ganadorImpacto ? ganadorImpacto.promImp.toFixed(2) : '15.00'} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.12em;">"${ganadorImpacto ? ganadorImpacto.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+            },
+            {
+                tipo: 'manual_publico',
+                botonLabel: 'Plantilla: 4° Mayor Voto Público',
+                colorPrimario: '#7f1d1d',
+                colorAcento: '#dc2626',
+                colorFondoSuave: '#fff8f8',
+                iconoMedalla: 'fa-heart',
+                textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
+                tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
+                cuerpoHTML: `Por haberse consagrado como el proyecto con la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${ganadorPublico ? ganadorPublico.promPub.toFixed(2) : '98.82'} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.12em;">"${ganadorPublico ? ganadorPublico.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+            },
+            {
+                tipo: 'manual_colaborador',
+                botonLabel: 'Plantilla: 5° Colaborador',
+                colorPrimario: '#0f5132',
+                colorAcento: '#0d9488',
+                colorFondoSuave: '#f4fbfa',
+                iconoMedalla: 'fa-hands-helping',
+                textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
+                cuerpoHTML: `Por su valioso apoyo logístico como <b>COLABORADOR(A) OFICIAL</b>, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario.`
+            }
+        ];
+
+        const urlValidacion = `${window.location.origin}/?validar_certificado=${encodeURIComponent(personaID)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(urlValidacion)}`;
 
         const logoUab = `${window.location.origin}/assets/img/OIP (2).png`;
         const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
         const logoIisp = `${window.location.origin}/assets/img/logo_iisp.png`;
 
+        const certInicial = certificadosDetectados[0];
         const ventanaCertificado = window.open('', '_blank');
-        
+
+        const botonesDetectadosHTML = certificadosDetectados.map((c, idx) => `
+            <button type="button" class="btn-selector-cert ${idx === 0 ? 'activo' : ''}" onclick="cambiarModeloCertificado(${idx})">
+                ${c.botonLabel}
+            </button>
+        `).join('');
+
+        const opcionesManualesHTML = plantillasManuales.map((c, idx) => `
+            <option value="${idx}">${idx < certificadosDetectados.length ? '✅ Detectado: ' : '📋 '}${c.botonLabel}</option>
+        `).join('');
+
         ventanaCertificado.document.write(`
             <!DOCTYPE html>
             <html lang="es">
             <head>
                 <meta charset="UTF-8">
-                <title>Certificado - ${nombre}</title>
+                <title>Certificado Oficial - ${personaNombre}</title>
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+                <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
                 <style>
-                    @media print {
-                        @page { size: A4 landscape; margin: 0; }
-                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; background: white !important; }
-                        .no-print { display: none !important; }
-                        .certificado-container { box-shadow: none !important; transform: scale(1) !important; margin: 0 !important; width: 297mm !important; height: 210mm !important; }
-                        .editable-name { border-bottom: none !important; background: transparent !important; }
-                    }
-                    
-                    body { font-family: 'Times New Roman', serif; background: #525659; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
-
-                    .instruccion-flotante { position: fixed; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); color: white; padding: 20px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 0.95rem; max-width: 320px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 1000; line-height: 1.5; }
-                    .btn-imprimir { position: fixed; bottom: 30px; right: 30px; background: #28a745; color: white; padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.4); font-family: Arial, sans-serif; font-weight: bold; z-index: 1000; transition: 0.3s; }
-                    .btn-imprimir:hover { background: #218838; transform: scale(1.05); }
-
-                    .certificado-container {
-                        background: white; width: 297mm; height: 210mm; position: relative; padding: 50px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center;
-                        overflow: hidden; border: 12px solid #fff; outline: 3px solid #d4af37; outline-offset: -15px;
-                        display: flex; flex-direction: column;
+                    :root {
+                        --cert-primario: ${certInicial.colorPrimario};
+                        --cert-acento: ${certInicial.colorAcento};
+                        --cert-fondo: ${certInicial.colorFondoSuave};
                     }
 
-                    .esquina-decorativa { position: absolute; width: 300px; height: 300px; border-radius: 50%; z-index: 1; }
-                    .esquina-top-izq { top: -150px; left: -150px; background: rgba(0, 43, 92, 0.1); border: 2px solid rgba(212, 175, 55, 0.3); }
-                    .esquina-bottom-der { bottom: -150px; right: -150px; background: rgba(211, 47, 47, 0.05); border: 2px solid rgba(0, 43, 92, 0.2); }
+                    * {
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
 
-                    .contenido-certificado { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; }
-                    
-                    .header-logos { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 10px; }
-                    .header-logos img { height: 85px; object-fit: contain; }
+                    body {
+                        margin: 0;
+                        padding: 85px 20px 30px;
+                        background: #1e293b;
+                        font-family: 'Montserrat', Arial, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
+                    }
 
-                    .qr-zone { position: absolute; top: 0; right: 0; text-align: center; }
-                    .qr-zone img { width: 90px; height: 90px; border: 2px solid #eee; padding: 5px; }
-                    .qr-zone span { display: block; font-size: 10px; color: #002b5c; margin-top: 5px; font-family: Arial, sans-serif; font-weight: bold; }
+                    /* BARRA SUPERIOR DE CONTROL (SOLO EN PANTALLA, OCULTA AL IMPRIMIR) */
+                    .barra-control-cert {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        background: rgba(15, 23, 42, 0.96);
+                        backdrop-filter: blur(10px);
+                        border-bottom: 2px solid #334155;
+                        padding: 10px 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 15px;
+                        z-index: 9999;
+                        color: #fff;
+                        flex-wrap: wrap;
+                    }
 
-                    .texto-institucional { font-family: Arial, sans-serif; font-size: 1.1rem; color: #333; margin: 10px 0 15px 0; }
-                    h1.titulo-cert { font-size: 3.5rem; color: #111; margin: 10px 0; font-weight: normal; letter-spacing: 2px; font-family: 'Georgia', serif; }
+                    .barra-izq {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                        flex-wrap: wrap;
+                    }
+
+                    .badge-auto {
+                        background: rgba(16, 185, 129, 0.2);
+                        border: 1px solid #10b981;
+                        color: #34d399;
+                        padding: 5px 12px;
+                        border-radius: 50px;
+                        font-size: 0.78rem;
+                        font-weight: 700;
+                    }
+
+                    .btn-selector-cert {
+                        background: #334155;
+                        color: #e2e8f0;
+                        border: 1px solid #475569;
+                        padding: 7px 14px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 0.82rem;
+                        transition: 0.2s;
+                    }
+
+                    .btn-selector-cert.activo, .btn-selector-cert:hover {
+                        background: #2563eb;
+                        color: #ffffff;
+                        border-color: #60a5fa;
+                    }
+
+                    .select-plantilla-manual {
+                        background: #0f172a;
+                        color: #f8fafc;
+                        border: 1px solid #475569;
+                        padding: 7px 12px;
+                        border-radius: 8px;
+                        font-size: 0.82rem;
+                        font-weight: 600;
+                        outline: none;
+                        cursor: pointer;
+                    }
+
+                    .btn-imprimir-top {
+                        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+                        color: #ffffff;
+                        border: none;
+                        padding: 10px 24px;
+                        border-radius: 50px;
+                        font-weight: 800;
+                        font-size: 0.92rem;
+                        cursor: pointer;
+                        box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: 0.2s;
+                    }
+
+                    .btn-imprimir-top:hover {
+                        transform: translateY(-2px);
+                    }
+
+                    /* LIENZO DEL CERTIFICADO EN PANTALLA */
+                    .certificado-page-wrapper {
+                        width: 279.4mm;
+                        height: 205mm;
+                        background: #ffffff;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+                        position: relative;
+                        overflow: hidden;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 10mm;
+                    }
+
+                    .certificado-marco-externo {
+                        width: 100%;
+                        height: 100%;
+                        border: 3px solid var(--cert-primario);
+                        padding: 5px;
+                        position: relative;
+                        background: linear-gradient(135deg, #ffffff 0%, var(--cert-fondo) 50%, #ffffff 100%);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .certificado-marco-interno {
+                        width: 100%;
+                        height: 100%;
+                        border: 2px solid var(--cert-acento);
+                        padding: 18px 34px;
+                        position: relative;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        text-align: center;
+                        overflow: hidden;
+                    }
+
+                    /* ADORNOS DE ESQUINA */
+                    .esquina-ornamento {
+                        position: absolute;
+                        width: 42px;
+                        height: 42px;
+                        border-color: var(--cert-acento);
+                        border-style: solid;
+                        z-index: 2;
+                        pointer-events: none;
+                    }
+                    .esq-tl { top: 8px; left: 8px; border-width: 4px 0 0 4px; }
+                    .esq-tr { top: 8px; right: 8px; border-width: 4px 4px 0 0; }
+                    .esq-bl { bottom: 8px; left: 8px; border-width: 0 0 4px 4px; }
+                    .esq-br { bottom: 8px; right: 8px; border-width: 0 4px 4px 0; }
+
+                    /* FRANJA DECORATIVA LATERAL SUTIL */
+                    .onda-decorativa-izq {
+                        position: absolute;
+                        top: -80px;
+                        left: -80px;
+                        width: 220px;
+                        height: 220px;
+                        border-radius: 50%;
+                        background: radial-gradient(circle, var(--cert-primario) 0%, transparent 70%);
+                        opacity: 0.08;
+                        pointer-events: none;
+                    }
+                    .onda-decorativa-der {
+                        position: absolute;
+                        bottom: -80px;
+                        right: -80px;
+                        width: 240px;
+                        height: 240px;
+                        border-radius: 50%;
+                        background: radial-gradient(circle, var(--cert-acento) 0%, transparent 70%);
+                        opacity: 0.12;
+                        pointer-events: none;
+                    }
+
+                    /* CABECERA CON LOGOS Y QR */
+                    .cert-top-row {
+                        display: grid;
+                        grid-template-columns: 110px 1fr 110px;
+                        align-items: center;
+                        width: 100%;
+                        position: relative;
+                        z-index: 5;
+                    }
+
+                    .medalla-esquina-izq {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--cert-acento);
+                    }
+
+                    .medalla-circulo {
+                        width: 64px;
+                        height: 64px;
+                        border-radius: 50%;
+                        background: linear-gradient(135deg, var(--cert-primario) 0%, #0f172a 100%);
+                        border: 3px solid var(--cert-acento);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #fde047;
+                        font-size: 1.7rem;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+                    }
+
+                    .header-logos {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 32px;
+                    }
+
+                    .header-logos img {
+                        height: 68px;
+                        object-fit: contain;
+                    }
+
+                    .qr-zone {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .qr-zone img {
+                        width: 74px;
+                        height: 74px;
+                        border: 1.5px solid var(--cert-acento);
+                        padding: 3px;
+                        background: #ffffff;
+                        border-radius: 6px;
+                    }
+
+                    .qr-zone span {
+                        font-size: 9px;
+                        color: var(--cert-primario);
+                        margin-top: 3px;
+                        font-weight: 800;
+                        letter-spacing: 0.4px;
+                    }
+
+                    /* CUERPO CENTRAL */
+                    .cert-center-body {
+                        position: relative;
+                        z-index: 5;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        flex: 1;
+                        padding: 4px 15px;
+                    }
+
+                    .texto-institucional {
+                        font-size: 0.88rem;
+                        color: #334155;
+                        margin: 2px 0 6px;
+                        font-weight: 600;
+                        letter-spacing: 0.3px;
+                        line-height: 1.35;
+                    }
+
+                    .insignia-categoria {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        background: var(--cert-primario);
+                        color: #ffffff;
+                        padding: 4px 18px;
+                        border-radius: 50px;
+                        font-size: 0.75rem;
+                        font-weight: 800;
+                        letter-spacing: 1.2px;
+                        text-transform: uppercase;
+                        border: 1.5px solid var(--cert-acento);
+                        margin-bottom: 6px;
+                    }
+
+                    h1.titulo-cert {
+                        font-family: 'Cinzel', 'Georgia', serif;
+                        font-size: 2.35rem;
+                        color: var(--cert-primario);
+                        margin: 2px 0;
+                        font-weight: 800;
+                        letter-spacing: 2px;
+                        line-height: 1.1;
+                    }
+
+                    .subtitulo-cert {
+                        font-size: 0.92rem;
+                        font-weight: 800;
+                        color: var(--cert-acento);
+                        letter-spacing: 1.5px;
+                        text-transform: uppercase;
+                        margin: 3px 0 8px;
+                    }
+
+                    .otorgado-a-label {
+                        font-size: 0.8rem;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        letter-spacing: 2px;
+                        font-weight: 700;
+                        margin: 0;
+                    }
 
                     .editable-name {
-                        font-size: 2.2rem; font-weight: bold; color: #000; border-bottom: 2px dashed #999; display: inline-block; min-width: 60%;
-                        padding: 5px 20px; outline: none; font-style: italic; margin: 15px 0; transition: 0.3s;
+                        font-family: 'Playfair Display', 'Georgia', serif;
+                        font-size: 2.1rem;
+                        font-weight: 700;
+                        font-style: italic;
+                        color: #0f172a;
+                        border-bottom: 2px solid var(--cert-acento);
+                        display: inline-block;
+                        min-width: 62%;
+                        max-width: 92%;
+                        padding: 2px 20px 5px;
+                        margin: 4px 0 10px;
+                        outline: none;
                     }
-                    .editable-name:focus { border-bottom-color: #4db8ff; background: #f0f8ff; }
 
-                    .body-text { font-size: 1.3rem; color: #333; line-height: 1.6; max-width: 85%; margin: 10px auto; font-family: Arial, sans-serif; }
-                    .fecha { font-family: Arial, sans-serif; font-size: 1.1rem; color: #555; margin-top: 15px; text-align: center; }
-
-                    .firmas-container { 
-                        display: flex; justify-content: space-between; align-items: flex-end; width: 100%; 
-                        margin-top: auto; margin-bottom: 5px; padding: 0 20px; box-sizing: border-box; 
+                    .editable-name:focus, .body-text:focus, .subtitulo-cert:focus {
+                        background: rgba(77, 184, 255, 0.12);
+                        border-radius: 6px;
                     }
-                    .firma-bloque { text-align: center; border-top: 1px solid #000; width: 260px; padding-top: 10px; font-family: Arial, sans-serif; position: relative; }
-                    .firma-bloque h4 { margin: 0; font-size: 0.85rem; color: #000; font-weight: bold; }
-                    .firma-bloque p { margin: 3px 0 0 0; font-size: 0.75rem; color: #555; }
+
+                    .body-text {
+                        font-size: 0.98rem;
+                        color: #1e293b;
+                        line-height: 1.52;
+                        max-width: 90%;
+                        margin: 0 auto 8px;
+                        outline: none;
+                    }
+
+                    .fecha-lugar {
+                        font-size: 0.88rem;
+                        color: #475569;
+                        font-weight: 600;
+                        margin: 4px 0 0;
+                    }
+
+                    /* FIRMAS INFERIORES */
+                    .firmas-container {
+                        display: flex;
+                        justify-content: space-around;
+                        align-items: flex-end;
+                        width: 100%;
+                        padding: 0 15px;
+                        margin-top: 8px;
+                        position: relative;
+                        z-index: 5;
+                    }
+
+                    .firma-bloque {
+                        text-align: center;
+                        border-top: 1.5px solid #1e293b;
+                        width: 230px;
+                        padding-top: 6px;
+                    }
+
+                    .firma-bloque h4 {
+                        margin: 0;
+                        font-size: 0.78rem;
+                        color: #0f172a;
+                        font-weight: 800;
+                    }
+
+                    .firma-bloque p {
+                        margin: 2px 0 0;
+                        font-size: 0.7rem;
+                        color: #475569;
+                        font-weight: 600;
+                    }
+
+                    /* =========================================================================
+                       🖨️ REGLAS DE IMPRESIÓN PERFECTA EN 1 SOLA PÁGINA (CUALQUIER HOJA)
+                       ========================================================================= */
+                    @media print {
+                        @page {
+                            size: landscape;
+                            margin: 0mm;
+                        }
+
+                        html, body {
+                            width: 100vw !important;
+                            height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            background: #ffffff !important;
+                            overflow: hidden !important;
+                            display: block !important;
+                        }
+
+                        .no-print {
+                            display: none !important;
+                        }
+
+                        .certificado-page-wrapper {
+                            width: 100vw !important;
+                            height: 100vh !important;
+                            max-width: 100vw !important;
+                            max-height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 7mm 9mm !important;
+                            box-shadow: none !important;
+                            page-break-inside: avoid !important;
+                            page-break-after: avoid !important;
+                            page-break-before: avoid !important;
+                            break-inside: avoid !important;
+                            overflow: hidden !important;
+                        }
+                    }
                 </style>
             </head>
             <body>
-                <div class="instruccion-flotante no-print">
-                    <h3 style="margin-top: 0; color: #ffc107;"><i class="fas fa-edit"></i> Edición Inteligente</h3>
-                    <p>1. Si el nombre del participante está mal escrito, <b>haz clic sobre las letras en el certificado y corrígelo con el teclado</b> aquí mismo.</p>
-                    <p>2. Cuando esté listo, presiona el botón verde de imprimir.</p>
-                    <p style="color: #4db8ff; margin-bottom: 0;">⚠️ Configura tu impresora en modo <b>Horizontal (Landscape)</b> y "Márgenes en Ninguno" para un calce perfecto.</p>
+                <div class="barra-control-cert no-print">
+                    <div class="barra-izq">
+                        <span class="badge-auto"><i class="fas fa-magic"></i> Detección Automática</span>
+                        ${botonesDetectadosHTML}
+                        <select class="select-plantilla-manual" onchange="cambiarModeloCertificado(this.value)" title="Cambiar entre los 5 modelos de certificado">
+                            ${opcionesManualesHTML}
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <span style="font-size:0.78rem; color:#94a3b8;"><i class="fas fa-pen"></i> Haz clic sobre cualquier texto para editarlo</span>
+                        <button type="button" class="btn-imprimir-top" onclick="window.print()">
+                            <i class="fas fa-print"></i> Imprimir en 1 Hoja
+                        </button>
+                    </div>
                 </div>
 
-                <div class="certificado-container">
-                    <div class="esquina-decorativa esquina-top-izq"></div>
-                    <div class="esquina-decorativa esquina-bottom-der"></div>
+                <div class="certificado-page-wrapper">
+                    <div class="certificado-marco-externo">
+                        <div class="certificado-marco-interno">
+                            <div class="esquina-ornamento esq-tl"></div>
+                            <div class="esquina-ornamento esq-tr"></div>
+                            <div class="esquina-ornamento esq-bl"></div>
+                            <div class="esquina-ornamento esq-br"></div>
+                            <div class="onda-decorativa-izq"></div>
+                            <div class="onda-decorativa-der"></div>
 
-                    <div class="contenido-certificado">
-                        <div class="qr-zone">
-                            <img src="${qrUrl}" alt="QR Validacion">
-                            <span>ID: ${ci}</span>
-                        </div>
+                            <div class="cert-top-row">
+                                <div class="medalla-esquina-izq">
+                                    <div class="medalla-circulo">
+                                        <i id="cert-icono-medalla" class="fas ${certInicial.iconoMedalla}"></i>
+                                    </div>
+                                </div>
 
-                        <div class="header-logos">
-                            <img src="${logoUab}" alt="Escudo UABJB" onerror="this.style.display='none'">
-                            <img src="${logoCis}" alt="Escudo Carrera Sistemas" onerror="this.style.display='none'">
-                            <img src="${logoIisp}" alt="Escudo IISP" onerror="this.style.display='none'">
-                        </div>
+                                <div class="header-logos">
+                                    <img src="${logoUab}" alt="Escudo UABJB" onerror="this.style.display='none'">
+                                    <img src="${logoCis}" alt="Escudo Carrera Sistemas" onerror="this.style.display='none'">
+                                    <img src="${logoIisp}" alt="Escudo IISP" onerror="this.style.display='none'">
+                                </div>
 
-                        <p class="texto-institucional">La Facultad de Ingeniería y Tecnología de la UABJB a través de la<br>Carrera de Ingeniería de Sistemas confiere el presente:</p>
-                        <h1 class="titulo-cert">CERTIFICADO DE<br>PARTICIPACIÓN</h1>
-
-                        <div class="editable-name" contenteditable="true" spellcheck="false" title="Haz clic para corregir el nombre">${nombre}</div>
-
-                        <p class="body-text">
-                            Por su destacada participación en el evento de exposición académica y tecnológica<br>
-                            <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>,<br>
-                            desarrollado el 14 de Octubre del presente año,<br>
-                            en el Campus Universitario de la UABJB.
-                        </p>
-
-                        <p class="fecha">Trinidad, Octubre de 2026.</p>
-
-                        <div class="firmas-container">
-                            <div class="firma-bloque">
-                                <h4>M.SC. SAUD YUJA GÓMEZ</h4>
-                                <p>DECANO F.I.T.</p>
+                                <div class="qr-zone">
+                                    <img src="${qrUrl}" alt="QR Validación">
+                                    <span>ID: ${personaID}</span>
+                                </div>
                             </div>
-                            <div class="firma-bloque">
-                                <h4>M.SC. EDUARDO S. MORALES BARROSO</h4>
-                                <p>DIRECTOR DE C.I.S.</p>
+
+                            <div class="cert-center-body">
+                                <p class="texto-institucional">
+                                    La <b>Universidad Autónoma del Beni "José Ballivián"</b>, a través de la Facultad de Ingeniería y Tecnología,<br>
+                                    la Carrera de Ingeniería de Sistemas y el Instituto de Investigación Interacción Social y Posgrado (I.I.S.P.), confiere el presente:
+                                </p>
+
+                                <div id="cert-badge-medalla" class="insignia-categoria" contenteditable="true" spellcheck="false">
+                                    ${certInicial.textoMedalla}
+                                </div>
+
+                                <h1 id="cert-titulo-principal" class="titulo-cert" contenteditable="true" spellcheck="false">
+                                    ${certInicial.tituloCertificado}
+                                </h1>
+
+                                <div id="cert-subtitulo" class="subtitulo-cert" contenteditable="true" spellcheck="false">
+                                    ${certInicial.subtituloCertificado}
+                                </div>
+
+                                <p class="otorgado-a-label">Otorgado a:</p>
+
+                                <div class="editable-name" contenteditable="true" spellcheck="false" title="Haz clic para editar el nombre">
+                                    ${personaNombre}
+                                </div>
+
+                                <div id="cert-cuerpo-texto" class="body-text" contenteditable="true" spellcheck="false" title="Haz clic para editar el detalle">
+                                    ${certInicial.cuerpoHTML}
+                                </div>
+
+                                <p class="fecha-lugar" contenteditable="true" spellcheck="false">
+                                    Trinidad - Beni, Octubre de 2026
+                                </p>
                             </div>
-                            <div class="firma-bloque">
-                                <h4>COMITÉ ORGANIZADOR</h4>
-                                <p>I.I.S.P.</p>
+
+                            <div class="firmas-container">
+                                <div class="firma-bloque">
+                                    <h4>M.SC. SAUD YUJA GÓMEZ</h4>
+                                    <p>DECANO F.I.T. - U.A.B.J.B.</p>
+                                </div>
+                                <div class="firma-bloque">
+                                    <h4>M.SC. EDUARDO S. MORALES BARROSO</h4>
+                                    <p>DIRECTOR DE CARRERA C.I.S.</p>
+                                </div>
+                                <div class="firma-bloque">
+                                    <h4>M.SC. LIC. WILLIAM CHAO RIVERO</h4>
+                                    <p>RESP. INSTITUTO DE INVESTIGACIÓN I.I.S.P.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <button class="btn-imprimir no-print" onclick="window.print()"><i class="fas fa-print"></i> Imprimir Certificado</button>
+                <script>
+                    const MODELOS_CERT = ${JSON.stringify(plantillasManuales)};
+                    function cambiarModeloCertificado(indice) {
+                        const m = MODELOS_CERT[indice];
+                        if (!m) return;
+                        document.documentElement.style.setProperty('--cert-primario', m.colorPrimario);
+                        document.documentElement.style.setProperty('--cert-acento', m.colorAcento);
+                        document.documentElement.style.setProperty('--cert-fondo', m.colorFondoSuave);
+
+                        document.getElementById('cert-icono-medalla').className = 'fas ' + m.iconoMedalla;
+                        document.getElementById('cert-badge-medalla').innerHTML = m.textoMedalla;
+                        document.getElementById('cert-titulo-principal').innerHTML = m.tituloCertificado;
+                        document.getElementById('cert-subtitulo').innerHTML = m.subtituloCertificado;
+                        document.getElementById('cert-cuerpo-texto').innerHTML = m.cuerpoHTML;
+
+                        document.querySelectorAll('.btn-selector-cert').forEach((b, i) => {
+                            b.classList.toggle('activo', i === Number(indice));
+                        });
+                        const sel = document.querySelector('.select-plantilla-manual');
+                        if (sel) sel.value = String(indice);
+                    }
+                <\/script>
             </body>
             </html>
         `);
         ventanaCertificado.document.close();
-        
+
     } catch (error) {
         console.error(error);
         alert("❌ Ocurrió un error al intentar generar el certificado.");
@@ -400,7 +1270,23 @@ window.generarVistaPrevia = async function() {
 
     if (valor === "certificado") {
         areaImpresion.style.display = 'block';
-        areaImpresion.innerHTML = '<div style="text-align: center; padding: 40px; color: #0056b3; background: #e8f4fd; border-radius: 8px; border: 2px dashed #4db8ff;"><i class="fas fa-award fa-4x" style="margin-bottom:15px;"></i><h3 style="margin-top: 0; color: #002b5c;">Modo Certificado Individual Activado</h3><p style="color: #333; font-size: 1.1rem;">Ingrese el C.I. del participante en el buscador de arriba y presione el botón <b>"Procesar Documento"</b>.<br>El certificado interactivo se abrirá en una pestaña nueva listo para imprimir.</p></div>';
+        areaImpresion.innerHTML = `
+            <div style="text-align: center; padding: 35px 25px; color: #002b5c; background: #e8f4fd; border-radius: 10px; border: 2px dashed #0284c7; font-family: Arial, sans-serif;">
+                <i class="fas fa-award fa-4x" style="margin-bottom:15px; color: #0284c7;"></i>
+                <h3 style="margin-top: 0; color: #002b5c !important; font-size: 1.4rem;">Sistema Inteligente de 5 Certificados Oficiales</h3>
+                <p style="color: #1e293b !important; font-size: 1rem; max-width: 650px; margin: 10px auto 15px; line-height: 1.5;">
+                    Escriba el <b>C.I. o Nombre Completo</b> arriba y presione <b>"Procesar Documento"</b>.<br>
+                    El sistema detectará automáticamente cuál de los 5 certificados le corresponde:
+                </p>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px;">
+                    <span style="background:#fffdf5; border:1px solid #b8860b; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🏆 1. Ganadores de Categoría</span>
+                    <span style="background:#f8fbff; border:1px solid #0284c7; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🎓 2. Participación en la Feria</span>
+                    <span style="background:#f4fdf7; border:1px solid #16a34a; color:#14532d; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🌱 3. Premio Impacto Social (15 pts)</span>
+                    <span style="background:#fff8f8; border:1px solid #dc2626; color:#7f1d1d; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">❤️ 4. Mayor Votación del Público</span>
+                    <span style="background:#f4fbfa; border:1px solid #0d9488; color:#0f5132; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🤝 5. Colaboradores Oficiales</span>
+                </div>
+            </div>
+        `;
         if (btn) { btn.innerHTML = '<i class="fas fa-cogs"></i> Procesar Documento'; btn.disabled = false; }
         return;
     }
@@ -690,7 +1576,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 NUEVO INFORME: DETALLE DE VOTACIÓN DE TRIBUNALES PARA EL PREMIO IMPACTO SOCIAL (CRITERIO 5) 🔥
         else if (valor === "detalle_impacto") {
             const grupos = { 
                 "1. ESTUDIANTES UNIVERSITARIOS": [], 
@@ -742,7 +1627,6 @@ window.generarVistaPrevia = async function() {
                 }
             });
 
-            // Calcular el promedio global para identificar el puntaje más alto de toda la feria
             let maxPromedioGlobal = 0;
             Object.values(proyectosImpacto).forEach(p => {
                 p.promedioImpacto = p.evaluaciones.length > 0 ? (p.sumaImpacto / p.evaluaciones.length) : 0;
@@ -750,7 +1634,6 @@ window.generarVistaPrevia = async function() {
             });
 
             const generarTablaImpacto = (tituloCat, listaProyectos) => {
-                // Ordenar estrictamente por la numeración oficial (#1, #2, #3...)
                 listaProyectos.sort((a, b) => (a.numGlobal === "N/A" ? 999 : a.numGlobal) - (b.numGlobal === "N/A" ? 999 : b.numGlobal));
 
                 let html = `
@@ -808,7 +1691,7 @@ window.generarVistaPrevia = async function() {
 
             areaImpresion.innerHTML = generarCabeceraOficial(
                 "DETALLE DE CALIFICACIONES DE TRIBUNALES: PREMIO AL IMPACTO SOCIAL (CRITERIO 5)", 
-                "Este informe desglosa el puntaje otorgado por cada miembro del Tribunal Evaluador específicamente en el Criterio 5 de la rúbrica oficial (Impacto social, ambiental o productivo, sobre un máximo de 15 puntos), mantendo la numeración oficial de proyectos y su respectivo Líder."
+                "Este informe desglosa el puntaje otorgado por cada miembro del Tribunal Evaluador específicamente en el Criterio 5 de la rúbrica oficial (Impacto social, ambiental o productivo, sobre un máximo de 15 puntos), manteniendo la numeración oficial de proyectos y su respectivo Líder."
             ) + 
             generarTablaImpacto("1. ESTUDIANTES UNIVERSITARIOS", grupos["1. ESTUDIANTES UNIVERSITARIOS"]) + 
             generarTablaImpacto("2. DOCENTES INVESTIGADORES", grupos["2. DOCENTES INVESTIGADORES"]) + 
@@ -819,7 +1702,6 @@ window.generarVistaPrevia = async function() {
             </div>`;
         }
 
-        // 🔥 PADRÓN DE COLABORADORES (NOMBRE COMPLETO Y CORREO) 🔥
         else if (valor === "colaboradores") {
             const listaColab = colaboradores || [];
             listaColab.sort((a, b) => (a.nombre_completo || "").localeCompare(b.nombre_completo || ""));
@@ -950,7 +1832,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 PADRÓN DE VISITANTES Y VOTACIÓN ESTRICTAMENTE EN MAYÚSCULAS 🔥
         else if (valor === "padron_visitantes") {
             const filtroSelect = document.getElementById('institucion-select');
             const institucionElegida = filtroSelect ? filtroSelect.value : "TODOS";
@@ -1090,7 +1971,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 ACTA DETALLADA DE TRIBUNALES AGRUPADA POR PROYECTO (USANDO NUMERACIÓN OFICIAL) 🔥
         else if (valor === "tribunales") {
             const grupos = { "1. ESTUDIANTES UNIVERSITARIOS": [], "2. DOCENTES INVESTIGADORES": [], "3. EMPRENDIMIENTOS TECNOLÓGICOS": [], "OTRAS EVALUACIONES (Registros sin categoría)": [] };
 
@@ -1221,7 +2101,6 @@ window.generarVistaPrevia = async function() {
                 </div>`;
         }
 
-        // 🔥 PADRÓN DE TRIBUNALES CON LOS CAMPOS REALES DEL FORMULARIO 🔥
         else if (valor === "padron_tribunales") {
             const lTrib = tribunales.map(t => ({ 
                 n: (t.nombre_completo || "SIN NOMBRE").trim().toUpperCase(), 
