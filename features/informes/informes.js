@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/informes/informes.js
-// FUNCIÓN: Generación de reportes dinámicos, 5 Certificados Oficiales y Ternas
+// FUNCIÓN: Generación de reportes dinámicos, 8 Certificados Oficiales y Ternas
 // =========================================================================
 
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
@@ -17,6 +17,27 @@ const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
 };
 
 const normalizarNombre = str => (str || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+// 🔥 GENERADOR DE CÓDIGO ALEATORIO ÚNICO PARA EL QR DEL CERTIFICADO 🔥
+const generarCodigoAleatorioQR = () => {
+    const caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let bloque1 = '';
+    let bloque2 = '';
+    for (let i = 0; i < 4; i++) bloque1 += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    for (let i = 0; i < 4; i++) bloque2 += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    return `TF26-${bloque1}-${bloque2}`;
+};
+
+// 🔥 LISTA OFICIAL DEL COMITÉ ORGANIZADOR PARA DETECCIÓN AUTOMÁTICA 🔥
+const LISTA_COMITE_ORGANIZADOR = [
+    { nombre: "M.Sc. Ing. Eduardo Morales Barroso", cargo: "Director de Carrera C.I.S. - Comité Organizador" },
+    { nombre: "M.Sc. Lic. William Chao Rivero", cargo: "Resp. Instituto de Investigación I.I.S.P." },
+    { nombre: "Ing. Marco Antonio Durán Carvalho", cargo: "Resp. de Investigación I.I.I.S. y P." },
+    { nombre: "Ing. Adriana Gómez Morant", cargo: "Resp. de Interacción Social I.I.I.S. y P." },
+    { nombre: "M.Sc. Lic. Danitza Zabala Moreno", cargo: "Docente Apoyo de Investigación" },
+    { nombre: "Lic. Luis Antonio Franco Apuri", cargo: "Docente Apoyo de Interacción Social" },
+    { nombre: "Ing. Jesús Elias Nieme Saavedra", cargo: "Docente Apoyo de Interacción Social" }
+];
 
 const extraerNombresDeProyecto = (integrantesStringRaw, ciLiderStr = "", nombreLiderReal = "") => {
     if (!integrantesStringRaw) return `Líder: ${nombreLiderReal}`;
@@ -182,7 +203,7 @@ const construirMapaNumerosOficiales = (proyectos) => {
     return { proyectosValidos, mapa };
 };
 
-// 🔥 CARGAR BUSCADOR INTELIGENTE DE CERTIFICADOS CON TODAS LAS TABLAS 🔥
+// 🔥 CARGAR BUSCADOR INTELIGENTE DE CERTIFICADOS CON LOS 8 PERFILES 🔥
 window.cargarBuscadorCertificadosCompleto = async function() {
     const datalist = document.getElementById('lista-usuarios-cert');
     if (!datalist) return;
@@ -194,32 +215,31 @@ window.cargarBuscadorCertificadosCompleto = async function() {
 
         const opcionesMap = new Map();
 
-        // 1. Expositores y Co-expositores de proyectos
-        proyectos.forEach(p => {
-            if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
-            const miembros = obtenerMiembrosProyecto(p, expositores);
-            miembros.forEach(m => {
-                const clave = normalizarNombre(m.nombre);
-                const valorInput = (m.ci && m.ci !== m.nombre) ? m.ci : m.nombre;
-                opcionesMap.set(clave, {
-                    valor: valorInput,
-                    etiqueta: `${m.nombre.toUpperCase()} — Expositor: "${p.titulo}"`
-                });
+        // 0. Administrador / Implementación del Sistema
+        opcionesMap.set('admin_sistema_principal', {
+            valor: 'Luis Alex Fernández Tejaya',
+            etiqueta: '💻 LUIS ALEX FERNÁNDEZ TEJAYA — ADMINISTRADOR E IMPLEMENTACIÓN DEL SISTEMA'
+        });
+
+        // 1. Comité Organizador Oficial
+        LISTA_COMITE_ORGANIZADOR.forEach(org => {
+            const clave = normalizarNombre(org.nombre);
+            opcionesMap.set(`org_${clave}`, {
+                valor: org.nombre,
+                etiqueta: `🏛️ ${org.nombre.toUpperCase()} — COMITÉ ORGANIZADOR (${org.cargo})`
             });
         });
 
-        // 2. Expositores sueltos
-        expositores.forEach(e => {
-            const clave = normalizarNombre(e.nombre_completo);
-            if (!opcionesMap.has(clave)) {
-                opcionesMap.set(clave, {
-                    valor: e.ci,
-                    etiqueta: `${(e.nombre_completo || "").toUpperCase()} — Expositor (${e.institucion || 'UABJB'})`
-                });
-            }
+        // 2. Tribunales Evaluadores
+        (tribunales || []).forEach(t => {
+            const clave = normalizarNombre(t.nombre_completo);
+            opcionesMap.set(`trib_${clave}`, {
+                valor: t.nombre_completo,
+                etiqueta: `⚖️ ${(t.nombre_completo || "").toUpperCase()} — TRIBUNAL EVALUADOR`
+            });
         });
 
-        // 3. Colaboradores (Búsqueda por nombre o ID)
+        // 3. Colaboradores Oficiales
         (colaboradores || []).forEach(c => {
             const clave = normalizarNombre(c.nombre_completo);
             opcionesMap.set(`colab_${clave}`, {
@@ -228,22 +248,36 @@ window.cargarBuscadorCertificadosCompleto = async function() {
             });
         });
 
-        // 4. Tribunales
-        (tribunales || []).forEach(t => {
-            const clave = normalizarNombre(t.nombre_completo);
-            if (!opcionesMap.has(clave)) {
-                opcionesMap.set(clave, {
-                    valor: t.ci || t.usuario_tribunal || t.nombre_completo,
-                    etiqueta: `⚖️ ${(t.nombre_completo || "").toUpperCase()} — Tribunal Evaluador`
+        // 4. Expositores y Co-expositores de proyectos
+        proyectos.forEach(p => {
+            if (p.estado_evaluacion === 'Evaluado (No clasifica)') return;
+            const miembros = obtenerMiembrosProyecto(p, expositores);
+            miembros.forEach(m => {
+                const clave = normalizarNombre(m.nombre);
+                const valorInput = (m.ci && m.ci !== m.nombre) ? m.ci : m.nombre;
+                opcionesMap.set(`proy_${clave}`, {
+                    valor: valorInput,
+                    etiqueta: `🎓 ${m.nombre.toUpperCase()} — Expositor: "${p.titulo}"`
+                });
+            });
+        });
+
+        // 5. Expositores sueltos
+        expositores.forEach(e => {
+            const clave = normalizarNombre(e.nombre_completo);
+            if (!opcionesMap.has(`proy_${clave}`)) {
+                opcionesMap.set(`exp_${clave}`, {
+                    valor: e.ci,
+                    etiqueta: `${(e.nombre_completo || "").toUpperCase()} — Expositor (${e.institucion || 'UABJB'})`
                 });
             }
         });
 
-        // 5. Visitantes
+        // 6. Visitantes
         (visitantes || []).forEach(v => {
             const clave = normalizarNombre(v.nombre_completo);
-            if (!opcionesMap.has(clave)) {
-                opcionesMap.set(clave, {
+            if (!opcionesMap.has(`proy_${clave}`) && !opcionesMap.has(`exp_${clave}`)) {
+                opcionesMap.set(`vis_${clave}`, {
                     valor: v.ci,
                     etiqueta: `${(v.nombre_completo || "").toUpperCase()} — Visitante (${v.institucion || 'Público'})`
                 });
@@ -338,7 +372,7 @@ window.toggleBuscadorCertificado = function() {
     if (select.value === 'certificado') {
         cajaBusqueda.style.display = 'block';
         inputCi.setAttribute('required', 'true');
-        inputCi.setAttribute('placeholder', 'Escriba el C.I. o Nombre Completo (Expositor, Colaborador, etc.)...');
+        inputCi.setAttribute('placeholder', 'Busque por Nombre o C.I. (Expositor, Tribunal, Organizador, Colaborador, Admin)...');
         cajaBusqueda.style.opacity = '0';
         setTimeout(() => cajaBusqueda.style.opacity = '1', 50);
         cajaBusqueda.style.transition = 'opacity 0.3s ease';
@@ -359,7 +393,7 @@ window.procesarInformeActual = async function(e) {
         const termino = document.getElementById('cert-ci-input').value.trim();
         if (!termino) { alert("⚠️ Por favor, ingrese el C.I. o Nombre Completo de la persona."); return; }
         
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando Rol y Premios...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analizando Rol y Generando...';
         btn.disabled = true;
 
         await window.generarCertificadoParticipacion(termino);
@@ -373,7 +407,7 @@ window.procesarInformeActual = async function(e) {
 };
 
 // =========================================================================
-// 🔥 MOTOR DE LOS 5 CERTIFICADOS OFICIALES CON DETECCIÓN AUTOMÁTICA 🔥
+// 🔥 MOTOR DE LOS 8 CERTIFICADOS OFICIALES CON DETECCIÓN AUTOMÁTICA Y QR ALEATORIO 🔥
 // =========================================================================
 window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     try {
@@ -384,6 +418,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         const termNorm = normalizarNombre(terminoBusqueda);
         const termRaw = String(terminoBusqueda).trim();
+        const LUGAR_EVENTO = "Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad";
 
         // 1. CALCULAR GANADORES DE CATEGORÍAS, IMPACTO SOCIAL Y VOTO DEL PÚBLICO
         const statsProyectos = {};
@@ -456,25 +491,92 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         // Ganador Mayor Votación del Público (sobre 100 pts)
         const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
 
-        // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PROYECTOS
+        // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PERFILES
         let personaNombre = "";
-        let personaID = termRaw;
         const certificadosDetectados = [];
 
         const coincidePersona = (ciComparar, nombreComparar) => {
             const ciStr = String(ciComparar || "").trim();
             const nomNorm = normalizarNombre(nombreComparar || "");
             if (ciStr && ciStr.toLowerCase() === termRaw.toLowerCase()) return true;
-            if (nomNorm && termNorm.length >= 3 && (nomNorm === termNorm || nomNorm.includes(termNorm))) return true;
+            if (nomNorm && termNorm.length >= 3 && (nomNorm === termNorm || nomNorm.includes(termNorm) || termNorm.includes(nomNorm))) return true;
             return false;
         };
 
-        // A) Revisar si es Líder o Integrante en proyectos válidos
+        // PERFIL A: Administrador / Implementador del Sistema
+        let esAdminBD = false;
+        try {
+            const resUsr = await fetch(`/api/usuarios/${encodeURIComponent(termRaw)}`);
+            if (resUsr.ok) {
+                const usrData = await resUsr.json();
+                if (usrData.rol === 'ADMIN') {
+                    esAdminBD = true;
+                    personaNombre = usrData.datos.nombre_completo || personaNombre;
+                }
+            }
+        } catch (e) {}
+
+        if (esAdminBD || termNorm.includes('luis alex fernandez') || termNorm === 'admin' || termNorm === 'administrador') {
+            if (!personaNombre) personaNombre = "Luis Alex Fernández Tejaya";
+            certificadosDetectados.push({
+                tipo: 'admin_sistema',
+                botonLabel: '💻 Implementación del Sistema (Admin)',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                textoMedalla: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> para la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+        }
+
+        // PERFIL B: Comité Organizador del Evento
+        const orgMatch = LISTA_COMITE_ORGANIZADOR.find(o => coincidePersona('', o.nombre));
+        if (orgMatch) {
+            if (!personaNombre) personaNombre = orgMatch.nombre;
+            certificadosDetectados.push({
+                tipo: 'organizador',
+                botonLabel: '🏛️ Comité Organizador',
+                colorPrimario: '#1e1b4b',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fefce8',
+                iconoMedalla: 'fa-sitemap',
+                textoMedalla: 'COMITÉ ORGANIZADOR OFICIAL · TECNOFERIA 2026',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ORGANIZACIÓN Y DIRECCIÓN ACADÉMICA DEL EVENTO',
+                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL (${orgMatch.cargo})</b> en la realización de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+        }
+
+        // PERFIL C: Tribunal Evaluador Oficial
+        const tribMatch = (tribunales || []).find(t => coincidePersona(t.ci || t.usuario_tribunal, t.nombre_completo));
+        if (tribMatch) {
+            let nomTrib = tribMatch.nombre_completo || "Evaluador";
+            if (!nomTrib.toLowerCase().startsWith('ing') && !nomTrib.toLowerCase().startsWith('lic') && !nomTrib.toLowerCase().startsWith('m.sc')) {
+                nomTrib = "Ing. " + nomTrib;
+            }
+            if (!personaNombre) personaNombre = nomTrib;
+            certificadosDetectados.push({
+                tipo: 'tribunal',
+                botonLabel: '⚖️ Tribunal Evaluador',
+                colorPrimario: '#002b5c',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fffdf5',
+                iconoMedalla: 'fa-gavel',
+                textoMedalla: 'COMITÉ EVALUADOR OFICIAL · JURADO CALIFICADOR',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
+                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+        }
+
+        // PERFIL D: Líder o Integrante en Proyectos (Ganadores, Impacto, Público, Participación)
         listaCalculada.forEach(sp => {
             const miembroHallado = sp.miembros.find(m => coincidePersona(m.ci, m.nombre));
             if (miembroHallado) {
-                personaNombre = miembroHallado.nombre;
-                if (miembroHallado.ci && miembroHallado.ci !== miembroHallado.nombre) personaID = miembroHallado.ci;
+                if (!personaNombre) personaNombre = miembroHallado.nombre;
 
                 const infoPodio = podiosPorProyecto[sp.id];
 
@@ -490,7 +592,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         textoMedalla: `GANADOR OFICIAL · ${infoPodio.etiquetaLugar}`,
                         tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: `${infoPodio.etiquetaLugar} — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
-                        cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${infoPodio.etiquetaLugar}</b> en la categoría <b>${sp.catNombre}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>alcanzando una calificación final ponderada de <b>${sp.notaFinal.toFixed(2)} / 100 puntos</b> en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                        cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${infoPodio.etiquetaLugar}</b> en la categoría <b>${sp.catNombre}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"${sp.titulo}"</b><br>alcanzando una calificación final ponderada de <b>${sp.notaFinal.toFixed(2)} / 100 puntos</b> en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
@@ -506,7 +608,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
                         tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                         subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
-                        cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${sp.promImp.toFixed(2)} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.12em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                        cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${sp.promImp.toFixed(2)} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.1em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
@@ -522,11 +624,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
                         tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                         subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
-                        cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y visitantes, alcanzando la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${sp.promPub.toFixed(2)} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                        cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía, alcanzando la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${sp.promPub.toFixed(2)} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.1em;">"${sp.titulo}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
-                // Tipo 2: Certificado de Participación en la Feria (para los que no ganaron o como respaldo de participación)
+                // Tipo 2: Certificado de Participación en la Feria
                 certificadosDetectados.push({
                     tipo: 'participacion',
                     botonLabel: '🎓 Participación (Expositor)',
@@ -537,16 +639,15 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     textoMedalla: 'PARTICIPACIÓN OFICIAL · EXPOSITOR',
                     tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                     subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
-                    cuerpoHTML: `Por su destacada participación como <b>EXPOSITOR(A)</b> presentando el proyecto de investigación e innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>en el evento académico y tecnológico <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                    cuerpoHTML: `Por su destacada participación como <b>EXPOSITOR(A)</b> presentando el proyecto de investigación e innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"${sp.titulo}"</b><br>en el evento académico y tecnológico <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                 });
             }
         });
 
-        // B) Revisar si está registrado en la tabla de COLABORADORES (Tipo 5)
+        // PERFIL E: Colaboradores Oficiales (Tipo 5)
         const colabMatch = (colaboradores || []).find(c => coincidePersona(c.id, c.nombre_completo) || coincidePersona(c.celular, c.nombre_completo));
         if (colabMatch) {
             if (!personaNombre) personaNombre = colabMatch.nombre_completo;
-            if (!personaID || personaID === termRaw) personaID = `COLAB-${colabMatch.id}`;
             certificadosDetectados.unshift({
                 tipo: 'colaborador',
                 botonLabel: '🤝 Colaborador Oficial',
@@ -557,35 +658,18 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
-                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario.`
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
-        // C) Revisar si es Tribunal, Expositor sin proyecto o Visitante
+        // PERFIL F: Expositor sin proyecto o Visitante general
         if (certificadosDetectados.length === 0) {
-            const tribMatch = (tribunales || []).find(t => coincidePersona(t.ci || t.usuario_tribunal, t.nombre_completo));
             const expMatch = (expositores || []).find(e => coincidePersona(e.ci, e.nombre_completo));
             const visMatch = (visitantes || []).find(v => coincidePersona(v.ci, v.nombre_completo));
 
-            if (tribMatch) {
-                personaNombre = tribMatch.nombre_completo;
-                personaID = tribMatch.ci || tribMatch.usuario_tribunal;
-                certificadosDetectados.push({
-                    tipo: 'participacion',
-                    botonLabel: '⚖️ Tribunal Evaluador',
-                    colorPrimario: '#002b5c',
-                    colorAcento: '#b8860b',
-                    colorFondoSuave: '#f8fbff',
-                    iconoMedalla: 'fa-gavel',
-                    textoMedalla: 'COMITÉ EVALUADOR OFICIAL',
-                    tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                    subtituloCertificado: 'JURADO Y TRIBUNAL EVALUADOR OFICIAL',
-                    cuerpoHTML: `Por su valiosa participación como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la valoración técnica y científica de los proyectos presentados en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
-                });
-            } else if (expMatch || visMatch) {
+            if (expMatch || visMatch) {
                 const u = expMatch || visMatch;
                 personaNombre = u.nombre_completo;
-                personaID = u.ci;
                 certificadosDetectados.push({
                     tipo: 'participacion',
                     botonLabel: '🎓 Participación en la Feria',
@@ -596,34 +680,17 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
                     tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                     subtituloCertificado: 'ASISTENCIA Y PARTICIPACIÓN ACADÉMICA',
-                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                 });
             }
         }
 
+        // Si el usuario escribió un nombre libre que no estaba en BD (ej. un organizador o invitado nuevo), le abrimos el certificado con ese nombre
         if (certificadosDetectados.length === 0) {
-            alert("❌ No se encontró ningún Expositor, Integrante, Colaborador, Tribunal ni Visitante con ese C.I. o Nombre. Verifique el dato ingresado.");
-            return;
-        }
-
-        // Plantillas manuales adicionales por si el administrador desea cambiar a cualquiera de los 5 modelos en vivo
-        const plantillasManuales = [
-            ...certificadosDetectados,
-            {
-                tipo: 'manual_ganador',
-                botonLabel: 'Plantilla: 1° Ganador Categoría',
-                colorPrimario: '#002b5c',
-                colorAcento: '#b8860b',
-                colorFondoSuave: '#fffdf5',
-                iconoMedalla: 'fa-trophy',
-                textoMedalla: 'GANADOR OFICIAL · 1° LUGAR',
-                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                subtituloCertificado: '1° LUGAR — CATEGORÍA ESTUDIANTES / DOCENTES',
-                cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">1° LUGAR</b> en su categoría con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"TÍTULO DEL PROYECTO (CLIC PARA EDITAR)"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
-            },
-            {
-                tipo: 'manual_participacion',
-                botonLabel: 'Plantilla: 2° Participación',
+            personaNombre = termRaw.toUpperCase();
+            certificadosDetectados.push({
+                tipo: 'participacion',
+                botonLabel: '🎓 Participación General',
                 colorPrimario: '#002b5c',
                 colorAcento: '#0284c7',
                 colorFondoSuave: '#f8fbff',
@@ -631,11 +698,40 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
                 tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                 subtituloCertificado: 'EXPOSICIÓN ACADÉMICA Y TECNOLÓGICA',
-                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+        }
+
+        // 3. PLANTILLAS COMPLETAS DE LOS 8 CERTIFICADOS (Para poder alternar en vivo si se requiere)
+        const plantillasManuales = [
+            ...certificadosDetectados,
+            {
+                tipo: 'manual_ganador',
+                botonLabel: '1. Ganador de Categoría (Estudiantes / Docentes)',
+                colorPrimario: '#002b5c',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fffdf5',
+                iconoMedalla: 'fa-trophy',
+                textoMedalla: 'GANADOR OFICIAL · 1° LUGAR',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: '1° LUGAR — CATEGORÍA ESTUDIANTES / DOCENTES',
+                cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">1° LUGAR</b> en su categoría con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"TÍTULO DEL PROYECTO (CLIC PARA EDITAR)"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_participacion',
+                botonLabel: '2. Participación en la Feria (Expositores)',
+                colorPrimario: '#002b5c',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f8fbff',
+                iconoMedalla: 'fa-award',
+                textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
+                tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                subtituloCertificado: 'EXPOSICIÓN ACADÉMICA Y TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_impacto',
-                botonLabel: 'Plantilla: 3° Impacto Social',
+                botonLabel: '3. Premio Especial: Impacto Social (15 pts)',
                 colorPrimario: '#14532d',
                 colorAcento: '#16a34a',
                 colorFondoSuave: '#f4fdf7',
@@ -643,11 +739,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
                 tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                 subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
-                cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${ganadorImpacto ? ganadorImpacto.promImp.toFixed(2) : '15.00'} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.12em;">"${ganadorImpacto ? ganadorImpacto.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">máxima calificación del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${ganadorImpacto ? ganadorImpacto.promImp.toFixed(2) : '15.00'} / 15 pts)</b> con el proyecto:<br><b style="color:#14532d; font-size:1.1em;">"${ganadorImpacto ? ganadorImpacto.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_publico',
-                botonLabel: 'Plantilla: 4° Mayor Voto Público',
+                botonLabel: '4. Premio Especial: Mayor Votación del Público',
                 colorPrimario: '#7f1d1d',
                 colorAcento: '#dc2626',
                 colorFondoSuave: '#fff8f8',
@@ -655,11 +751,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
                 tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                 subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
-                cuerpoHTML: `Por haberse consagrado como el proyecto con la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${ganadorPublico ? ganadorPublico.promPub.toFixed(2) : '98.82'} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.12em;">"${ganadorPublico ? ganadorPublico.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario de la UABJB.`
+                cuerpoHTML: `Por haberse consagrado como el proyecto con la <b style="color:#dc2626;">mayor puntuación en la Votación Digital del Público (${ganadorPublico ? ganadorPublico.promPub.toFixed(2) : '98.82'} / 100 pts)</b> con la innovación:<br><b style="color:#7f1d1d; font-size:1.1em;">"${ganadorPublico ? ganadorPublico.titulo : 'TÍTULO DEL PROYECTO'}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_colaborador',
-                botonLabel: 'Plantilla: 5° Colaborador',
+                botonLabel: '5. Colaboradores Oficiales (Apoyo y Promoción)',
                 colorPrimario: '#0f5132',
                 colorAcento: '#0d9488',
                 colorFondoSuave: '#f4fbfa',
@@ -667,11 +763,49 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
-                cuerpoHTML: `Por su valioso apoyo logístico como <b>COLABORADOR(A) OFICIAL</b>, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el Campus Universitario.`
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_tribunal',
+                botonLabel: '6. Tribunales Evaluadores (Jurado Calificador)',
+                colorPrimario: '#002b5c',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fffdf5',
+                iconoMedalla: 'fa-gavel',
+                textoMedalla: 'COMITÉ EVALUADOR OFICIAL · JURADO CALIFICADOR',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
+                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_organizador',
+                botonLabel: '7. Comité Organizador del Evento',
+                colorPrimario: '#1e1b4b',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fefce8',
+                iconoMedalla: 'fa-sitemap',
+                textoMedalla: 'COMITÉ ORGANIZADOR OFICIAL · TECNOFERIA 2026',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ORGANIZACIÓN Y DIRECCIÓN ACADÉMICA DEL EVENTO',
+                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL</b> en la realización de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_sistema',
+                botonLabel: '8. Administrador: Implementación del Sistema',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                textoMedalla: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> para la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
         ];
 
-        const urlValidacion = `${window.location.origin}/?validar_certificado=${encodeURIComponent(personaID)}`;
+        // Generar Código Aleatorio Único para el QR
+        const codigoAleatorioInicial = generarCodigoAleatorioQR();
+        const urlValidacion = `${window.location.origin}/?validar_certificado=${encodeURIComponent(codigoAleatorioInicial)}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(urlValidacion)}`;
 
         const logoUab = `${window.location.origin}/assets/img/OIP (2).png`;
@@ -737,7 +871,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         display: flex;
                         align-items: center;
                         justify-content: space-between;
-                        gap: 15px;
+                        gap: 12px;
                         z-index: 9999;
                         color: #fff;
                         flex-wrap: wrap;
@@ -746,7 +880,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .barra-izq {
                         display: flex;
                         align-items: center;
-                        gap: 10px;
+                        gap: 8px;
                         flex-wrap: wrap;
                     }
 
@@ -756,7 +890,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         color: #34d399;
                         padding: 5px 12px;
                         border-radius: 50px;
-                        font-size: 0.78rem;
+                        font-size: 0.76rem;
                         font-weight: 700;
                     }
 
@@ -764,11 +898,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         background: #334155;
                         color: #e2e8f0;
                         border: 1px solid #475569;
-                        padding: 7px 14px;
+                        padding: 7px 12px;
                         border-radius: 8px;
                         cursor: pointer;
                         font-weight: 700;
-                        font-size: 0.82rem;
+                        font-size: 0.8rem;
                         transition: 0.2s;
                     }
 
@@ -784,20 +918,37 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         border: 1px solid #475569;
                         padding: 7px 12px;
                         border-radius: 8px;
-                        font-size: 0.82rem;
+                        font-size: 0.8rem;
                         font-weight: 600;
                         outline: none;
                         cursor: pointer;
+                    }
+
+                    .btn-random-qr {
+                        background: #0f172a;
+                        color: #38bdf8;
+                        border: 1px solid #0284c7;
+                        padding: 7px 12px;
+                        border-radius: 8px;
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        cursor: pointer;
+                        transition: 0.2s;
+                    }
+
+                    .btn-random-qr:hover {
+                        background: #0284c7;
+                        color: #ffffff;
                     }
 
                     .btn-imprimir-top {
                         background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
                         color: #ffffff;
                         border: none;
-                        padding: 10px 24px;
+                        padding: 10px 22px;
                         border-radius: 50px;
                         font-weight: 800;
-                        font-size: 0.92rem;
+                        font-size: 0.9rem;
                         cursor: pointer;
                         box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
                         display: flex;
@@ -821,7 +972,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        padding: 10mm;
+                        padding: 9mm;
                     }
 
                     .certificado-marco-externo {
@@ -840,7 +991,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         width: 100%;
                         height: 100%;
                         border: 2px solid var(--cert-acento);
-                        padding: 18px 34px;
+                        padding: 16px 32px 18px;
                         position: relative;
                         display: flex;
                         flex-direction: column;
@@ -852,8 +1003,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     /* ADORNOS DE ESQUINA */
                     .esquina-ornamento {
                         position: absolute;
-                        width: 42px;
-                        height: 42px;
+                        width: 40px;
+                        height: 40px;
                         border-color: var(--cert-acento);
                         border-style: solid;
                         z-index: 2;
@@ -864,7 +1015,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .esq-bl { bottom: 8px; left: 8px; border-width: 0 0 4px 4px; }
                     .esq-br { bottom: 8px; right: 8px; border-width: 0 4px 4px 0; }
 
-                    /* FRANJA DECORATIVA LATERAL SUTIL */
                     .onda-decorativa-izq {
                         position: absolute;
                         top: -80px;
@@ -891,7 +1041,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     /* CABECERA CON LOGOS Y QR */
                     .cert-top-row {
                         display: grid;
-                        grid-template-columns: 110px 1fr 110px;
+                        grid-template-columns: 120px 1fr 120px;
                         align-items: center;
                         width: 100%;
                         position: relative;
@@ -903,12 +1053,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         flex-direction: column;
                         align-items: center;
                         justify-content: center;
-                        color: var(--cert-acento);
                     }
 
                     .medalla-circulo {
-                        width: 64px;
-                        height: 64px;
+                        width: 62px;
+                        height: 62px;
                         border-radius: 50%;
                         background: linear-gradient(135deg, var(--cert-primario) 0%, #0f172a 100%);
                         border: 3px solid var(--cert-acento);
@@ -916,7 +1065,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         align-items: center;
                         justify-content: center;
                         color: #fde047;
-                        font-size: 1.7rem;
+                        font-size: 1.65rem;
                         box-shadow: 0 4px 12px rgba(0,0,0,0.18);
                     }
 
@@ -928,7 +1077,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     }
 
                     .header-logos img {
-                        height: 68px;
+                        height: 66px;
                         object-fit: contain;
                     }
 
@@ -940,8 +1089,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     }
 
                     .qr-zone img {
-                        width: 74px;
-                        height: 74px;
+                        width: 72px;
+                        height: 72px;
                         border: 1.5px solid var(--cert-acento);
                         padding: 3px;
                         background: #ffffff;
@@ -949,11 +1098,12 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     }
 
                     .qr-zone span {
-                        font-size: 9px;
+                        font-size: 8.5px;
                         color: var(--cert-primario);
-                        margin-top: 3px;
+                        margin-top: 4px;
                         font-weight: 800;
                         letter-spacing: 0.4px;
+                        font-family: 'Montserrat', monospace;
                     }
 
                     /* CUERPO CENTRAL */
@@ -965,15 +1115,15 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         align-items: center;
                         justify-content: center;
                         flex: 1;
-                        padding: 4px 15px;
+                        padding: 2px 15px;
                     }
 
                     .texto-institucional {
-                        font-size: 0.88rem;
+                        font-size: 0.86rem;
                         color: #334155;
-                        margin: 2px 0 6px;
+                        margin: 0 0 6px;
                         font-weight: 600;
-                        letter-spacing: 0.3px;
+                        letter-spacing: 0.2px;
                         line-height: 1.35;
                     }
 
@@ -985,35 +1135,35 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         color: #ffffff;
                         padding: 4px 18px;
                         border-radius: 50px;
-                        font-size: 0.75rem;
+                        font-size: 0.73rem;
                         font-weight: 800;
                         letter-spacing: 1.2px;
                         text-transform: uppercase;
                         border: 1.5px solid var(--cert-acento);
-                        margin-bottom: 6px;
+                        margin-bottom: 5px;
                     }
 
                     h1.titulo-cert {
                         font-family: 'Cinzel', 'Georgia', serif;
-                        font-size: 2.35rem;
+                        font-size: 2.25rem;
                         color: var(--cert-primario);
                         margin: 2px 0;
                         font-weight: 800;
                         letter-spacing: 2px;
-                        line-height: 1.1;
+                        line-height: 1.08;
                     }
 
                     .subtitulo-cert {
-                        font-size: 0.92rem;
+                        font-size: 0.88rem;
                         font-weight: 800;
                         color: var(--cert-acento);
-                        letter-spacing: 1.5px;
+                        letter-spacing: 1.4px;
                         text-transform: uppercase;
-                        margin: 3px 0 8px;
+                        margin: 2px 0 6px;
                     }
 
                     .otorgado-a-label {
-                        font-size: 0.8rem;
+                        font-size: 0.76rem;
                         color: #64748b;
                         text-transform: uppercase;
                         letter-spacing: 2px;
@@ -1023,16 +1173,16 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .editable-name {
                         font-family: 'Playfair Display', 'Georgia', serif;
-                        font-size: 2.1rem;
+                        font-size: 2.05rem;
                         font-weight: 700;
                         font-style: italic;
                         color: #0f172a;
                         border-bottom: 2px solid var(--cert-acento);
                         display: inline-block;
-                        min-width: 62%;
+                        min-width: 60%;
                         max-width: 92%;
-                        padding: 2px 20px 5px;
-                        margin: 4px 0 10px;
+                        padding: 1px 20px 4px;
+                        margin: 2px 0 8px;
                         outline: none;
                     }
 
@@ -1042,52 +1192,62 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     }
 
                     .body-text {
-                        font-size: 0.98rem;
+                        font-size: 0.94rem;
                         color: #1e293b;
-                        line-height: 1.52;
+                        line-height: 1.48;
                         max-width: 90%;
-                        margin: 0 auto 8px;
+                        margin: 0 auto 6px;
                         outline: none;
                     }
 
                     .fecha-lugar {
-                        font-size: 0.88rem;
+                        font-size: 0.84rem;
                         color: #475569;
                         font-weight: 600;
-                        margin: 4px 0 0;
+                        margin: 2px 0 0;
                     }
 
-                    /* FIRMAS INFERIORES */
+                    /* 🔥 FIRMAS PERFECTAMENTE ALINEADAS EN LA MISMA LÍNEA HORIZONTAL 🔥 */
                     .firmas-container {
-                        display: flex;
-                        justify-content: space-around;
-                        align-items: flex-end;
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        align-items: flex-start;
+                        justify-items: center;
+                        gap: 24px;
                         width: 100%;
-                        padding: 0 15px;
-                        margin-top: 8px;
+                        padding: 0 18px;
+                        margin-top: 18px;
                         position: relative;
                         z-index: 5;
                     }
 
                     .firma-bloque {
                         text-align: center;
-                        border-top: 1.5px solid #1e293b;
-                        width: 230px;
-                        padding-top: 6px;
+                        border-top: 1.8px solid #0f172a;
+                        width: 100%;
+                        max-width: 240px;
+                        padding-top: 7px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: flex-start;
                     }
 
                     .firma-bloque h4 {
                         margin: 0;
-                        font-size: 0.78rem;
+                        font-size: 0.75rem;
                         color: #0f172a;
                         font-weight: 800;
+                        line-height: 1.25;
+                        white-space: nowrap;
                     }
 
                     .firma-bloque p {
-                        margin: 2px 0 0;
-                        font-size: 0.7rem;
+                        margin: 3px 0 0;
+                        font-size: 0.68rem;
                         color: #475569;
-                        font-weight: 600;
+                        font-weight: 700;
+                        line-height: 1.2;
                     }
 
                     /* =========================================================================
@@ -1133,14 +1293,17 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             <body>
                 <div class="barra-control-cert no-print">
                     <div class="barra-izq">
-                        <span class="badge-auto"><i class="fas fa-magic"></i> Detección Automática</span>
+                        <span class="badge-auto"><i class="fas fa-magic"></i> Auto-Detectado</span>
                         ${botonesDetectadosHTML}
-                        <select class="select-plantilla-manual" onchange="cambiarModeloCertificado(this.value)" title="Cambiar entre los 5 modelos de certificado">
+                        <select class="select-plantilla-manual" onchange="cambiarModeloCertificado(this.value)" title="Cambiar entre los 8 modelos de certificado">
                             ${opcionesManualesHTML}
                         </select>
+                        <button type="button" class="btn-random-qr" onclick="regenerarCodigoQR()" title="Generar otro código aleatorio para el QR">
+                            <i class="fas fa-random"></i> Nuevo Código QR
+                        </button>
                     </div>
                     <div style="display:flex; align-items:center; gap:12px;">
-                        <span style="font-size:0.78rem; color:#94a3b8;"><i class="fas fa-pen"></i> Haz clic sobre cualquier texto para editarlo</span>
+                        <span style="font-size:0.76rem; color:#94a3b8;"><i class="fas fa-pen"></i> Textos editables con un clic</span>
                         <button type="button" class="btn-imprimir-top" onclick="window.print()">
                             <i class="fas fa-print"></i> Imprimir en 1 Hoja
                         </button>
@@ -1171,8 +1334,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                 </div>
 
                                 <div class="qr-zone">
-                                    <img src="${qrUrl}" alt="QR Validación">
-                                    <span>ID: ${personaID}</span>
+                                    <img id="cert-qr-img" src="${qrUrl}" alt="QR Validación">
+                                    <span id="cert-qr-code-text" contenteditable="true" spellcheck="false">ID: ${codigoAleatorioInicial}</span>
                                 </div>
                             </div>
 
@@ -1229,6 +1392,23 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                 <script>
                     const MODELOS_CERT = ${JSON.stringify(plantillasManuales)};
+                    const ORIGEN_URL = ${JSON.stringify(window.location.origin)};
+
+                    function generarNuevoCodigo() {
+                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+                        let b1 = '', b2 = '';
+                        for (let i = 0; i < 4; i++) b1 += chars.charAt(Math.floor(Math.random() * chars.length));
+                        for (let i = 0; i < 4; i++) b2 += chars.charAt(Math.floor(Math.random() * chars.length));
+                        return 'TF26-' + b1 + '-' + b2;
+                    }
+
+                    function regenerarCodigoQR() {
+                        const nuevoCod = generarNuevoCodigo();
+                        const nuevaUrl = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(nuevoCod);
+                        document.getElementById('cert-qr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(nuevaUrl);
+                        document.getElementById('cert-qr-code-text').textContent = 'ID: ' + nuevoCod;
+                    }
+
                     function cambiarModeloCertificado(indice) {
                         const m = MODELOS_CERT[indice];
                         if (!m) return;
@@ -1247,6 +1427,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         });
                         const sel = document.querySelector('.select-plantilla-manual');
                         if (sel) sel.value = String(indice);
+                        regenerarCodigoQR();
                     }
                 <\/script>
             </body>
@@ -1273,17 +1454,20 @@ window.generarVistaPrevia = async function() {
         areaImpresion.innerHTML = `
             <div style="text-align: center; padding: 35px 25px; color: #002b5c; background: #e8f4fd; border-radius: 10px; border: 2px dashed #0284c7; font-family: Arial, sans-serif;">
                 <i class="fas fa-award fa-4x" style="margin-bottom:15px; color: #0284c7;"></i>
-                <h3 style="margin-top: 0; color: #002b5c !important; font-size: 1.4rem;">Sistema Inteligente de 5 Certificados Oficiales</h3>
-                <p style="color: #1e293b !important; font-size: 1rem; max-width: 650px; margin: 10px auto 15px; line-height: 1.5;">
+                <h3 style="margin-top: 0; color: #002b5c !important; font-size: 1.4rem;">Sistema Inteligente de 8 Certificados Oficiales (QR Único)</h3>
+                <p style="color: #1e293b !important; font-size: 1rem; max-width: 680px; margin: 10px auto 15px; line-height: 1.5;">
                     Escriba el <b>C.I. o Nombre Completo</b> arriba y presione <b>"Procesar Documento"</b>.<br>
-                    El sistema detectará automáticamente cuál de los 5 certificados le corresponde:
+                    El sistema detectará el rol de la persona y generará un código aleatorio único para su QR:
                 </p>
                 <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px;">
-                    <span style="background:#fffdf5; border:1px solid #b8860b; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🏆 1. Ganadores de Categoría</span>
-                    <span style="background:#f8fbff; border:1px solid #0284c7; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🎓 2. Participación en la Feria</span>
-                    <span style="background:#f4fdf7; border:1px solid #16a34a; color:#14532d; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🌱 3. Premio Impacto Social (15 pts)</span>
-                    <span style="background:#fff8f8; border:1px solid #dc2626; color:#7f1d1d; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">❤️ 4. Mayor Votación del Público</span>
-                    <span style="background:#f4fbfa; border:1px solid #0d9488; color:#0f5132; padding:6px 12px; border-radius:50px; font-size:0.82rem; font-weight:bold;">🤝 5. Colaboradores Oficiales</span>
+                    <span style="background:#fffdf5; border:1px solid #b8860b; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">🏆 1. Ganadores de Categoría</span>
+                    <span style="background:#f8fbff; border:1px solid #0284c7; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">🎓 2. Participación en la Feria</span>
+                    <span style="background:#f4fdf7; border:1px solid #16a34a; color:#14532d; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">🌱 3. Premio Impacto Social (15 pts)</span>
+                    <span style="background:#fff8f8; border:1px solid #dc2626; color:#7f1d1d; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">❤️ 4. Mayor Votación del Público</span>
+                    <span style="background:#f4fbfa; border:1px solid #0d9488; color:#0f5132; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">🤝 5. Colaboradores Oficiales</span>
+                    <span style="background:#fffdf5; border:1px solid #b8860b; color:#002b5c; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">⚖️ 6. Tribunales Evaluadores</span>
+                    <span style="background:#fefce8; border:1px solid #b8860b; color:#1e1b4b; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">🏛️ 7. Comité Organizador</span>
+                    <span style="background:#f0f9ff; border:1px solid #0284c7; color:#0f172a; padding:6px 12px; border-radius:50px; font-size:0.8rem; font-weight:bold;">💻 8. Implementación del Sistema (Admin)</span>
                 </div>
             </div>
         `;
