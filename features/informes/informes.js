@@ -2476,3 +2476,224 @@ window.imprimirInformeActual = function(event) {
     `);
     ventanaImpresion.document.close();
 };
+// =========================================================================
+// 🔥 SISTEMA DE REGISTRO Y VERIFICACIÓN PÚBLICA DE CERTIFICADOS (QR / ID) 🔥
+// =========================================================================
+
+window.registrarCertificadoEnServidor = async function(payload) {
+    try {
+        const res = await fetch('/api/certificados_emitidos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (e) {
+        console.error("Error guardando certificado:", e);
+        return null;
+    }
+};
+
+window.abrirVerificadorCertificados = function(codigoInicial = "") {
+    const modal = document.getElementById('pantalla-verificar-certificado');
+    if (!modal) return;
+    modal.style.display = 'block';
+
+    if (codigoInicial) {
+        const input = document.getElementById('input-codigo-verificacion');
+        if (input) input.value = codigoInicial.toUpperCase();
+        window.ejecutarVerificacionCodigo(codigoInicial);
+    }
+};
+
+window.cerrarVerificadorCertificados = function() {
+    const modal = document.getElementById('pantalla-verificar-certificado');
+    if (modal) modal.style.display = 'none';
+    if (window.location.search.includes('validar_certificado')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+};
+
+window.buscarCertificadoPorID = function(e) {
+    if (e) e.preventDefault();
+    const input = document.getElementById('input-codigo-verificacion');
+    if (!input) return;
+    const codigo = input.value.trim().toUpperCase();
+    if (!codigo) return;
+    window.ejecutarVerificacionCodigo(codigo);
+};
+
+window.ejecutarVerificacionCodigo = async function(codigoRaw) {
+    const cajaResultado = document.getElementById('resultado-verificacion-cert');
+    const btn = document.getElementById('btn-verificar-id');
+    if (!cajaResultado) return;
+
+    const codigoLimpio = codigoRaw.replace(/^ID:\s*/i, '').trim().toUpperCase();
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+
+    cajaResultado.innerHTML = `
+        <div style="padding: 25px; text-align: center; color: #38bdf8;">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p style="margin-top: 10px; font-weight: bold;">Consultando registro oficial en PostgreSQL...</p>
+        </div>
+    `;
+
+    try {
+        const res = await fetch(`/api/verificar_certificado/${encodeURIComponent(codigoLimpio)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.valido) {
+            cajaResultado.innerHTML = `
+                <div style="background: rgba(220, 38, 38, 0.12); border: 2px solid #ef4444; border-radius: 12px; padding: 22px; text-align: center;">
+                    <i class="fas fa-times-circle" style="font-size: 3rem; color: #ef4444; margin-bottom: 10px; display: block;"></i>
+                    <h4 style="color: #fca5a5; margin: 0 0 8px 0; font-size: 1.2rem; text-transform: uppercase;">Certificado No Válido / No Registrado</h4>
+                    <p style="color: #e2e8f0; font-size: 0.92rem; margin: 0;">
+                        El código <b style="font-family: monospace; color: #fff;">${codigoLimpio}</b> no existe en la base de datos oficial del Instituto de Investigación Interacción Social y Posgrado (I.I.S.P. - UABJB).
+                    </p>
+                </div>
+            `;
+        } else {
+            const c = data.certificado;
+            const fechaEmision = c.fecha_emision ? new Date(c.fecha_emision).toLocaleDateString('es-BO', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Octubre 2026';
+
+            cajaResultado.innerHTML = `
+                <div style="background: rgba(16, 185, 129, 0.1); border: 2px solid #10b981; border-radius: 12px; padding: 22px;">
+                    <div style="text-align: center; border-bottom: 1px solid rgba(16, 185, 129, 0.3); padding-bottom: 14px; margin-bottom: 15px;">
+                        <i class="fas fa-check-circle" style="font-size: 3rem; color: #10b981; margin-bottom: 8px; display: block;"></i>
+                        <span style="background: #10b981; color: #041226; padding: 4px 14px; border-radius: 50px; font-size: 0.78rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
+                            ✓ CERTIFICADO AUTÉNTICO Y VERIFICADO
+                        </span>
+                    </div>
+
+                    <div style="display: grid; gap: 10px; font-size: 0.92rem; color: #e2e8f0;">
+                        <div>
+                            <span style="color: #94a3b8; font-size: 0.8rem; display: block;">CÓDIGO OFICIAL DE REGISTRO:</span>
+                            <strong style="font-family: monospace; font-size: 1.1rem; color: #38bdf8;">${c.codigo_qr}</strong>
+                        </div>
+                        <div>
+                            <span style="color: #94a3b8; font-size: 0.8rem; display: block;">OTORGADO OFICIALMENTE A:</span>
+                            <strong style="font-size: 1.15rem; color: #ffffff;">${c.nombre_completo}</strong>
+                        </div>
+                        <div>
+                            <span style="color: #94a3b8; font-size: 0.8rem; display: block;">DISTINCIÓN / CATEGORÍA:</span>
+                            <strong style="color: #fde047;">${c.titulo_certificado} — ${c.subtitulo_certificado}</strong>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border-left: 3px solid #38bdf8; line-height: 1.45; font-size: 0.88rem;">
+                            ${c.detalle_certificado || ''}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.82rem; color: #94a3b8;">
+                            <span><i class="fas fa-map-marker-alt" style="color:#ef4444;"></i> ${c.lugar_evento || 'Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad'}</span>
+                            <span><i class="fas fa-calendar-check" style="color:#10b981;"></i> Emitido: ${fechaEmision}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (err) {
+        cajaResultado.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 15px;">❌ Error de conexión al verificar el código.</div>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search"></i> Verificar'; }
+    }
+};
+
+// Detectar automáticamente cuando alguien escanea el QR de un certificado (?validar_certificado=TF26-XXXX-XXXX)
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const codValidar = params.get('validar_certificado');
+    if (codValidar) {
+        setTimeout(() => {
+            window.abrirVerificadorCertificados(codValidar);
+        }, 250);
+    }
+});
+
+// 🔥 CONECTAR LA VENTANA DEL CERTIFICADO CON EL GUARDADO AUTOMÁTICO EN POSTGRESQL 🔥
+(function() {
+    const fnOriginal = window.generarCertificadoParticipacion;
+    if (typeof fnOriginal !== 'function') return;
+
+    const openOriginal = window.open;
+    window.generarCertificadoParticipacion = async function(terminoBusqueda) {
+        let ventanaRef = null;
+        window.open = function(...args) {
+            ventanaRef = openOriginal.apply(this, args);
+            return ventanaRef;
+        };
+        try {
+            await fnOriginal(terminoBusqueda);
+            if (ventanaRef) {
+                setTimeout(() => {
+                    try {
+                        const scriptSync = ventanaRef.document.createElement('script');
+                        scriptSync.textContent = `
+                            let bloqueandoRegenInterno = false;
+
+                            async function sincronizarCertificadoConBD(forzarNuevo = false) {
+                                try {
+                                    const sel = document.querySelector('.select-plantilla-manual');
+                                    const idx = sel ? Number(sel.value) : 0;
+                                    const modelo = (typeof MODELOS_CERT !== 'undefined' && MODELOS_CERT[idx]) ? MODELOS_CERT[idx] : {};
+                                    const codigoActual = document.getElementById('cert-qr-code-text').textContent.replace(/^ID:\\s*/i, '').trim();
+                                    const nombreActual = document.querySelector('.editable-name').textContent.trim();
+                                    const tituloActual = document.getElementById('cert-titulo-principal').textContent.trim();
+                                    const subtituloActual = document.getElementById('cert-subtitulo').textContent.trim();
+                                    const detalleActual = document.getElementById('cert-cuerpo-texto').innerHTML.trim();
+
+                                    const res = await fetch(ORIGEN_URL + '/api/certificados_emitidos', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            codigoQr: codigoActual,
+                                            identificadorUsuario: nombreActual,
+                                            nombreCompleto: nombreActual,
+                                            tipoCertificado: modelo.tipo || 'certificado',
+                                            tituloCertificado: tituloActual,
+                                            subtituloCertificado: subtituloActual,
+                                            detalleCertificado: detalleActual,
+                                            lugarEvento: 'Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad',
+                                            forzarNuevoCodigo: forzarNuevo
+                                        })
+                                    });
+                                    const data = await res.json();
+                                    if (data && data.codigo_qr) {
+                                        const urlVal = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(data.codigo_qr);
+                                        document.getElementById('cert-qr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(urlVal);
+                                        document.getElementById('cert-qr-code-text').textContent = 'ID: ' + data.codigo_qr;
+                                    }
+                                } catch (err) { console.error(err); }
+                            }
+
+                            const _regenOrig = window.regenerarCodigoQR;
+                            window.regenerarCodigoQR = function() {
+                                _regenOrig();
+                                if (!bloqueandoRegenInterno) {
+                                    sincronizarCertificadoConBD(true);
+                                }
+                            };
+
+                            const _cambiarOrig = window.cambiarModeloCertificado;
+                            window.cambiarModeloCertificado = function(indice) {
+                                bloqueandoRegenInterno = true;
+                                _cambiarOrig(indice);
+                                bloqueandoRegenInterno = false;
+                                sincronizarCertificadoConBD(false);
+                            };
+
+                            // Actualizar en PostgreSQL automáticamente si el administrador edita algún texto del certificado
+                            ['.editable-name', '#cert-titulo-principal', '#cert-subtitulo', '#cert-cuerpo-texto'].forEach(selector => {
+                                const el = document.querySelector(selector);
+                                if (el) el.addEventListener('blur', () => sincronizarCertificadoConBD(false));
+                            });
+
+                            sincronizarCertificadoConBD(false);
+                        `;
+                        ventanaRef.document.body.appendChild(scriptSync);
+                    } catch (e) { console.error(e); }
+                }, 300);
+            }
+        } finally {
+            window.open = openOriginal;
+        }
+    };
+})();

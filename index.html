@@ -1181,7 +1181,47 @@
             </div>
         </section>
     </div>
-    
+<!-- 🔥 MÓDULO PÚBLICO DE VERIFICACIÓN DE CERTIFICADOS (POR QR O BUSCADOR DE ID) 🔥 -->
+<section id="pantalla-verificar-certificado" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(4, 18, 38, 0.96); backdrop-filter: blur(12px); z-index: 9999999; overflow-y: auto;">
+    <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        <div class="form-card" style="background: #0f172a; padding: 35px 28px; border-radius: 16px; border: 1px solid rgba(77, 184, 255, 0.3); border-top: 6px solid #0284c7; width: 100%; max-width: 580px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); text-align: center; color: #fff;">
+            
+            <div style="width: 68px; height: 68px; border-radius: 50%; background: rgba(2, 132, 199, 0.15); border: 2px solid #38bdf8; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; font-size: 2rem; color: #38bdf8;">
+                <i class="fas fa-shield-check fa-award"></i>
+            </div>
+
+            <h3 style="color: #ffffff; margin: 0 0 6px 0; font-size: 1.5rem; border: none; text-align: center;">
+                Verificación Oficial de Certificados
+            </h3>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 22px;">
+                TecnoFeria 2026 · Carrera de Ingeniería de Sistemas — U.A.B.J.B.
+            </p>
+
+            <!-- BUSCADOR EXCLUSIVO POR ID DE CERTIFICADO -->
+            <form onsubmit="window.buscarCertificadoPorID(event)" style="display: flex; gap: 10px; margin-bottom: 25px;">
+                <div style="position: relative; flex: 1;">
+                    <i class="fas fa-qrcode" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #38bdf8;"></i>
+                    <input type="text" id="input-codigo-verificacion" placeholder="Ingrese el ID del certificado (Ej: TF26-XXXX-XXXX)" required oninput="this.value = this.value.toUpperCase()" style="width: 100%; padding: 13px 12px 13px 40px; border-radius: 10px; border: 1px solid #334155; background: #1e293b; color: #ffffff; font-family: monospace; font-size: 1rem; font-weight: bold; letter-spacing: 1px; outline: none;">
+                </div>
+                <button type="submit" id="btn-verificar-id" style="padding: 0 22px; background: #0284c7; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.2s;">
+                    <i class="fas fa-search"></i> Verificar
+                </button>
+            </form>
+
+            <!-- CONTENEDOR DINÁMICO DEL RESULTADO DE LA VERIFICACIÓN -->
+            <div id="resultado-verificacion-cert" style="text-align: left; margin-bottom: 22px;">
+                <div style="background: rgba(255,255,255,0.03); border: 1px dashed #334155; padding: 20px; border-radius: 12px; text-align: center; color: #94a3b8; font-size: 0.9rem;">
+                    <i class="fas fa-info-circle" style="color: #38bdf8; margin-right: 5px;"></i>
+                    Escanee el código QR impreso en el certificado o introduzca el código <b>ID (TF26-XXXX-XXXX)</b> en el buscador superior para comprobar su autenticidad en la base de datos de la UABJB.
+                </div>
+            </div>
+
+            <button type="button" onclick="window.cerrarVerificadorCertificados()" style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.08); color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 10px; font-size: 0.95rem; cursor: pointer; font-weight: bold;">
+                <i class="fas fa-arrow-left"></i> Cerrar Verificador / Ir al Sistema
+            </button>
+        </div>
+    </div>
+</section> 
     <!-- Modal de Edición de Usuario -->
 <!-- Modal de Edición de Usuario (Diseño Oscuro) -->
 <div id="modal-edicion-usuario" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); z-index: 9999999; justify-content: center; align-items: center; padding: 20px;">
@@ -1241,6 +1281,6 @@
     <script src="features/registroTribunal/registroTribunal.js?v=FERIA_V102"></script> 
     <script src="features/evaluacion/evaluacion.js?v=FERIA_V108"></script>
     <script src="features/resultados/resultados.js?v=FERIA_V103"></script>
-    <script src="features/informes/informes.js?v=FERIA_V123"></script>
+    <script src="features/informes/informes.js?v=FERIA_V124"></script>
 </body>
 </html>

@@ -97,6 +97,15 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
         
         await db.query(`CREATE TABLE IF NOT EXISTS colaboradores (id SERIAL PRIMARY KEY, nombre_completo VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50))`);
+        await db.query(`CREATE TABLE IF NOT EXISTS certificados_emitidos (codigo_qr VARCHAR(60) PRIMARY KEY, identificador_usuario VARCHAR(150), nombre_completo VARCHAR(255) NOT NULL, tipo_certificado VARCHAR(100), titulo_certificado VARCHAR(255), subtitulo_certificado VARCHAR(255), detalle_certificado TEXT, lugar_evento VARCHAR(255), fecha_emision TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
+
+        // Asegurar que todas las columnas existan en PostgreSQL aunque la tabla se haya creado antes
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS identificador_usuario VARCHAR(150);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS tipo_certificado VARCHAR(100);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS titulo_certificado VARCHAR(255);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS subtitulo_certificado VARCHAR(255);`); } catch(e) {}
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS detalle_certificado TEXT;`); } catch(e) {}
+        try { await db.query(`ALTER TABLE certificados_emitidos ADD COLUMN IF NOT EXISTS lugar_evento VARCHAR(255);`); } catch(e) {}
 
         try { await db.query(`ALTER TABLE votos_publico ADD COLUMN IF NOT EXISTS device_id VARCHAR(100);`); } catch(e) {}
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
@@ -113,6 +122,90 @@ db.connect()
 
     })
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
+
+// =========================================================================
+// 🔥 RUTAS DE REGISTRO Y VERIFICACIÓN DE CERTIFICADOS OFICIALES 🔥
+// =========================================================================
+const generarCodigoCertificadoUnico = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let b1 = '', b2 = '';
+    for (let i = 0; i < 4; i++) b1 += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < 4; i++) b2 += chars.charAt(Math.floor(Math.random() * chars.length));
+    return `TF26-${b1}-${b2}`;
+};
+
+app.post('/api/certificados/guardar', async (req, res) => {
+    try {
+        let { codigoQr, nombreCompleto, tipoCertificado, subtitulo, insignia, detalleReconocimiento, lugarFecha, forzarNuevo } = req.body;
+        const nomLimpio = (nombreCompleto || "PARTICIPANTE").trim();
+        const subLimpio = (subtitulo || "TECNOFERIA 2026").trim();
+        const tipoLimpio = (tipoCertificado || "CERTIFICADO DE PARTICIPACIÓN").trim();
+        const insLimpia = (insignia || "TECNOFERIA 2026").trim();
+        const detLimpio = (detalleReconocimiento || "").trim();
+        const fecLimpia = (lugarFecha || "Trinidad - Beni, Octubre de 2026").trim();
+
+        // Si no se fuerza un código nuevo, verificamos si ya tenía un certificado emitido para este mismo rol/subtítulo
+        if (!forzarNuevo) {
+            const existente = await db.query(
+                `SELECT codigo_qr FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = UPPER($1) AND UPPER(TRIM(subtitulo)) = UPPER($2) LIMIT 1`,
+                [nomLimpio, subLimpio]
+            );
+            if (existente.rows.length > 0) {
+                const codExistente = existente.rows[0].codigo_qr;
+                await db.query(
+                    `UPDATE certificados_emitidos SET nombre_completo=$1, tipo_certificado=$2, subtitulo=$3, insignia=$4, detalle_reconocimiento=$5, lugar_fecha=$6 WHERE codigo_qr=$7`,
+                    [nomLimpio, tipoLimpio, subLimpio, insLimpia, detLimpio, fecLimpia, codExistente]
+                );
+                return res.json({ ok: true, codigoQr: codExistente });
+            }
+        }
+
+        let codigoFinal = (codigoQr || "").replace(/^ID:\s*/i, '').trim().toUpperCase();
+        if (!codigoFinal) codigoFinal = generarCodigoCertificadoUnico();
+
+        await db.query(
+            `INSERT INTO certificados_emitidos (codigo_qr, nombre_completo, tipo_certificado, subtitulo, insignia, detalle_reconocimiento, lugar_fecha)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT (codigo_qr) DO UPDATE SET
+                nombre_completo = EXCLUDED.nombre_completo,
+                tipo_certificado = EXCLUDED.tipo_certificado,
+                subtitulo = EXCLUDED.subtitulo,
+                insignia = EXCLUDED.insignia,
+                detalle_reconocimiento = EXCLUDED.detalle_reconocimiento,
+                lugar_fecha = EXCLUDED.lugar_fecha`,
+            [codigoFinal, nomLimpio, tipoLimpio, subLimpio, insLimpia, detLimpio, fecLimpia]
+        );
+
+        res.json({ ok: true, codigoQr: codigoFinal });
+    } catch (error) {
+        console.error("Error al guardar certificado:", error);
+        res.status(500).json({ error: "Error al registrar el certificado en la base de datos." });
+    }
+});
+
+app.get('/api/certificados/verificar/:codigo', async (req, res) => {
+    try {
+        const rawCode = (req.params.codigo || "").replace(/^ID:\s*/i, '').trim().toUpperCase();
+        if (!rawCode) return res.status(404).json({ valido: false });
+
+        const result = await db.query(
+            `SELECT codigo_qr, nombre_completo, tipo_certificado, subtitulo, insignia, detalle_reconocimiento, lugar_fecha,
+                    TO_CHAR(fecha_emision, 'DD/MM/YYYY HH24:MI') as fecha_registro
+             FROM certificados_emitidos
+             WHERE UPPER(TRIM(codigo_qr)) = $1 LIMIT 1`,
+            [rawCode]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ valido: false });
+        }
+
+        res.json({ valido: true, datos: result.rows[0] });
+    } catch (error) {
+        console.error("Error al verificar certificado:", error);
+        res.status(500).json({ error: "Error interno del servidor al verificar el certificado." });
+    }
+});
 
 app.get('/api/usuarios_admin', async (req, res) => {
     try {
@@ -665,7 +758,6 @@ app.get('/api/verificar_permiso_voto/:celular/:idProy/:deviceId', async (req, re
     }
 });
 
-// 🔥 VOTO ACTUALIZADO: YA NO SE EXIGE LAT Y LON DESDE EL FRONTEND 🔥
 app.post('/api/votar', async (req, res) => {
     const { idProyecto, celular, nombre, nota, deviceId } = req.body;
     try {
@@ -697,7 +789,6 @@ app.post('/api/votar', async (req, res) => {
 
         await db.query(`INSERT INTO visitantes (ci, nombre_completo, institucion, celular) VALUES ($1, $2, 'Visitante Público', $1) ON CONFLICT (ci) DO UPDATE SET nombre_completo = EXCLUDED.nombre_completo`, [celReal, nomReal]);
 
-        // 🔥 Insertamos con lat/lon en 0 para evitar errores en PostgreSQL 🔥
         await db.query('INSERT INTO votos_publico (id_proyecto, ci_visitante, nota, latitud, longitud, device_id) VALUES ($1, $2, $3, 0, 0, $4)', [idProyecto, celReal, parseInt(nota, 10), devId]);
         
         res.status(201).json({ mensaje: "✅ Voto registrado exitosamente." });
@@ -846,6 +937,67 @@ app.get('/api/resultados', async (req, res) => {
             mostrarPremios: checkTime.rows[0].mostrar_premios_extra
         });
     } catch (error) { res.status(500).json({ error: "Error al calcular estadísticas" }); }
+});
+
+// 🔥 1. GUARDAR O RECUPERAR CERTIFICADO OFICIAL EMITIDO EN POSTGRESQL 🔥
+app.post('/api/certificados_emitidos', async (req, res) => {
+    const { codigoQr, identificadorUsuario, nombreCompleto, tipoCertificado, tituloCertificado, subtituloCertificado, detalleCertificado, lugarEvento, forzarNuevoCodigo } = req.body;
+    try {
+        const nombreLimpio = (nombreCompleto || "").trim().toUpperCase();
+        const tipoLimpio = (tipoCertificado || "participacion").trim();
+
+        // Si ya se había emitido este mismo tipo de certificado para esta persona y no se pidió regenerar el código, devolvemos el código oficial ya guardado
+        if (!forzarNuevoCodigo) {
+            const existente = await db.query(
+                `SELECT * FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = $1 AND tipo_certificado = $2 ORDER BY fecha_emision DESC LIMIT 1`,
+                [nombreLimpio, tipoLimpio]
+            );
+            if (existente.rows.length > 0) {
+                return res.json({ guardado: true, codigo_qr: existente.rows[0].codigo_qr, datos: existente.rows[0] });
+            }
+        } else {
+            // Si pidió un nuevo código QR, reemplazamos el anterior de ese mismo tipo para esa persona
+            await db.query(`DELETE FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = $1 AND tipo_certificado = $2`, [nombreLimpio, tipoLimpio]);
+        }
+
+        const insert = await db.query(
+            `INSERT INTO certificados_emitidos (codigo_qr, identificador_usuario, nombre_completo, tipo_certificado, titulo_certificado, subtitulo_certificado, detalle_certificado, lugar_evento)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             ON CONFLICT (codigo_qr) DO UPDATE SET
+                nombre_completo = EXCLUDED.nombre_completo,
+                titulo_certificado = EXCLUDED.titulo_certificado,
+                subtitulo_certificado = EXCLUDED.subtitulo_certificado,
+                detalle_certificado = EXCLUDED.detalle_certificado
+             RETURNING *`,
+            [codigoQr, identificadorUsuario || nombreLimpio, nombreLimpio, tipoLimpio, tituloCertificado, subtituloCertificado, detalleCertificado, lugarEvento]
+        );
+
+        res.status(201).json({ guardado: true, codigo_qr: insert.rows[0].codigo_qr, datos: insert.rows[0] });
+    } catch (error) {
+        console.error("Error al registrar certificado:", error);
+        res.status(500).json({ error: "No se pudo registrar el certificado en la base de datos." });
+    }
+});
+
+// 🔥 2. RUTA PÚBLICA PARA VERIFICAR AUTENTICIDAD POR CÓDIGO QR O ID 🔥
+app.get('/api/verificar_certificado/:codigo', async (req, res) => {
+    try {
+        let codigo = (req.params.codigo || "").trim().toUpperCase();
+        codigo = codigo.replace(/^ID:\s*/i, '').trim();
+
+        const consulta = await db.query(
+            `SELECT * FROM certificados_emitidos WHERE UPPER(TRIM(codigo_qr)) = $1 LIMIT 1`,
+            [codigo]
+        );
+
+        if (consulta.rows.length === 0) {
+            return res.status(404).json({ valido: false, mensaje: "El código ingresado no existe en los registros oficiales de la TecnoFeria 2026." });
+        }
+
+        res.json({ valido: true, certificado: consulta.rows[0] });
+    } catch (error) {
+        res.status(500).json({ valido: false, error: "Error al verificar el certificado." });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
