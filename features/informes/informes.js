@@ -1506,8 +1506,12 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                             <i class="fas fa-random"></i> Nuevo Código QR
                         </button>
                     </div>
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <span style="font-size:0.76rem; color:#94a3b8;"><i class="fas fa-pen"></i> Textos editables con un clic</span>
+                    <div style="display:flex; align-items:center; gap:10px; flex-wrap: wrap;">
+                        <button type="button" id="btn-enviar-correo-colab" onclick="enviarCertificadoPorCorreoColaborador()" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: #ffffff; border: none; padding: 9px 18px; border-radius: 50px; font-weight: 800; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4); display: none; align-items: center; gap: 7px; transition: 0.2s;">
+                           <i class="fas fa-envelope"></i> Enviar por Correo
+                        </button>
+
+                        <span style="font-size:0.75rem; color:#94a3b8;"><i class="fas fa-pen"></i> Textos editables</span>
                         <button type="button" class="btn-imprimir-top" onclick="window.print()">
                             <i class="fas fa-print"></i> Imprimir en 1 Hoja
                         </button>
@@ -1615,57 +1619,127 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     </div>
                 </div>
 
-                <script>
-                    const MODELOS_CERT = ${JSON.stringify(plantillasManuales)};
-                    const ORIGEN_URL = ${JSON.stringify(window.location.origin)};
+<script>
+    const MODELOS_CERT = ${JSON.stringify(plantillasManuales)};
+    const ORIGEN_URL = ${JSON.stringify(window.location.origin)};
+    let CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
 
-                    function generarNuevoCodigo() {
-                        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-                        let b1 = '', b2 = '';
-                        for (let i = 0; i < 4; i++) b1 += chars.charAt(Math.floor(Math.random() * chars.length));
-                        for (let i = 0; i < 4; i++) b2 += chars.charAt(Math.floor(Math.random() * chars.length));
-                        return 'TF26-' + b1 + '-' + b2;
-                    }
+    function actualizarVisibilidadBotonCorreo() {
+        const btnEmail = document.getElementById('btn-enviar-correo-colab');
+        if (!btnEmail) return;
+        const sel = document.querySelector('.select-plantilla-manual');
+        const idx = sel ? Number(sel.value) : 0;
+        const modelo = (typeof MODELOS_CERT !== 'undefined' && MODELOS_CERT[idx]) ? MODELOS_CERT[idx] : {};
+        const esColaborador = modelo.tipo === 'colaborador' || modelo.tipo === 'manual_colaborador';
 
-                    function regenerarCodigoQR() {
-                        const nuevoCod = generarNuevoCodigo();
-                        const nuevaUrl = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(nuevoCod);
-                        document.getElementById('cert-qr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(nuevaUrl);
-                        document.getElementById('cert-qr-code-text').textContent = 'ID: ' + nuevoCod;
-                    }
+        btnEmail.style.display = esColaborador ? 'inline-flex' : 'none';
+        if (esColaborador && CORREO_COLABORADOR_ACTUAL) {
+            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar a: ' + CORREO_COLABORADOR_ACTUAL;
+        } else if (esColaborador) {
+            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar al Correo';
+        }
+    }
 
-                    function cambiarModeloCertificado(indice) {
-                        const m = MODELOS_CERT[indice];
-                        if (!m) return;
-                        document.documentElement.style.setProperty('--cert-primario', m.colorPrimario);
-                        document.documentElement.style.setProperty('--cert-acento', m.colorAcento);
-                        document.documentElement.style.setProperty('--cert-fondo', m.colorFondoSuave);
+    async function enviarCertificadoPorCorreoColaborador() {
+        const btn = document.getElementById('btn-enviar-correo-colab');
+        const correoFinal = prompt("Confirme o ingrese el correo electrónico del Colaborador:", CORREO_COLABORADOR_ACTUAL || "");
+        if (!correoFinal || !correoFinal.includes('@')) return;
+        CORREO_COLABORADOR_ACTUAL = correoFinal.trim();
 
-                        const wrapper = document.getElementById('cert-page-wrapper');
-                        if (wrapper) {
-                            wrapper.className = 'certificado-page-wrapper ' + (m.temaCSS || 'tema-participacion');
-                        }
+        const textoOrig = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF y Enviando...';
 
-                        document.getElementById('cert-icono-medalla').className = 'fas ' + m.iconoMedalla;
-                        const wm = document.getElementById('cert-watermark-icon');
-                        if (wm) wm.className = 'fas ' + (m.watermarkIcon || m.iconoMedalla) + ' watermark-central';
+        try {
+            if (typeof sincronizarCertificadoConBD === 'function') await sincronizarCertificadoConBD(false);
+            const elementoCert = document.getElementById('cert-page-wrapper');
+            const canvas = await html2canvas(elementoCert, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const imgData = canvas.toDataURL('image/jpeg', 0.92);
 
-                        const orn = document.getElementById('cert-ornamento-sup');
-                        if (orn) orn.innerHTML = m.ornamentoSuperior || '★ TECNOFERIA 2026 · U.A.B.J.B. ★';
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+            const pdfBase64 = pdf.output('datauristring');
 
-                        document.getElementById('cert-badge-medalla').innerHTML = m.textoMedalla;
-                        document.getElementById('cert-titulo-principal').innerHTML = m.tituloCertificado;
-                        document.getElementById('cert-subtitulo').innerHTML = m.subtituloCertificado;
-                        document.getElementById('cert-cuerpo-texto').innerHTML = m.cuerpoHTML;
+            const codigoActual = document.getElementById('cert-qr-code-text').textContent.replace(/^ID:\s*/i, '').trim();
+            const nombreActual = document.querySelector('.editable-name').textContent.trim();
+            const urlVerificacion = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(codigoActual);
 
-                        document.querySelectorAll('.btn-selector-cert').forEach((b, i) => {
-                            b.classList.toggle('activo', i === Number(indice));
-                        });
-                        const sel = document.querySelector('.select-plantilla-manual');
-                        if (sel) sel.value = String(indice);
-                        regenerarCodigoQR();
-                    }
-                <\/script>
+            const res = await fetch(ORIGEN_URL + '/api/enviar_certificado_colaborador', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    correoDestino: CORREO_COLABORADOR_ACTUAL,
+                    nombreColaborador: nombreActual,
+                    codigoQr: codigoActual,
+                    pdfBase64: pdfBase64,
+                    urlVerificacion: urlVerificacion
+                })
+            });
+
+            const respData = await res.json();
+            if (!res.ok) throw new Error(respData.error || "Error al enviar el correo.");
+
+            alert(respData.mensaje || "✅ Certificado enviado con éxito al correo del colaborador.");
+        } catch (error) {
+            alert("❌ " + error.message);
+        } finally {
+            btn.disabled = false;
+            actualizarVisibilidadBotonCorreo();
+        }
+    }
+
+    function generarNuevoCodigo() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let b1 = '', b2 = '';
+        for (let i = 0; i < 4; i++) b1 += chars.charAt(Math.floor(Math.random() * chars.length));
+        for (let i = 0; i < 4; i++) b2 += chars.charAt(Math.floor(Math.random() * chars.length));
+        return 'TF26-' + b1 + '-' + b2;
+    }
+
+    function regenerarCodigoQR() {
+        const nuevoCod = generarNuevoCodigo();
+        const nuevaUrl = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(nuevoCod);
+        document.getElementById('cert-qr-img').src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(nuevaUrl);
+        document.getElementById('cert-qr-code-text').textContent = 'ID: ' + nuevoCod;
+    }
+
+    function cambiarModeloCertificado(indice) {
+        const m = MODELOS_CERT[indice];
+        if (!m) return;
+        document.documentElement.style.setProperty('--cert-primario', m.colorPrimario);
+        document.documentElement.style.setProperty('--cert-acento', m.colorAcento);
+        document.documentElement.style.setProperty('--cert-fondo', m.colorFondoSuave);
+
+        const wrapper = document.getElementById('cert-page-wrapper');
+        if (wrapper) {
+            wrapper.className = 'certificado-page-wrapper ' + (m.temaCSS || 'tema-participacion');
+        }
+
+        document.getElementById('cert-icono-medalla').className = 'fas ' + m.iconoMedalla;
+        const wm = document.getElementById('cert-watermark-icon');
+        if (wm) wm.className = 'fas ' + (m.watermarkIcon || m.iconoMedalla) + ' watermark-central';
+
+        const orn = document.getElementById('cert-ornamento-sup');
+        if (orn) orn.innerHTML = m.ornamentoSuperior || '★ TECNOFERIA 2026 · U.A.B.J.B. ★';
+
+        document.getElementById('cert-badge-medalla').innerHTML = m.textoMedalla;
+        document.getElementById('cert-titulo-principal').innerHTML = m.tituloCertificado;
+        document.getElementById('cert-subtitulo').innerHTML = m.subtituloCertificado;
+        document.getElementById('cert-cuerpo-texto').innerHTML = m.cuerpoHTML;
+
+        document.querySelectorAll('.btn-selector-cert').forEach((b, i) => {
+            b.classList.toggle('activo', i === Number(indice));
+        });
+        const sel = document.querySelector('.select-plantilla-manual');
+        if (sel) sel.value = String(indice);
+        regenerarCodigoQR();
+        actualizarVisibilidadBotonCorreo();
+    }
+
+    // Ejecutar al abrir
+    setTimeout(actualizarVisibilidadBotonCorreo, 100);
+</script>
             </body>
             </html>
         `);
