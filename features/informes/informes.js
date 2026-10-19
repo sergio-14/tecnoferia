@@ -492,6 +492,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PERFILES
         let personaNombre = "";
+        let correoColaboradorDetectado = "";
         let categoriaDetectadaPersona = "";
         let tituloProyectoDetectado = "";
         const certificadosDetectados = [];
@@ -504,18 +505,26 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return false;
         };
 
-        // PERFIL A: Administrador / Implementador del Sistema
+        // Detectar correo si es Colaborador para evitar ReferenceError
+        const colabCorreoObj = (colaboradores || []).find(c => coincidePersona(c.id, c.nombre_completo) || coincidePersona(c.celular, c.nombre_completo));
+        if (colabCorreoObj && colabCorreoObj.correo) {
+            correoColaboradorDetectado = colabCorreoObj.correo.trim();
+        }
+
+        // PERFIL A: Administrador / Implementador del Sistema (Solo consulta BD si es un C.I. sin espacios para evitar error 404)
         let esAdminBD = false;
-        try {
-            const resUsr = await fetch(`/api/usuarios/${encodeURIComponent(termRaw)}`);
-            if (resUsr.ok) {
-                const usrData = await resUsr.json();
-                if (usrData.rol === 'ADMIN') {
-                    esAdminBD = true;
-                    personaNombre = usrData.datos.nombre_completo || personaNombre;
+        if (!termRaw.includes(' ')) {
+            try {
+                const resUsr = await fetch(`/api/usuarios/${encodeURIComponent(termRaw)}`);
+                if (resUsr.ok) {
+                    const usrData = await resUsr.json();
+                    if (usrData.rol === 'ADMIN') {
+                        esAdminBD = true;
+                        personaNombre = usrData.datos.nombre_completo || personaNombre;
+                    }
                 }
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
 
         if (esAdminBD || termNorm.includes('luis alex fernandez') || termNorm === 'admin' || termNorm === 'administrador') {
             if (!personaNombre) personaNombre = "Luis Alex Fernández Tejaya";
