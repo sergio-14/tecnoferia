@@ -1013,7 +1013,7 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
     }
 
     const emailUser = (process.env.EMAIL_USER || "tecnoferia.sistemauabjb@gmail.com").trim();
-    const emailPass = (process.env.EMAIL_PASS || "").replace(/\s+/g, ''); // Quita espacios automáticamente
+    const emailPass = (process.env.EMAIL_PASS || "wmsmjipouikhuclv").replace(/\s+/g, '');
 
     if (!emailPass) {
         return res.status(500).json({ error: "El servidor aún no tiene cargada la variable EMAIL_PASS. Verifique el archivo .env del servidor y reinicie Node." });

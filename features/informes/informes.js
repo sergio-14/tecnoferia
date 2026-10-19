@@ -3032,28 +3032,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const scriptSync = ventanaRef.document.createElement('script');
                         scriptSync.textContent = `
-                            let bloqueandoRegenInterno = false;
-                            let CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
-
-                            function actualizarVisibilidadBotonCorreo() {
-                                const btnEmail = document.getElementById('btn-enviar-correo-colab');
-                                if (!btnEmail) return;
-                                const sel = document.querySelector('.select-plantilla-manual');
-                                const idx = sel ? Number(sel.value) : 0;
-                                const modelo = (typeof MODELOS_CERT !== 'undefined' && MODELOS_CERT[idx]) ? MODELOS_CERT[idx] : {};
-                                const esColaborador = modelo.tipo === 'colaborador' || modelo.tipo === 'manual_colaborador';
-
-                                btnEmail.style.display = esColaborador ? 'inline-flex' : 'none';
-                                if (esColaborador && CORREO_COLABORADOR_ACTUAL) {
-                                    btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar a: ' + CORREO_COLABORADOR_ACTUAL;
-                                } else if (esColaborador) {
-                                    btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Certificado por Correo';
-                                }
+                            var bloqueandoRegenInterno = false;
+                            if (!window.CORREO_COLABORADOR_ACTUAL) {
+                                window.CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
                             }
 
                             async function sincronizarCertificadoConBD(forzarNuevo = false) {
                                 try {
-                                    actualizarVisibilidadBotonCorreo();
+                                    if (typeof actualizarVisibilidadBotonCorreo === 'function') {
+                                        actualizarVisibilidadBotonCorreo();
+                                    }
                                     const sel = document.querySelector('.select-plantilla-manual');
                                     const idx = sel ? Number(sel.value) : 0;
                                     const modelo = (typeof MODELOS_CERT !== 'undefined' && MODELOS_CERT[idx]) ? MODELOS_CERT[idx] : {};
@@ -3085,54 +3073,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                         document.getElementById('cert-qr-code-text').textContent = 'ID: ' + data.codigo_qr;
                                     }
                                 } catch (err) { console.error(err); }
-                            }
-
-                            async function enviarCertificadoPorCorreoColaborador() {
-                                const btn = document.getElementById('btn-enviar-correo-colab');
-                                const correoFinal = prompt("Confirme o ingrese el correo electrónico del Colaborador:", CORREO_COLABORADOR_ACTUAL || "");
-                                if (!correoFinal || !correoFinal.includes('@')) return;
-                                CORREO_COLABORADOR_ACTUAL = correoFinal.trim();
-
-                                btn.disabled = true;
-                                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF y Enviando...';
-
-                                try {
-                                    await sincronizarCertificadoConBD(false);
-                                    const elementoCert = document.getElementById('cert-page-wrapper');
-                                    const canvas = await html2canvas(elementoCert, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-                                    const imgData = canvas.toDataURL('image/jpeg', 0.92);
-
-                                    const { jsPDF } = window.jspdf;
-                                    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-                                    pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
-                                    const pdfBase64 = pdf.output('datauristring');
-
-                                    const codigoActual = document.getElementById('cert-qr-code-text').textContent.replace(/^ID:\\s*/i, '').trim();
-                                    const nombreActual = document.querySelector('.editable-name').textContent.trim();
-                                    const urlVerificacion = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(codigoActual);
-
-                                    const res = await fetch(ORIGEN_URL + '/api/enviar_certificado_colaborador', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            correoDestino: CORREO_COLABORADOR_ACTUAL,
-                                            nombreColaborador: nombreActual,
-                                            codigoQr: codigoActual,
-                                            pdfBase64: pdfBase64,
-                                            urlVerificacion: urlVerificacion
-                                        })
-                                    });
-
-                                    const respData = await res.json();
-                                    if (!res.ok) throw new Error(respData.error || "Error al enviar el correo.");
-
-                                    alert(respData.mensaje || "✅ Certificado enviado con éxito al correo del colaborador.");
-                                } catch (error) {
-                                    alert("❌ " + error.message);
-                                } finally {
-                                    btn.disabled = false;
-                                    actualizarVisibilidadBotonCorreo();
-                                }
                             }
 
                             const _regenOrig = window.regenerarCodigoQR;
