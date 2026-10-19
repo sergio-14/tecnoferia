@@ -1005,14 +1005,6 @@ app.get('/api/verificar_certificado/:codigo', async (req, res) => {
 // =========================================================================
 const nodemailer = require('nodemailer');
 
-const transporterCorreo = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
 app.post('/api/enviar_certificado_colaborador', async (req, res) => {
     const { correoDestino, nombreColaborador, codigoQr, pdfBase64, urlVerificacion } = req.body;
 
@@ -1020,7 +1012,27 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
         return res.status(400).json({ error: "Falta el correo del colaborador o el archivo PDF del certificado." });
     }
 
+    const emailUser = (process.env.EMAIL_USER || "tecnoferia.sistemauabjb@gmail.com").trim();
+    const emailPass = (process.env.EMAIL_PASS || "").replace(/\s+/g, ''); // Quita espacios automáticamente
+
+    if (!emailPass) {
+        return res.status(500).json({ error: "El servidor aún no tiene cargada la variable EMAIL_PASS. Verifique el archivo .env del servidor y reinicie Node." });
+    }
+
     try {
+        const transporterCorreo = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true,
+            auth: {
+                user: emailUser,
+                pass: emailPass
+            },
+            tls: {
+                rejectUnauthorized: false
+            }
+        });
+
         // Limpiar el prefijo data:application/pdf;base64,
         const base64Limpio = pdfBase64.replace(/^data:application\/pdf;filename=.*?;base64,/, '')
                                       .replace(/^data:application\/pdf;base64,/, '');
@@ -1028,7 +1040,7 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
         const nombreArchivo = `Certificado_Colaborador_${(nombreColaborador || 'TecnoFeria2026').replace(/\s+/g, '_')}.pdf`;
 
         await transporterCorreo.sendMail({
-            from: `"TecnoFeria 2026 - C.I.S. UABJB" <${process.env.EMAIL_USER}>`,
+            from: `"TecnoFeria 2026 - C.I.S. UABJB" <${emailUser}>`,
             to: correoDestino.trim(),
             subject: `🏆 Certificado Oficial de Colaborador - TecnoFeria 2026 (${nombreColaborador})`,
             html: `
@@ -1069,7 +1081,7 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
         res.json({ enviado: true, mensaje: `✅ Certificado enviado correctamente al correo: ${correoDestino}` });
     } catch (error) {
         console.error("Error enviando correo al colaborador:", error);
-        res.status(500).json({ error: "No se pudo enviar el correo. Verifique EMAIL_USER y EMAIL_PASS en su archivo .env." });
+        res.status(500).json({ error: `No se pudo enviar el correo: ${error.message}` });
     }
 });
 
