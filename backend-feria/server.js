@@ -1000,6 +1000,79 @@ app.get('/api/verificar_certificado/:codigo', async (req, res) => {
     }
 });
 
+// =========================================================================
+// 🔥 ENVÍO DE CERTIFICADO EN PDF POR CORREO EXCLUSIVO PARA COLABORADORES 🔥
+// =========================================================================
+const nodemailer = require('nodemailer');
+
+const transporterCorreo = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+app.post('/api/enviar_certificado_colaborador', async (req, res) => {
+    const { correoDestino, nombreColaborador, codigoQr, pdfBase64, urlVerificacion } = req.body;
+
+    if (!correoDestino || !pdfBase64) {
+        return res.status(400).json({ error: "Falta el correo del colaborador o el archivo PDF del certificado." });
+    }
+
+    try {
+        // Limpiar el prefijo data:application/pdf;base64,
+        const base64Limpio = pdfBase64.replace(/^data:application\/pdf;filename=.*?;base64,/, '')
+                                      .replace(/^data:application\/pdf;base64,/, '');
+
+        const nombreArchivo = `Certificado_Colaborador_${(nombreColaborador || 'TecnoFeria2026').replace(/\s+/g, '_')}.pdf`;
+
+        await transporterCorreo.sendMail({
+            from: `"TecnoFeria 2026 - C.I.S. UABJB" <${process.env.EMAIL_USER}>`,
+            to: correoDestino.trim(),
+            subject: `🏆 Certificado Oficial de Colaborador - TecnoFeria 2026 (${nombreColaborador})`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                    <div style="background: #002b5c; color: #ffffff; padding: 24px; text-align: center; border-bottom: 4px solid #0d9488;">
+                        <h2 style="margin: 0; font-size: 20px;">UNIVERSIDAD AUTÓNOMA DEL BENI "JOSÉ BALLIVIÁN"</h2>
+                        <p style="margin: 5px 0 0; font-size: 13px; color: #cbd5e1;">Carrera de Ingeniería de Sistemas · I.I.I.S. y P.</p>
+                    </div>
+                    <div style="padding: 25px; color: #1e293b; background: #ffffff; line-height: 1.6;">
+                        <h3 style="color: #0f5132; margin-top: 0;">¡Gracias por tu valioso apoyo, ${nombreColaborador}!</h3>
+                        <p>El Comité Organizador de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b> te hace entrega oficial de tu <b>Certificado de Reconocimiento como Colaborador(a) Oficial</b>.</p>
+                        <p>Encontrarás tu certificado oficial listo para imprimir o descargar en el <b>archivo PDF adjunto</b> a este correo.</p>
+                        
+                        <div style="background: #f0fdfa; border-left: 4px solid #0d9488; padding: 14px; margin: 20px 0; border-radius: 6px;">
+                            <span style="font-size: 12px; color: #475569; display: block;">CÓDIGO OFICIAL DE AUTENTICIDAD (QR / ID):</span>
+                            <strong style="font-size: 16px; color: #0f5132; font-family: monospace;">${codigoQr}</strong>
+                        </div>
+
+                        <p style="font-size: 13px; color: #64748b;">Cualquier institución o empleador puede verificar la validez de tu certificado escaneando el código QR impreso o ingresando tu ID en nuestro portal oficial:</p>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <a href="${urlVerificacion}" style="background: #0284c7; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block;">Verificar Autenticidad en Línea</a>
+                        </div>
+                    </div>
+                    <div style="background: #f8fafc; padding: 15px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+                        Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad, Octubre de 2026
+                    </div>
+                </div>
+            `,
+            attachments: [
+                {
+                    filename: nombreArchivo,
+                    content: Buffer.from(base64Limpio, 'base64'),
+                    contentType: 'application/pdf'
+                }
+            ]
+        });
+
+        res.json({ enviado: true, mensaje: `✅ Certificado enviado correctamente al correo: ${correoDestino}` });
+    } catch (error) {
+        console.error("Error enviando correo al colaborador:", error);
+        res.status(500).json({ error: "No se pudo enviar el correo. Verifique EMAIL_USER y EMAIL_PASS en su archivo .env." });
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Servidor Backend Seguro corriendo en el puerto: ${PORT}`);
