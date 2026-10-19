@@ -3026,21 +3026,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             let bloqueandoRegenInterno = false;
                             let CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
 
-                            // Crear botón exclusivo para enviar por correo al colaborador
-                            (function crearBotonCorreoColaborador() {
-                                const barraDer = document.querySelector('.barra-control-cert > div:last-child');
-                                if (!barraDer) return;
-
-                                const btnEmail = document.createElement('button');
-                                btnEmail.id = 'btn-enviar-correo-colab';
-                                btnEmail.type = 'button';
-                                btnEmail.style.cssText = 'background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: #ffffff; border: none; padding: 10px 18px; border-radius: 50px; font-weight: 800; font-size: 0.86rem; cursor: pointer; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4); display: none; align-items: center; gap: 8px; transition: 0.2s;';
-                                btnEmail.innerHTML = '<i class="fas fa-envelope"></i> Enviar al Correo del Colaborador';
-                                btnEmail.onclick = enviarCertificadoPorCorreoColaborador;
-
-                                barraDer.insertBefore(btnEmail, barraDer.lastElementChild);
-                            })();
-
                             function actualizarVisibilidadBotonCorreo() {
                                 const btnEmail = document.getElementById('btn-enviar-correo-colab');
                                 if (!btnEmail) return;
@@ -3099,7 +3084,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                 if (!correoFinal || !correoFinal.includes('@')) return;
                                 CORREO_COLABORADOR_ACTUAL = correoFinal.trim();
 
-                                const textoOrig = btn.innerHTML;
                                 btn.disabled = true;
                                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF y Enviando...';
 
