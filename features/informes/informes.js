@@ -2477,22 +2477,79 @@ window.imprimirInformeActual = function(event) {
     ventanaImpresion.document.close();
 };
 // =========================================================================
-// 🔥 SISTEMA DE REGISTRO Y VERIFICACIÓN PÚBLICA DE CERTIFICADOS (QR / ID) 🔥
+// 🔥 SISTEMA DE REGISTRO, ESCÁNER DE CÁMARA Y VERIFICACIÓN DE CERTIFICADOS 🔥
 // =========================================================================
 
-window.registrarCertificadoEnServidor = async function(payload) {
-    try {
-        const res = await fetch('/api/certificados_emitidos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!res.ok) return null;
-        return await res.json();
-    } catch (e) {
-        console.error("Error guardando certificado:", e);
-        return null;
+let escanerQrInstancia = null;
+
+window.cargarLibreriaQR = function() {
+    return new Promise((resolve, reject) => {
+        if (window.Html5Qrcode) return resolve();
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("No se pudo cargar el lector de cámara QR."));
+        document.head.appendChild(script);
+    });
+};
+
+window.toggleCamaraQR = async function() {
+    const cajaCamara = document.getElementById('caja-camara-qr');
+    if (!cajaCamara) return;
+
+    if (cajaCamara.style.display === 'block') {
+        await window.detenerCamaraQR();
+        return;
     }
+
+    try {
+        await window.cargarLibreriaQR();
+        cajaCamara.style.display = 'block';
+
+        if (!escanerQrInstancia) {
+            escanerQrInstancia = new Html5Qrcode("lector-qr-video");
+        }
+
+        await escanerQrInstancia.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            async (textoDecodificado) => {
+                let codigoExtraido = textoDecodificado.trim();
+                try {
+                    if (codigoExtraido.includes('validar_certificado=')) {
+                        const urlObj = new URL(codigoExtraido);
+                        codigoExtraido = urlObj.searchParams.get('validar_certificado') || codigoExtraido;
+                    }
+                } catch (e) {
+                    const partes = codigoExtraido.split('validar_certificado=');
+                    if (partes.length > 1) codigoExtraido = decodeURIComponent(partes[1].split('&')[0]);
+                }
+
+                codigoExtraido = codigoExtraido.replace(/^ID:\s*/i, '').trim().toUpperCase();
+
+                const input = document.getElementById('input-codigo-verificacion');
+                if (input) input.value = codigoExtraido;
+
+                await window.detenerCamaraQR();
+                window.ejecutarVerificacionCodigo(codigoExtraido);
+            },
+            () => {}
+        );
+    } catch (err) {
+        console.error("Error al abrir la cámara:", err);
+        cajaCamara.style.display = 'none';
+        alert("⚠️ No se pudo acceder a la cámara. Asegúrese de otorgar permisos de cámara en el navegador.");
+    }
+};
+
+window.detenerCamaraQR = async function() {
+    const cajaCamara = document.getElementById('caja-camara-qr');
+    try {
+        if (escanerQrInstancia && escanerQrInstancia.isScanning) {
+            await escanerQrInstancia.stop();
+        }
+    } catch (e) {}
+    if (cajaCamara) cajaCamara.style.display = 'none';
 };
 
 window.abrirVerificadorCertificados = function(codigoInicial = "") {
@@ -2507,7 +2564,8 @@ window.abrirVerificadorCertificados = function(codigoInicial = "") {
     }
 };
 
-window.cerrarVerificadorCertificados = function() {
+window.cerrarVerificadorCertificados = async function() {
+    await window.detenerCamaraQR();
     const modal = document.getElementById('pantalla-verificar-certificado');
     if (modal) modal.style.display = 'none';
     if (window.location.search.includes('validar_certificado')) {
@@ -2515,8 +2573,9 @@ window.cerrarVerificadorCertificados = function() {
     }
 };
 
-window.buscarCertificadoPorID = function(e) {
+window.buscarCertificadoPorID = async function(e) {
     if (e) e.preventDefault();
+    await window.detenerCamaraQR();
     const input = document.getElementById('input-codigo-verificacion');
     if (!input) return;
     const codigo = input.value.trim().toUpperCase();
@@ -2530,7 +2589,7 @@ window.ejecutarVerificacionCodigo = async function(codigoRaw) {
     if (!cajaResultado) return;
 
     const codigoLimpio = codigoRaw.replace(/^ID:\s*/i, '').trim().toUpperCase();
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...'; }
 
     cajaResultado.innerHTML = `
         <div style="padding: 25px; text-align: center; color: #38bdf8;">
@@ -2577,7 +2636,7 @@ window.ejecutarVerificacionCodigo = async function(codigoRaw) {
                         </div>
                         <div>
                             <span style="color: #94a3b8; font-size: 0.8rem; display: block;">DISTINCIÓN / CATEGORÍA:</span>
-                            <strong style="color: #fde047;">${c.titulo_certificado} — ${c.subtitulo_certificado}</strong>
+                            <strong style="color: #fde047;">${c.titulo_certificado || ''} — ${c.subtitulo_certificado || ''}</strong>
                         </div>
                         <div style="background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; border-left: 3px solid #38bdf8; line-height: 1.45; font-size: 0.88rem;">
                             ${c.detalle_certificado || ''}
@@ -2597,7 +2656,6 @@ window.ejecutarVerificacionCodigo = async function(codigoRaw) {
     }
 };
 
-// Detectar automáticamente cuando alguien escanea el QR de un certificado (?validar_certificado=TF26-XXXX-XXXX)
 document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const codValidar = params.get('validar_certificado');
@@ -2680,17 +2738,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 sincronizarCertificadoConBD(false);
                             };
 
-                            // Actualizar en PostgreSQL automáticamente si el administrador edita algún texto del certificado
                             ['.editable-name', '#cert-titulo-principal', '#cert-subtitulo', '#cert-cuerpo-texto'].forEach(selector => {
                                 const el = document.querySelector(selector);
                                 if (el) el.addEventListener('blur', () => sincronizarCertificadoConBD(false));
                             });
 
+                            window.addEventListener('beforeprint', () => sincronizarCertificadoConBD(false));
                             sincronizarCertificadoConBD(false);
                         `;
                         ventanaRef.document.body.appendChild(scriptSync);
                     } catch (e) { console.error(e); }
-                }, 300);
+                }, 200);
             }
         } finally {
             window.open = openOriginal;
