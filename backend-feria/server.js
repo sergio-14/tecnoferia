@@ -12,6 +12,7 @@ const compression = require('compression');
 const fileUpload = require('express-fileupload'); 
 const bcrypt = require('bcryptjs'); 
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -28,7 +29,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 const limitadorGlobal = rateLimit({ windowMs: 10 * 60 * 1000, max: 5000, message: { error: "⚠️ Demasiadas peticiones desde esta conexión." } });
 app.use('/api/', limitadorGlobal); 
 app.use(cors());
-app.use(express.json({ limit: '5mb' })); 
+app.use(express.json({ limit: '15mb' })); 
 
 app.use(fileUpload({ 
     createParentPath: true, 
@@ -125,6 +126,49 @@ db.connect()
     .catch(err => console.error('❌ Error de conexión a PostgreSQL:', err.stack));
 
 // =========================================================================
+// 🔥 MIDDLEWARE DE SEGURIDAD: EXIGIR SESIÓN ACTIVA DE ADMINISTRADOR 🔥
+// =========================================================================
+const obtenerAdminAutenticadoDeRequest = async (req) => {
+    const authHeader = req.headers['x-feria-storage'] ? decodeURIComponent(req.headers['x-feria-storage']) : '';
+    if (!authHeader) return null;
+
+    const adminsActivos = await db.query(`
+        SELECT a.ci, a.nombre_completo, s.token 
+        FROM administradores a 
+        JOIN sesiones_activas s ON a.ci = s.ci_usuario
+    `);
+
+    return adminsActivos.rows.find(a => 
+        authHeader.includes(String(a.ci).trim()) && 
+        authHeader.includes(String(a.token).trim())
+    ) || null;
+};
+
+const exigirSesionAdmin = async (req, res, next) => {
+    try {
+        const adminValido = await obtenerAdminAutenticadoDeRequest(req);
+
+        if (!adminValido) {
+            const ipIntruso = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
+            const navIntruso = req.headers['user-agent'] || 'Desconocido';
+            try {
+                await db.query(
+                    `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    ['INTRUSO-BLOQUEADO', 'Acceso No Autorizado (F12 / URL)', 'NINGUNO', '⛔ INTENTO BLOQUEADO', `Intentó acceder sin permiso de Admin a: ${req.method} ${req.originalUrl}`, ipIntruso, navIntruso]
+                );
+            } catch (e) {}
+            return res.status(403).json({ error: "⛔ Acceso denegado: Se requiere sesión activa y verificada de Administrador." });
+        }
+
+        req.adminAutenticado = adminValido;
+        next();
+    } catch (error) {
+        return res.status(500).json({ error: "Error verificando permisos de seguridad." });
+    }
+};
+
+// =========================================================================
 // 🔥 RUTAS DE REGISTRO Y VERIFICACIÓN DE CERTIFICADOS OFICIALES 🔥
 // =========================================================================
 const generarCodigoCertificadoUnico = () => {
@@ -135,7 +179,7 @@ const generarCodigoCertificadoUnico = () => {
     return `TF26-${b1}-${b2}`;
 };
 
-app.post('/api/certificados/guardar', async (req, res) => {
+app.post('/api/certificados/guardar', exigirSesionAdmin, async (req, res) => {
     try {
         let { codigoQr, nombreCompleto, tipoCertificado, subtitulo, insignia, detalleReconocimiento, lugarFecha, forzarNuevo } = req.body;
         const nomLimpio = (nombreCompleto || "PARTICIPANTE").trim();
@@ -145,7 +189,6 @@ app.post('/api/certificados/guardar', async (req, res) => {
         const detLimpio = (detalleReconocimiento || "").trim();
         const fecLimpia = (lugarFecha || "Trinidad - Beni, Octubre de 2026").trim();
 
-        // Si no se fuerza un código nuevo, verificamos si ya tenía un certificado emitido para este mismo rol/subtítulo
         if (!forzarNuevo) {
             const existente = await db.query(
                 `SELECT codigo_qr FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = UPPER($1) AND UPPER(TRIM(subtitulo)) = UPPER($2) LIMIT 1`,
@@ -208,7 +251,7 @@ app.get('/api/certificados/verificar/:codigo', async (req, res) => {
     }
 });
 
-app.get('/api/usuarios_admin', async (req, res) => {
+app.get('/api/usuarios_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const administradores = await db.query("SELECT ci as id, nombre_completo, 'ADMINISTRADOR DEL SISTEMA' as institucion, celular, correo FROM administradores ORDER BY nombre_completo ASC");
         const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
@@ -223,7 +266,7 @@ app.get('/api/usuarios_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
 });
 
-app.post('/api/colaboradores', async (req, res) => {
+app.post('/api/colaboradores', exigirSesionAdmin, async (req, res) => {
     const { nombre, correo, celular } = req.body;
     try {
         const check = await db.query('SELECT id FROM colaboradores WHERE nombre_completo = $1 AND celular = $2', [nombre, celular]);
@@ -238,7 +281,7 @@ app.post('/api/colaboradores', async (req, res) => {
     }
 });
 
-app.post('/api/editar_usuario', async (req, res) => {
+app.post('/api/editar_usuario', exigirSesionAdmin, async (req, res) => {
     const { rol, idOriginal, ci, nombre, celular, correo, institucion } = req.body;
     try {
         if (rol === 'expositor') {
@@ -264,7 +307,7 @@ app.post('/api/editar_usuario', async (req, res) => {
     }
 });
 
-app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
+app.delete('/api/usuarios_admin/:rol/:id', exigirSesionAdmin, async (req, res) => {
     const { rol, id } = req.params;
     try {
         if (rol === 'administrador') {
@@ -318,7 +361,7 @@ app.get('/api/configuraciones', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al obtener configuraciones" }); }
 });
 
-app.post('/api/configuraciones', async (req, res) => {
+app.post('/api/configuraciones', exigirSesionAdmin, async (req, res) => {
     const { fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio, mostrarPremiosExtra } = req.body;
     try {
         await db.query(`UPDATE configuraciones SET fecha_registro=$1, fecha_subida=$2, fecha_apertura_tribunal=$3, fecha_resultados=$4, fecha_cierre_votacion=$5, gps_latitud=$6, gps_longitud=$7, gps_radio=$8, mostrar_premios_extra=$9 WHERE id = 1`, [fechaRegistro, fechaSubida, fechaAperturaTribunal, fechaResultados, fechaCierreVotacion, gpsLatitud, gpsLongitud, gpsRadio, mostrarPremiosExtra]);
@@ -333,7 +376,7 @@ app.get('/api/instituciones', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al obtener instituciones" }); }
 });
 
-app.post('/api/instituciones', async (req, res) => {
+app.post('/api/instituciones', exigirSesionAdmin, async (req, res) => {
     const { nombre, tipo } = req.body;
     try {
         await db.query('INSERT INTO instituciones (nombre, tipo) VALUES ($1, $2)', [nombre, tipo]);
@@ -341,7 +384,7 @@ app.post('/api/instituciones', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al agregar institución" }); }
 });
 
-app.delete('/api/instituciones/:id', async (req, res) => {
+app.delete('/api/instituciones/:id', exigirSesionAdmin, async (req, res) => {
     try {
         await db.query('DELETE FROM instituciones WHERE id = $1', [req.params.id]);
         res.json({ mensaje: "Institución eliminada" });
@@ -386,6 +429,7 @@ app.post('/api/login', async (req, res) => {
         const nuevoToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
         
         await db.query(`INSERT INTO sesiones_activas (ci_usuario, token) VALUES ($1, $2) ON CONFLICT (ci_usuario) DO UPDATE SET token = EXCLUDED.token`, [idReal, nuevoToken]);
+        
         // 🔥 REGISTRAR EN AUDITORÍA CADA INICIO DE SESIÓN DE ADMINISTRADOR O TRIBUNAL 🔥
         if (rolEncontrado === 'ADMIN' || rolEncontrado === 'TRIBUNAL') {
             try {
@@ -423,16 +467,16 @@ app.get('/api/usuarios/:identificador', async (req, res) => {
     const { identificador } = req.params;
     try {
         let rolEncontrado = null; let datosEncontrados = null;
-        const admin = await db.query('SELECT * FROM administradores WHERE ci = $1', [identificador]);
+        const admin = await db.query('SELECT ci, nombre_completo, correo, celular FROM administradores WHERE ci = $1', [identificador]);
         if (admin.rows.length > 0) { rolEncontrado = 'ADMIN'; datosEncontrados = admin.rows[0]; }
 
         if (!rolEncontrado) {
-            const expositor = await db.query('SELECT * FROM expositores WHERE ci = $1', [identificador]);
+            const expositor = await db.query('SELECT ci, nombre_completo, institucion, correo, celular FROM expositores WHERE ci = $1', [identificador]);
             if (expositor.rows.length > 0) { rolEncontrado = 'EXPOSITOR'; datosEncontrados = expositor.rows[0]; }
         }
         
         if (!rolEncontrado) {
-            const visitante = await db.query('SELECT * FROM visitantes WHERE ci = $1', [identificador]);
+            const visitante = await db.query('SELECT ci, nombre_completo, institucion, celular FROM visitantes WHERE ci = $1', [identificador]);
             if (visitante.rows.length > 0) { rolEncontrado = 'VISITANTE'; datosEncontrados = visitante.rows[0]; }
         }
 
@@ -456,7 +500,7 @@ app.get('/api/usuario_por_celular/:celular', async (req, res) => {
     }
 });
 
-app.post('/api/restablecer_password_directo', async (req, res) => {
+app.post('/api/restablecer_password_directo', exigirSesionAdmin, async (req, res) => {
     const { ci, correo, nuevaPassword } = req.body;
     try {
         let tabla = null;
@@ -477,7 +521,7 @@ app.post('/api/restablecer_password_directo', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cambiar la contraseña." }); }
 });
 
-app.post('/api/administradores', async (req, res) => {
+app.post('/api/administradores', exigirSesionAdmin, async (req, res) => {
     const { ci, nombre, correo, celular, password } = req.body;
     try {
         const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
@@ -503,7 +547,7 @@ app.post('/api/expositores', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar expositor." }); }
 });
 
-app.post('/api/tribunales', async (req, res) => {
+app.post('/api/tribunales', exigirSesionAdmin, async (req, res) => {
     const { ci, usuario, nombre, correo, celular, password } = req.body;
     try {
         try { await db.query(`ALTER TABLE tribunales ADD COLUMN IF NOT EXISTS ci VARCHAR(50);`); } catch(e) {}
@@ -513,7 +557,7 @@ app.post('/api/tribunales', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al guardar. Verifique que el usuario o CI no exista." }); }
 });
 
-app.post('/api/tribunales/asignar', async (req, res) => {
+app.post('/api/tribunales/asignar', exigirSesionAdmin, async (req, res) => {
     const { usuario, categorias, proyectos } = req.body;
     try {
         await db.query(`UPDATE tribunales SET categoria_asignada = $1, proyectos_asignados = $2 WHERE usuario_tribunal = $3`, [JSON.stringify(categorias), JSON.stringify(proyectos), usuario]);
@@ -692,7 +736,7 @@ app.get('/api/proyectos_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar proyectos" }); }
 });
 
-app.post('/api/admin_resubir_pdf', async (req, res) => {
+app.post('/api/admin_resubir_pdf', exigirSesionAdmin, async (req, res) => {
     try {
         const { idProyecto, ciPropietario, categoria } = req.body;
         
@@ -724,12 +768,12 @@ app.post('/api/admin_resubir_pdf', async (req, res) => {
 
 app.get('/api/proyectos_qr/:id', async (req, res) => {
     try {
-        const proy = await db.query('SELECT * FROM proyectos WHERE id = $1', [req.params.id]);
+        const proy = await db.query('SELECT id, titulo, categoria, integrantes, eje_tematico, enlace_pdf FROM proyectos WHERE id = $1', [req.params.id]);
         res.json(proy.rows.length > 0 ? proy.rows[0] : null);
     } catch (error) { res.status(500).json({ error: "Error del servidor" }); }
 });
 
-app.delete('/api/proyectos_admin/:id', async (req, res) => {
+app.delete('/api/proyectos_admin/:id', exigirSesionAdmin, async (req, res) => {
     try {
         const idProyecto = req.params.id;
         await db.query('DELETE FROM votos_publico WHERE id_proyecto = $1', [idProyecto]);
@@ -830,7 +874,7 @@ app.post('/api/votar', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error en la Base de Datos: " + error.message }); }
 });
 
-app.get('/api/votos_admin', async (req, res) => {
+app.get('/api/votos_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const query = `SELECT v.id as id_voto, v.nota, p.titulo as nombre_proyecto, p.categoria as categoria_proyecto, vis.nombre_completo as nombre_visitante, vis.institucion as institucion FROM votos_publico v JOIN proyectos p ON v.id_proyecto = p.id JOIN visitantes vis ON v.ci_visitante = vis.ci ORDER BY v.id DESC`;
         const votos = await db.query(query);
@@ -838,14 +882,14 @@ app.get('/api/votos_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar los votos" }); }
 });
 
-app.delete('/api/votos_admin/:id', async (req, res) => {
+app.delete('/api/votos_admin/:id', exigirSesionAdmin, async (req, res) => {
     try {
         await db.query('DELETE FROM votos_publico WHERE id = $1', [req.params.id]);
         res.json({ mensaje: "Voto eliminado" });
     } catch (error) { res.status(500).json({ error: "Error al eliminar el voto" }); }
 });
 
-app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
+app.delete('/api/evaluaciones_admin/:id', exigirSesionAdmin, async (req, res) => {
     try {
         const evCheck = await db.query('SELECT id_proyecto FROM evaluaciones_tribunal WHERE id = $1', [req.params.id]);
         if (evCheck.rows.length > 0) {
@@ -869,7 +913,7 @@ app.delete('/api/evaluaciones_admin/:id', async (req, res) => {
 
 app.get('/api/tribunal_id/:id', async (req, res) => {
     try {
-        const tribunal = await db.query('SELECT * FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [req.params.id]);
+        const tribunal = await db.query('SELECT usuario_tribunal, ci, nombre_completo, especialidad, categoria_asignada, proyectos_asignados, correo, celular FROM tribunales WHERE usuario_tribunal = $1 OR correo = $1', [req.params.id]);
         res.json(tribunal.rows[0] || null);
     } catch (error) { res.status(500).json({ error: "Error al buscar tribunal" }); }
 });
@@ -916,7 +960,7 @@ app.post('/api/evaluar', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al evaluar" }); }
 });
 
-app.get('/api/evaluaciones_admin', async (req, res) => {
+app.get('/api/evaluaciones_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const query = `SELECT e.id as id_evaluacion, COALESCE(t.nombre_completo, e.usuario_tribunal) as nombre_tribunal, e.nota, p.titulo as nombre_proyecto, p.categoria FROM evaluaciones_tribunal e JOIN proyectos p ON e.id_proyecto = p.id LEFT JOIN tribunales t ON e.usuario_tribunal = t.usuario_tribunal ORDER BY e.id DESC`;
         const evals = await db.query(query);
@@ -924,11 +968,11 @@ app.get('/api/evaluaciones_admin', async (req, res) => {
     } catch (error) { res.status(500).json({ error: "Error al cargar las evaluaciones" }); }
 });
 
-app.get('/api/datos_informes', async (req, res) => {
+app.get('/api/datos_informes', exigirSesionAdmin, async (req, res) => {
     try {
         const proyectos = await db.query('SELECT * FROM proyectos');
-        const expositores = await db.query('SELECT * FROM expositores');
-        const tribunales = await db.query('SELECT * FROM tribunales');
+        const expositores = await db.query('SELECT ci, nombre_completo, institucion, correo, celular FROM expositores');
+        const tribunales = await db.query('SELECT usuario_tribunal, ci, nombre_completo, especialidad, categoria_asignada, proyectos_asignados, correo, celular FROM tribunales');
         const visitantes = await db.query('SELECT * FROM visitantes');
         const votos = await db.query('SELECT * FROM votos_publico');
         const evaluaciones = await db.query('SELECT * FROM evaluaciones_tribunal');
@@ -939,15 +983,27 @@ app.get('/api/datos_informes', async (req, res) => {
 });
 
 app.get('/api/resultados', async (req, res) => {
-    const { ci } = req.query;
     try {
         const checkTime = await db.query(`SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'America/La_Paz' < fecha_resultados) as resultados_ocultos, mostrar_premios_extra FROM configuraciones WHERE id = 1`);
-        let esAdmin = false;
-        if (ci && ci !== "publico") {
-            if ((await db.query('SELECT ci FROM administradores WHERE ci = $1', [ci])).rows.length > 0) esAdmin = true;
-        }
+        
+        // 🔥 VERIFICACIÓN REAL DE TOKEN DE ADMIN (Imposible falsificar pasando solo ?ci= por la URL) 🔥
+        const adminValido = await obtenerAdminAutenticadoDeRequest(req);
+        const esAdmin = !!adminValido;
 
-        if (checkTime.rows[0].resultados_ocultos && !esAdmin) return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
+        if (checkTime.rows[0].resultados_ocultos && !esAdmin) {
+            const ipIntruso = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
+            const navIntruso = req.headers['user-agent'] || 'Desconocido';
+            if (req.query.ci && req.query.ci !== 'publico') {
+                try {
+                    await db.query(
+                        `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                        ['INTRUSO-BLOQUEADO', `Intentó usar CI: ${req.query.ci}`, 'NINGUNO', '⛔ INTENTO BLOQUEADO', `Intentó ver /api/resultados antes de tiempo falsificando parámetro ?ci=${req.query.ci}`, ipIntruso, navIntruso]
+                    );
+                } catch (e) {}
+            }
+            return res.status(403).json({ error: "⛔ Bloqueo Backend: Los resultados aún no son públicos." });
+        }
 
         const query = `SELECT p.titulo, p.categoria, COALESCE(p.nota_ponderada, 0) as tribunal_80, COALESCE(p.nota_impacto, 0) as nota_impacto, COALESCE((SELECT AVG(nota) FROM votos_publico WHERE id_proyecto::text = p.id::text), 0) as promedio_votos_100 FROM proyectos p WHERE p.estado_evaluacion = 'Evaluado' OR p.estado_evaluacion = 'Pre-seleccionado'`;
         const resultados = await db.query(query);
@@ -975,13 +1031,12 @@ app.get('/api/resultados', async (req, res) => {
 });
 
 // 🔥 1. GUARDAR O RECUPERAR CERTIFICADO OFICIAL EMITIDO EN POSTGRESQL 🔥
-app.post('/api/certificados_emitidos', async (req, res) => {
+app.post('/api/certificados_emitidos', exigirSesionAdmin, async (req, res) => {
     const { codigoQr, identificadorUsuario, nombreCompleto, tipoCertificado, tituloCertificado, subtituloCertificado, detalleCertificado, lugarEvento, forzarNuevoCodigo } = req.body;
     try {
         const nombreLimpio = (nombreCompleto || "").trim().toUpperCase();
         const tipoLimpio = (tipoCertificado || "participacion").trim();
 
-        // Si ya se había emitido este mismo tipo de certificado para esta persona y no se pidió regenerar el código, devolvemos el código oficial ya guardado
         if (!forzarNuevoCodigo) {
             const existente = await db.query(
                 `SELECT * FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = $1 AND tipo_certificado = $2 ORDER BY fecha_emision DESC LIMIT 1`,
@@ -991,7 +1046,6 @@ app.post('/api/certificados_emitidos', async (req, res) => {
                 return res.json({ guardado: true, codigo_qr: existente.rows[0].codigo_qr, datos: existente.rows[0] });
             }
         } else {
-            // Si pidió un nuevo código QR, reemplazamos el anterior de ese mismo tipo para esa persona
             await db.query(`DELETE FROM certificados_emitidos WHERE UPPER(TRIM(nombre_completo)) = $1 AND tipo_certificado = $2`, [nombreLimpio, tipoLimpio]);
         }
 
@@ -1038,9 +1092,7 @@ app.get('/api/verificar_certificado/:codigo', async (req, res) => {
 // =========================================================================
 // 🔥 ENVÍO DE CERTIFICADO EN PDF POR CORREO EXCLUSIVO PARA COLABORADORES 🔥
 // =========================================================================
-const nodemailer = require('nodemailer');
-
-app.post('/api/enviar_certificado_colaborador', async (req, res) => {
+app.post('/api/enviar_certificado_colaborador', exigirSesionAdmin, async (req, res) => {
     const { correoDestino, nombreColaborador, codigoQr, pdfBase64, urlVerificacion } = req.body;
 
     if (!correoDestino || !pdfBase64) {
@@ -1068,7 +1120,6 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
             }
         });
 
-        // Limpiar el prefijo data:application/pdf;base64,
         const base64Limpio = pdfBase64.replace(/^data:application\/pdf;filename=.*?;base64,/, '')
                                       .replace(/^data:application\/pdf;base64,/, '');
 
@@ -1113,6 +1164,20 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
             ]
         });
 
+        await db.query(
+            `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                req.adminAutenticado.ci,
+                req.adminAutenticado.nombre_completo,
+                'ADMIN',
+                'ENVÍO DE CERTIFICADO POR CORREO',
+                `Envió certificado PDF (${codigoQr}) a: ${nombreColaborador} <${correoDestino}>`,
+                (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
+                req.headers['user-agent'] || ''
+            ]
+        );
+
         res.json({ enviado: true, mensaje: `✅ Certificado enviado correctamente al correo: ${correoDestino}` });
     } catch (error) {
         console.error("Error enviando correo al colaborador:", error);
@@ -1123,8 +1188,8 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
 // =========================================================================
 // 🔥 RUTAS DE AUDITORÍA DE SEGURIDAD (LOGS DE ACCESO E INFORMES SACADOS) 🔥
 // =========================================================================
-app.post('/api/auditoria/registrar', async (req, res) => {
-    const { ciUsuario, nombreUsuario, rol, accion, detalle } = req.body;
+app.post('/api/auditoria/registrar', exigirSesionAdmin, async (req, res) => {
+    const { accion, detalle } = req.body;
     try {
         const ipCliente = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
         const userAgent = req.headers['user-agent'] || 'Desconocido';
@@ -1133,9 +1198,9 @@ app.post('/api/auditoria/registrar', async (req, res) => {
             `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
              VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
-                ciUsuario || 'DESCONOCIDO',
-                nombreUsuario || 'Usuario No Identificado',
-                rol || 'ADMIN',
+                req.adminAutenticado.ci,
+                req.adminAutenticado.nombre_completo,
+                'ADMIN',
                 accion || 'CONSULTA DE INFORME',
                 detalle || '',
                 ipCliente,
@@ -1149,7 +1214,7 @@ app.post('/api/auditoria/registrar', async (req, res) => {
     }
 });
 
-app.get('/api/auditoria_admin', async (req, res) => {
+app.get('/api/auditoria_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const logs = await db.query(`
             SELECT id, ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador,

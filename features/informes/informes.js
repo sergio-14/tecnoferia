@@ -1685,6 +1685,13 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 <script>
     const MODELOS_CERT = ${JSON.stringify(plantillasManuales)};
     const ORIGEN_URL = ${JSON.stringify(window.location.origin)};
+    constHEADER_STORAGE_ADMIN = encodeURIComponent(JSON.stringify({ ...window.opener?.localStorage, ...window.opener?.sessionStorage }));
+const _fetchCertOrig = window.fetch;
+window.fetch = function(url, opts = {}) {
+    opts.headers = opts.headers || {};
+    opts.headers['x-feria-storage'] = constHEADER_STORAGE_ADMIN;
+    return _fetchCertOrig.call(this, url, opts);
+};
     let CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
 
     function actualizarVisibilidadBotonCorreo() {
