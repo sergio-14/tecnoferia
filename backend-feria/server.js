@@ -1247,7 +1247,7 @@ app.get('/api/auditoria_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const logs = await db.query(`
             SELECT id, ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador,
-                   TO_CHAR(fecha_hora AT TIME ZONE 'America/La_Paz', 'DD/MM/YYYY HH24:MI:SS') as fecha_exacta
+                   TO_CHAR(fecha_hora AT TIME ZONE 'UTC' AT TIME ZONE 'America/La_Paz', 'DD/MM/YYYY HH24:MI:SS') as fecha_exacta
             FROM auditoria_sistema
             ORDER BY id DESC
             LIMIT 300
