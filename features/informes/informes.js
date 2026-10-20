@@ -2,6 +2,34 @@
 // ARCHIVO: features/informes/informes.js
 // FUNCIÓN: Generación de reportes dinámicos, 8 Certificados Oficiales y Ternas
 // =========================================================================
+// =========================================================================
+// 🔥 INTERCEPTOR GLOBAL DE FETCH PARA AUTENTICACIÓN DE ADMINISTRADOR 🔥
+// =========================================================================
+(function() {
+    const fetchOriginal = window.fetch;
+    window.fetch = function(url, options = {}) {
+        if (typeof url === 'string' && url.includes('/api/')) {
+            options.headers = options.headers || {};
+            try {
+                let sesionObj = null;
+                for (const k of ['usuarioActivo', 'sesionActual', 'user_data', 'datosUsuario', 'adminActivo']) {
+                    const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+                    if (raw) { sesionObj = JSON.parse(raw); break; }
+                }
+                if (sesionObj) {
+                    const datos = sesionObj.datos || sesionObj;
+                    if (datos.ci || datos.id_sesion_oficial) {
+                        options.headers['x-admin-ci'] = datos.ci || datos.id_sesion_oficial;
+                        options.headers['x-admin-token'] = sesionObj.token || localStorage.getItem('token') || '';
+                    }
+                }
+                const dumpStorage = JSON.stringify({ ...localStorage, ...sessionStorage });
+                options.headers['x-feria-storage'] = encodeURIComponent(dumpStorage);
+            } catch (e) {}
+        }
+        return fetchOriginal.call(this, url, options);
+    };
+})();
 
 // 🔥 OBTENER DATOS DEL ADMINISTRADOR ACTIVO EN SESIÓN PARA AUDITORÍA 🔥
 const obtenerAdminActivoAuditoria = () => {

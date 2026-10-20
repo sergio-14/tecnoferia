@@ -144,9 +144,38 @@ const obtenerAdminAutenticadoDeRequest = async (req) => {
     ) || null;
 };
 
+// =========================================================================
+// 🔥 MIDDLEWARE DE SEGURIDAD: EXIGIR SESIÓN ACTIVA DE ADMINISTRADOR 🔥
+// =========================================================================
 const exigirSesionAdmin = async (req, res, next) => {
     try {
-        const adminValido = await obtenerAdminAutenticadoDeRequest(req);
+        const authHeader = req.headers['x-feria-storage'] ? decodeURIComponent(req.headers['x-feria-storage']) : '';
+        const tokenDirecto = req.headers['x-admin-token'] || '';
+        const ciDirecto = req.headers['x-admin-ci'] || '';
+
+        const adminsActivos = await db.query(`
+            SELECT a.ci, a.nombre_completo, s.token 
+            FROM administradores a 
+            JOIN sesiones_activas s ON a.ci = s.ci_usuario
+        `);
+
+        let adminValido = null;
+
+        // 1. Intentar validar por token directo en cabecera
+        if (ciDirecto && tokenDirecto) {
+            adminValido = adminsActivos.rows.find(a => 
+                String(a.ci).trim() === String(ciDirecto).trim() && 
+                String(a.token).trim() === String(tokenDirecto).trim()
+            );
+        }
+
+        // 2. Si no, intentar validar por el volcado de storage de la app
+        if (!adminValido && authHeader) {
+            adminValido = adminsActivos.rows.find(a => 
+                authHeader.includes(String(a.ci).trim()) && 
+                authHeader.includes(String(a.token).trim())
+            );
+        }
 
         if (!adminValido) {
             const ipIntruso = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
