@@ -97,6 +97,7 @@ db.connect()
         await db.query(`CREATE TABLE IF NOT EXISTS evaluaciones_tribunal (id SERIAL PRIMARY KEY, id_proyecto INTEGER REFERENCES proyectos(id) ON DELETE CASCADE, usuario_tribunal VARCHAR(100), nota NUMERIC, observaciones TEXT)`);
         
         await db.query(`CREATE TABLE IF NOT EXISTS colaboradores (id SERIAL PRIMARY KEY, nombre_completo VARCHAR(255), correo VARCHAR(255), celular VARCHAR(50))`);
+        await db.query(`CREATE TABLE IF NOT EXISTS auditoria_sistema (id SERIAL PRIMARY KEY, ci_usuario VARCHAR(100), nombre_usuario VARCHAR(255), rol VARCHAR(50), accion VARCHAR(255), detalle TEXT, ip_dispositivo VARCHAR(100), navegador TEXT, fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
         await db.query(`CREATE TABLE IF NOT EXISTS certificados_emitidos (codigo_qr VARCHAR(60) PRIMARY KEY, identificador_usuario VARCHAR(150), nombre_completo VARCHAR(255) NOT NULL, tipo_certificado VARCHAR(100), titulo_certificado VARCHAR(255), subtitulo_certificado VARCHAR(255), detalle_certificado TEXT, lugar_evento VARCHAR(255), fecha_emision TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`);
 
         // Asegurar que todas las columnas existan en PostgreSQL aunque la tabla se haya creado antes
@@ -209,10 +210,16 @@ app.get('/api/certificados/verificar/:codigo', async (req, res) => {
 
 app.get('/api/usuarios_admin', async (req, res) => {
     try {
+        const administradores = await db.query("SELECT ci as id, nombre_completo, 'ADMINISTRADOR DEL SISTEMA' as institucion, celular, correo FROM administradores ORDER BY nombre_completo ASC");
         const expositores = await db.query('SELECT ci as id, nombre_completo, institucion, celular, correo FROM expositores ORDER BY nombre_completo ASC');
         const tribunales = await db.query('SELECT usuario_tribunal as id, ci, nombre_completo, especialidad as institucion, celular, correo, categoria_asignada, proyectos_asignados FROM tribunales ORDER BY nombre_completo ASC');
         const visitantes = await db.query('SELECT ci as id, nombre_completo, institucion, celular, NULL as correo FROM visitantes ORDER BY nombre_completo ASC');
-        res.json({ expositores: expositores.rows, tribunales: tribunales.rows, visitantes: visitantes.rows });
+        res.json({
+            administradores: administradores.rows,
+            expositores: expositores.rows,
+            tribunales: tribunales.rows,
+            visitantes: visitantes.rows
+        });
     } catch (error) { res.status(500).json({ error: "Error al cargar la lista de usuarios." }); }
 });
 
@@ -260,7 +267,15 @@ app.post('/api/editar_usuario', async (req, res) => {
 app.delete('/api/usuarios_admin/:rol/:id', async (req, res) => {
     const { rol, id } = req.params;
     try {
-        if (rol === 'expositor') {
+        if (rol === 'administrador') {
+            const totalAdmins = await db.query('SELECT COUNT(*) as total FROM administradores');
+            if (parseInt(totalAdmins.rows[0].total) <= 1) {
+                return res.status(400).json({ error: "⚠️ No puedes eliminar al único administrador del sistema." });
+            }
+            await db.query('DELETE FROM sesiones_activas WHERE ci_usuario = $1', [id]);
+            await db.query('DELETE FROM administradores WHERE ci = $1', [id]);
+        }
+        else if (rol === 'expositor') {
             const proyectosUsuario = await db.query('SELECT id FROM proyectos WHERE ci_propietario = $1', [id]);
             for (let proy of proyectosUsuario.rows) {
                 await db.query('DELETE FROM votos_publico WHERE id_proyecto = $1', [proy.id]);
@@ -371,6 +386,26 @@ app.post('/api/login', async (req, res) => {
         const nuevoToken = Date.now().toString(36) + Math.random().toString(36).substring(2);
         
         await db.query(`INSERT INTO sesiones_activas (ci_usuario, token) VALUES ($1, $2) ON CONFLICT (ci_usuario) DO UPDATE SET token = EXCLUDED.token`, [idReal, nuevoToken]);
+        // 🔥 REGISTRAR EN AUDITORÍA CADA INICIO DE SESIÓN DE ADMINISTRADOR O TRIBUNAL 🔥
+        if (rolEncontrado === 'ADMIN' || rolEncontrado === 'TRIBUNAL') {
+            try {
+                const ipCliente = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
+                const userAgent = req.headers['user-agent'] || 'Desconocido';
+                await db.query(
+                    `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [
+                        idReal,
+                        datosEncontrados.nombre_completo || idReal,
+                        rolEncontrado,
+                        'INICIO DE SESIÓN',
+                        `Ingreso exitoso al sistema con rol ${rolEncontrado}`,
+                        ipCliente,
+                        userAgent
+                    ]
+                );
+            } catch (errLog) { console.error("Error guardando log de login:", errLog); }
+        }
         res.json({ rol: rolEncontrado, datos: datosEncontrados, token: nuevoToken });
     } catch (error) { res.status(500).json({ error: "Error interno del servidor al procesar el login." }); }
 });
@@ -1082,6 +1117,51 @@ app.post('/api/enviar_certificado_colaborador', async (req, res) => {
     } catch (error) {
         console.error("Error enviando correo al colaborador:", error);
         res.status(500).json({ error: `No se pudo enviar el correo: ${error.message}` });
+    }
+});
+
+// =========================================================================
+// 🔥 RUTAS DE AUDITORÍA DE SEGURIDAD (LOGS DE ACCESO E INFORMES SACADOS) 🔥
+// =========================================================================
+app.post('/api/auditoria/registrar', async (req, res) => {
+    const { ciUsuario, nombreUsuario, rol, accion, detalle } = req.body;
+    try {
+        const ipCliente = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'IP Desconocida').split(',')[0].trim();
+        const userAgent = req.headers['user-agent'] || 'Desconocido';
+
+        await db.query(
+            `INSERT INTO auditoria_sistema (ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+                ciUsuario || 'DESCONOCIDO',
+                nombreUsuario || 'Usuario No Identificado',
+                rol || 'ADMIN',
+                accion || 'CONSULTA DE INFORME',
+                detalle || '',
+                ipCliente,
+                userAgent
+            ]
+        );
+        res.json({ ok: true });
+    } catch (error) {
+        console.error("Error registrando auditoría:", error);
+        res.status(500).json({ error: "No se pudo registrar el evento en la auditoría." });
+    }
+});
+
+app.get('/api/auditoria_admin', async (req, res) => {
+    try {
+        const logs = await db.query(`
+            SELECT id, ci_usuario, nombre_usuario, rol, accion, detalle, ip_dispositivo, navegador,
+                   TO_CHAR(fecha_hora AT TIME ZONE 'America/La_Paz', 'DD/MM/YYYY HH24:MI:SS') as fecha_exacta
+            FROM auditoria_sistema
+            ORDER BY id DESC
+            LIMIT 300
+        `);
+        const admins = await db.query(`SELECT ci, nombre_completo, correo, celular FROM administradores ORDER BY nombre_completo ASC`);
+        res.json({ logs: logs.rows, administradores: admins.rows });
+    } catch (error) {
+        res.status(500).json({ error: "Error al obtener el historial de auditoría." });
     }
 });
 

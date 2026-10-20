@@ -3,14 +3,68 @@
 // FUNCIÓN: Generación de reportes dinámicos, 8 Certificados Oficiales y Ternas
 // =========================================================================
 
+// 🔥 OBTENER DATOS DEL ADMINISTRADOR ACTIVO EN SESIÓN PARA AUDITORÍA 🔥
+const obtenerAdminActivoAuditoria = () => {
+    try {
+        const posiblesClaves = ['usuarioActivo', 'sesionActual', 'user_data', 'datosUsuario', 'adminActivo'];
+        for (const k of posiblesClaves) {
+            const raw = localStorage.getItem(k) || sessionStorage.getItem(k);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                const d = parsed.datos || parsed;
+                if (d && (d.ci || d.nombre_completo || d.id_sesion_oficial)) {
+                    return {
+                        ci: d.ci || d.id_sesion_oficial || 'ADMIN',
+                        nombre: d.nombre_completo || d.nombre || 'Administrador',
+                        rol: parsed.rol || 'ADMIN'
+                    };
+                }
+            }
+        }
+        const ciSuelto = localStorage.getItem('ci_usuario') || localStorage.getItem('id_sesion_oficial') || sessionStorage.getItem('ci_usuario');
+        const nomSuelto = localStorage.getItem('nombre_usuario') || sessionStorage.getItem('nombre_usuario');
+        if (ciSuelto || nomSuelto) {
+            return { ci: ciSuelto || 'ADMIN', nombre: nomSuelto || `Usuario (${ciSuelto})`, rol: 'ADMIN' };
+        }
+    } catch (e) {}
+    return { ci: 'SESION-ADMIN', nombre: 'Administrador en Sesión', rol: 'ADMIN' };
+};
+
+const registrarAccionAuditoria = async (accion, detalle) => {
+    try {
+        const admin = obtenerAdminActivoAuditoria();
+        await fetch('/api/auditoria/registrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ciUsuario: admin.ci,
+                nombreUsuario: admin.nombre,
+                rol: admin.rol,
+                accion: accion,
+                detalle: detalle
+            })
+        });
+    } catch (e) {}
+};
+
 const generarCabeceraOficial = (tituloReporte, notaExtra = "") => {
+    const ahora = new Date();
+    const fechaExacta = ahora.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const horaExacta = ahora.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const admin = obtenerAdminActivoAuditoria();
+
     const extraHtml = notaExtra ? `<p style="font-family: Arial, sans-serif; font-size: 13px; color: #333; margin-bottom: 15px;"><strong>Nota Explicativa:</strong> ${notaExtra}</p>` : "";
     return `
         <div style="text-align: center; margin-bottom: 30px; font-family: Arial, sans-serif;">
             <h2 style="margin: 0; font-size: 20px; text-transform: uppercase; color: #000;">Instituto de Investigación Interacción Social y Posgrado</h2>
             <h3 style="margin: 5px 0; font-size: 16px; color: #555;">Tecno Feria 2026 - Universidad Autónoma del Beni José Ballivián</h3>
             <h1 style="margin: 20px 0; font-size: 22px; text-decoration: underline; color: #000;">${tituloReporte}</h1>
-            <p style="margin: 0; font-size: 12px; color: #333;">Fecha de emisión: ${new Date().toLocaleDateString()}</p>
+            <p style="margin: 0; font-size: 12px; color: #111;">
+                <strong>Fecha de emisión:</strong> ${fechaExacta} &nbsp;|&nbsp; <strong>Hora exacta:</strong> <span style="font-family: monospace; font-weight: bold;">${horaExacta}</span>
+            </p>
+            <p style="margin: 4px 0 0; font-size: 11px; color: #444;">
+                <strong>Documento generado por:</strong> ${admin.nombre} (ID/CI: ${admin.ci})
+            </p>
         </div>
         ${extraHtml}
     `;
@@ -3108,3 +3162,292 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 })();
+// =========================================================================
+// 🔥 MÓDULO DE AUDITORÍA DE SEGURIDAD Y PESTAÑA DE ADMINISTRADORES 🔥
+// =========================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Agregar opción de Auditoría de Seguridad al selector de Informes
+    const tipoSelect = document.getElementById('tipo-informe-select');
+    if (tipoSelect && !tipoSelect.querySelector('option[value="auditoria_seguridad"]')) {
+        const optAuditoria = document.createElement('option');
+        optAuditoria.value = 'auditoria_seguridad';
+        optAuditoria.style.fontWeight = 'bold';
+        optAuditoria.style.color = '#d32f2f';
+        optAuditoria.textContent = '🛡️ Auditoría de Seguridad: Historial de Accesos Admin e Informes Emitidos';
+        tipoSelect.appendChild(optAuditoria);
+    }
+
+    // 2. Inyectar botón/pestaña "Administradores" en el Padrón Global de Usuarios
+    iniciarPestanaAdministradoresPadron();
+});
+
+// Interceptar generarVistaPrevia para registrar cada informe visualizado y mostrar el reporte de Auditoría
+(function() {
+    const vistaPreviaOriginal = window.generarVistaPrevia;
+    if (typeof vistaPreviaOriginal !== 'function') return;
+
+    window.generarVistaPrevia = async function() {
+        const tipoSelect = document.getElementById('tipo-informe-select');
+        const valor = tipoSelect ? tipoSelect.value : '';
+        const areaImpresion = document.getElementById('informe-impresion');
+        const btn = document.querySelector('#informes .btn-save');
+
+        if (!valor) return;
+
+        // Registrar en la bitácora qué informe se acaba de consultar
+        if (valor !== 'auditoria_seguridad') {
+            const nombreInforme = tipoSelect.options[tipoSelect.selectedIndex]?.text || valor;
+            registrarAccionAuditoria('VISTA PREVIA DE INFORME', `Generó en pantalla el documento: ${nombreInforme}`);
+        }
+
+        if (valor === 'auditoria_seguridad') {
+            areaImpresion.style.display = 'block';
+            areaImpresion.innerHTML = '<div style="text-align: center; padding: 40px; color: #333;"><i class="fas fa-spinner fa-spin fa-2x"></i><p style="margin-top: 15px; font-weight: bold;">Cargando bitácora de seguridad y cuentas de administrador...</p></div>';
+            if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...'; btn.disabled = true; }
+
+            try {
+                const res = await fetch('/api/auditoria_admin');
+                const data = await res.json();
+                const admins = data.administradores || [];
+                const logs = data.logs || [];
+
+                let htmlAdmins = `
+                    <h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #b91c1c; padding: 8px; margin-top: 20px; margin-bottom: 0;">
+                        A. CUENTAS DE ADMINISTRADOR REGISTRADAS EN EL SISTEMA (Total: ${admins.length})
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-family: Arial, sans-serif; font-size: 11px; color: #000;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 6%;">N°</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 34%;">Nombre Completo</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 18%;">C.I. / Usuario</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 27%;">Correo Electrónico</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 15%;">Celular</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                admins.forEach((a, idx) => {
+                    htmlAdmins += `
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${idx + 1}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc; font-weight: bold;">${(a.nombre_completo || '').toUpperCase()}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc; text-align: center; font-family: monospace; font-weight: bold;">${a.ci}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc;">${a.correo || 'S/N'}</td>
+                            <td style="padding: 8px; border: 1px solid #ccc; text-align: center;">${a.celular || 'S/N'}</td>
+                        </tr>
+                    `;
+                });
+                htmlAdmins += `</tbody></table>`;
+
+                let htmlLogs = `
+                    <h3 style="font-family: Arial, sans-serif; font-size: 14px; color: #fff; background-color: #002b5c; padding: 8px; margin-top: 25px; margin-bottom: 0;">
+                        B. BITÁCORA DE ACCESOS E INFORMES GENERADOS (Últimos ${logs.length} eventos)
+                    </h3>
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 10.5px; color: #000;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; border-bottom: 2px solid #000;">
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 16%;">Fecha y Hora Exacta</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 22%;">Usuario / Administrador</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 10%;">Rol</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 18%;">Acción</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: left; width: 22%;">Detalle del Documento / Evento</th>
+                                <th style="padding: 8px; border: 1px solid #ccc; text-align: center; width: 12%;">Dirección IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                if (logs.length === 0) {
+                    htmlLogs += `<tr><td colspan="6" style="padding: 12px; text-align: center; color: #666;">Aún no hay registros en la bitácora.</td></tr>`;
+                } else {
+                    logs.forEach(l => {
+                        const esRanking = (l.detalle || '').toLowerCase().includes('ranking') || (l.detalle || '').toLowerCase().includes('premio');
+                        const bgRow = esRanking ? '#fff3cd' : '#ffffff';
+                        htmlLogs += `
+                            <tr style="background-color: ${bgRow};">
+                                <td style="padding: 7px; border: 1px solid #ccc; text-align: center; font-family: monospace; font-weight: bold;">${l.fecha_exacta}</td>
+                                <td style="padding: 7px; border: 1px solid #ccc;"><strong>${l.nombre_usuario}</strong><br><span style="color:#555;">CI: ${l.ci_usuario}</span></td>
+                                <td style="padding: 7px; border: 1px solid #ccc; text-align: center; font-weight: bold;">${l.rol}</td>
+                                <td style="padding: 7px; border: 1px solid #ccc; font-weight: bold; color: #002b5c;">${l.accion}</td>
+                                <td style="padding: 7px; border: 1px solid #ccc;">${l.detalle}</td>
+                                <td style="padding: 7px; border: 1px solid #ccc; text-align: center; font-family: monospace;">${l.ip_dispositivo || 'N/A'}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                htmlLogs += `</tbody></table>`;
+
+                areaImpresion.innerHTML = generarCabeceraOficial(
+                    "INFORME DE AUDITORÍA DE SEGURIDAD Y ACCESOS AL SISTEMA",
+                    "Este documento detalla todas las cuentas con privilegios de Administrador registradas en la base de datos, así como la fecha, hora exacta (con segundos) y dirección IP de cada inicio de sesión y de cada informe visualizado o impreso."
+                ) + htmlAdmins + htmlLogs;
+
+            } catch (e) {
+                areaImpresion.innerHTML = '<div style="color:red; text-align:center; padding:20px;">❌ Error al cargar la bitácora de auditoría.</div>';
+            } finally {
+                if (btn) { btn.innerHTML = '<i class="fas fa-print"></i> Imprimir Documento'; btn.disabled = false; }
+            }
+            return;
+        }
+
+        return await vistaPreviaOriginal.apply(this, arguments);
+    };
+})();
+
+// Interceptar también el botón de Imprimir para dejar constancia exacta de la hora de impresión
+(function() {
+    const imprimirOriginal = window.imprimirInformeActual;
+    if (typeof imprimirOriginal !== 'function') return;
+
+    window.imprimirInformeActual = function(event) {
+        const tipoSelect = document.getElementById('tipo-informe-select');
+        const nombreInforme = tipoSelect && tipoSelect.selectedIndex >= 0 ? tipoSelect.options[tipoSelect.selectedIndex].text : 'Informe';
+        registrarAccionAuditoria('IMPRESIÓN / EXPORTACIÓN PDF', `Imprimió o exportó a PDF el documento: ${nombreInforme}`);
+        return imprimirOriginal.apply(this, arguments);
+    };
+})();
+
+// Función que agrega la pestaña "Administradores" en el Padrón Global de Usuarios
+function iniciarPestanaAdministradoresPadron() {
+    setTimeout(() => {
+        const botonesTab = Array.from(document.querySelectorAll('button, div, span, a')).filter(el => 
+            el.textContent.trim() === 'Visitantes' && 
+            el.parentElement && 
+            el.parentElement.textContent.includes('Expositores') && 
+            el.parentElement.textContent.includes('Tribunales')
+        );
+
+        if (botonesTab.length > 0) {
+            const btnVisitantes = botonesTab[0];
+            const contenedorTabs = btnVisitantes.parentElement;
+
+            if (!document.getElementById('tab-padron-administradores')) {
+                const btnAdmins = btnVisitantes.cloneNode(true);
+                btnAdmins.id = 'tab-padron-administradores';
+                btnAdmins.innerHTML = '<i class="fas fa-user-shield"></i> Administradores';
+                btnAdmins.style.background = 'rgba(220, 38, 38, 0.15)';
+                btnAdmins.style.color = '#fca5a5';
+                btnAdmins.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                btnAdmins.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.mostrarModalAdministradoresYLogs();
+                };
+                contenedorTabs.appendChild(btnAdmins);
+            }
+        }
+    }, 800);
+}
+
+window.mostrarModalAdministradoresYLogs = async function() {
+    let modal = document.getElementById('modal-auditoria-admins');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-auditoria-admins';
+        modal.style.cssText = 'position:fixed; inset:0; background:rgba(4,18,38,0.92); backdrop-filter:blur(8px); z-index:999999; display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto;';
+        document.body.appendChild(modal);
+    }
+
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div style="background:#0f172a; border:1px solid #334155; border-top:5px solid #ef4444; border-radius:16px; width:100%; max-width:920px; max-height:90vh; overflow-y:auto; padding:25px; color:#fff; font-family:Arial, sans-serif; box-shadow:0 20px 50px rgba(0,0,0,0.8);">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:15px; margin-bottom:20px;">
+                <div>
+                    <h3 style="margin:0; font-size:1.35rem; color:#fff;"><i class="fas fa-user-shield" style="color:#ef4444;"></i> Control de Administradores y Auditoría de Accesos</h3>
+                    <p style="margin:4px 0 0; font-size:0.85rem; color:#94a3b8;">Verifica cuántas cuentas de Administrador existen y quién generó cada informe.</p>
+                </div>
+                <button onclick="document.getElementById('modal-auditoria-admins').style.display='none'" style="background:#ef4444; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-weight:bold;">
+                    <i class="fas fa-times"></i> Cerrar
+                </button>
+            </div>
+            <div id="contenido-modal-auditoria" style="text-align:center; padding:30px;">
+                <i class="fas fa-spinner fa-spin fa-2x" style="color:#38bdf8;"></i>
+                <p>Consultando base de datos...</p>
+            </div>
+        </div>
+    `;
+
+    try {
+        const res = await fetch('/api/auditoria_admin');
+        const data = await res.json();
+        const admins = data.administradores || [];
+        const logs = data.logs || [];
+
+        let html = `
+            <h4 style="color:#fca5a5; margin:0 0 10px 0;">🛡️ Cuentas de Administrador Activas (${admins.length})</h4>
+            <div style="overflow-x:auto; margin-bottom:25px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.88rem; text-align:left; background:#1e293b; border-radius:8px; overflow:hidden;">
+                    <thead>
+                        <tr style="background:#041226; color:#94a3b8;">
+                            <th style="padding:10px;">Nombre Completo</th>
+                            <th style="padding:10px;">CI / Usuario</th>
+                            <th style="padding:10px;">Correo</th>
+                            <th style="padding:10px;">Celular</th>
+                            <th style="padding:10px; text-align:center;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${admins.map(a => `
+                            <tr style="border-bottom:1px solid #334155;">
+                                <td style="padding:10px; font-weight:bold; color:#fff;">${a.nombre_completo}</td>
+                                <td style="padding:10px; font-family:monospace; color:#38bdf8;">${a.ci}</td>
+                                <td style="padding:10px; color:#cbd5e1;">${a.correo || 'S/N'}</td>
+                                <td style="padding:10px; color:#cbd5e1;">${a.celular || 'S/N'}</td>
+                                <td style="padding:10px; text-align:center;">
+                                    <button onclick="window.eliminarAdminAuditoria('${a.ci}', '${a.nombre_completo}')" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold;">
+                                        <i class="fas fa-trash"></i> Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 style="color:#38bdf8; margin:0 0 10px 0;">🕵️ Últimos Accesos e Informes Generados (${logs.length})</h4>
+            <div style="overflow-x:auto; max-height:340px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.82rem; text-align:left; background:#1e293b; border-radius:8px;">
+                    <thead style="position:sticky; top:0; background:#041226; color:#94a3b8;">
+                        <tr>
+                            <th style="padding:9px;">Fecha y Hora Exacta</th>
+                            <th style="padding:9px;">Usuario</th>
+                            <th style="padding:9px;">Acción</th>
+                            <th style="padding:9px;">Detalle del Informe / Evento</th>
+                            <th style="padding:9px;">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logs.length === 0 ? `<tr><td colspan="5" style="padding:15px; text-align:center; color:#94a3b8;">Sin registros aún.</td></tr>` : logs.map(l => `
+                            <tr style="border-bottom:1px solid #334155; ${(l.detalle || '').toLowerCase().includes('ranking') ? 'background:rgba(245, 158, 11, 0.15);' : ''}">
+                                <td style="padding:8px; font-family:monospace; color:#fde047; font-weight:bold;">${l.fecha_exacta}</td>
+                                <td style="padding:8px; color:#fff;"><b>${l.nombre_usuario}</b> (${l.ci_usuario})</td>
+                                <td style="padding:8px; color:#34d399; font-weight:bold;">${l.accion}</td>
+                                <td style="padding:8px; color:#e2e8f0;">${l.detalle}</td>
+                                <td style="padding:8px; font-family:monospace; color:#94a3b8;">${l.ip_dispositivo || ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        document.getElementById('contenido-modal-auditoria').innerHTML = html;
+    } catch (e) {
+        document.getElementById('contenido-modal-auditoria').innerHTML = `<p style="color:#ef4444;">Error al cargar datos.</p>`;
+    }
+};
+
+window.eliminarAdminAuditoria = async function(ci, nombre) {
+    if (!confirm(`⚠️ ¿Estás seguro de eliminar la cuenta de Administrador de "${nombre}" (CI: ${ci})?`)) return;
+    try {
+        const res = await fetch(`/api/usuarios_admin/administrador/${encodeURIComponent(ci)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo eliminar.");
+        alert("✅ Administrador eliminado correctamente.");
+        window.mostrarModalAdministradoresYLogs();
+    } catch (e) {
+        alert("❌ " + e.message);
+    }
+};
