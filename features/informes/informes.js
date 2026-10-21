@@ -1440,16 +1440,16 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         margin: 1px 0 0;
                     }
 
-                    /* 🔥 SECCIÓN DE FIRMAS Y SELLOS OFICIALES CON EFECTO DE TINTA TRANSPARENTE 🔥 */
+                    /* 🔥 SECCIÓN DE FIRMAS Y SELLOS IGUALADOS VISUALMENTE AL MISMO TAMAÑO 🔥 */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
-                        align-items: flex-end;
+                        align-items: flex-start;
                         justify-items: center;
                         gap: 24px;
                         width: 100%;
-                        padding: 0 18px;
-                        margin-top: 6px;
+                        padding: 0 22px;
+                        margin-top: 8px;
                         position: relative;
                         z-index: 6;
                     }
@@ -1458,56 +1458,81 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         position: relative;
                         text-align: center;
                         width: 100%;
-                        max-width: 245px;
+                        max-width: 250px;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        justify-content: flex-end;
-                        padding-top: 48px; /* Espacio para la firma y el sello */
+                        justify-content: flex-start;
+                        padding-top: 66px; /* Espacio uniforme arriba de la línea para las firmas */
                     }
 
                     .firma-linea-divisor {
                         width: 100%;
                         border-top: 1.8px solid #0f172a;
-                        padding-top: 5px;
+                        padding-top: 6px;
+                        min-height: 42px;
                         position: relative;
                         z-index: 3;
                     }
 
-                    /* Imagen de la Firma Digitalizada */
+                    /* Base común para las 3 firmas (sin recuadro blanco) */
                     .img-firma-autoridad {
                         position: absolute;
-                        bottom: 24px;
                         left: 50%;
-                        transform: translateX(-50%);
-                        height: 68px;
-                        max-width: 185px;
                         object-fit: contain;
                         mix-blend-mode: multiply;
-                        filter: contrast(1.35) brightness(1.03);
+                        filter: brightness(1.12) contrast(1.55);
                         pointer-events: none;
                         z-index: 2;
                     }
 
-                    /* Imagen del Sello Redondo Oficial (Ubicado a la derecha de la firma sin tapar el texto) */
+                    /* Calibración individual para que las 3 firmas se vean igual de grandes */
+                    .firma-decano-img {
+                        height: 82px;
+                        top: -6px;
+                        transform: translateX(-50%) scale(1.15);
+                    }
+                    .firma-morales-img {
+                        height: 86px;
+                        top: -10px;
+                        transform: translateX(-50%) scale(1.75); /* Compensa el margen blanco de su foto */
+                    }
+                    .firma-chao-img {
+                        height: 84px;
+                        top: -8px;
+                        transform: translateX(-50%) scale(1.22);
+                    }
+
+                    /* Base común para los 2 sellos redondos */
                     .img-sello-oficial {
                         position: absolute;
-                        bottom: 18px;
-                        right: -26px;
-                        width: 86px;
-                        height: 86px;
                         object-fit: contain;
                         mix-blend-mode: multiply;
-                        filter: contrast(1.25) brightness(1.02);
-                        opacity: 0.92;
-                        transform: rotate(-8deg);
+                        filter: brightness(1.12) contrast(1.45);
+                        opacity: 0.94;
                         pointer-events: none;
                         z-index: 4;
                     }
 
+                    /* Ambos sellos calibrados al mismo diámetro visual exacto (aprox. 96px del círculo azul) */
+                    .sello-carrera-img {
+                        width: 96px;
+                        height: 96px;
+                        top: -18px;
+                        right: -28px;
+                        transform: scale(1.48) rotate(-6deg); /* Compensa el borde blanco extra de la imagen */
+                    }
+                    .sello-iisp-img {
+                        width: 96px;
+                        height: 96px;
+                        top: -18px;
+                        right: -28px;
+                        transform: scale(0.98) rotate(-6deg);
+                    }
+
                     .firma-bloque h4 {
                         margin: 0;
-                        font-size: 0.73rem;
+                        font-size: 0.74rem;
                         color: #0f172a;
                         font-weight: 800;
                         line-height: 1.22;
@@ -1654,11 +1679,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                 </p>
                             </div>
 
-                            <!-- 🔥 BLOQUE DE FIRMAS Y SELLOS OFICIALES 🔥 -->
+                            <!-- 🔥 BLOQUE DE FIRMAS Y SELLOS OFICIALES CALIBRADOS AL MISMO TAMAÑO 🔥 -->
                             <div class="firmas-container">
                                 <!-- 1. Decano de la Facultad -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaDecanoUrl}" class="img-firma-autoridad" alt="Firma Decano" onerror="this.style.display='none'">
+                                    <img src="${firmaDecanoUrl}" class="img-firma-autoridad firma-decano-img" alt="Firma Decano" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
                                         <h4>M.SC. SAUD YUJA GÓMEZ</h4>
                                         <p>DECANO F.I.T. - U.A.B.J.B.</p>
@@ -1667,8 +1692,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                                 <!-- 2. Director de Carrera + Sello Dirección de Carrera -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaMoralesUrl}" class="img-firma-autoridad" alt="Firma Director" style="height: 74px; bottom: 20px;" onerror="this.style.display='none'">
-                                    <img src="${selloCarreraUrl}" class="img-sello-oficial" alt="Sello Dirección de Carrera" onerror="this.style.display='none'">
+                                    <img src="${firmaMoralesUrl}" class="img-firma-autoridad firma-morales-img" alt="Firma Director" onerror="this.style.display='none'">
+                                    <img src="${selloCarreraUrl}" class="img-sello-oficial sello-carrera-img" alt="Sello Dirección de Carrera" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
                                         <h4>M.SC. EDUARDO S. MORALES BARROSO</h4>
                                         <p>DIRECTOR CIS U.A.B.J.B.</p>
@@ -1677,8 +1702,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                                 <!-- 3. Resp. Instituto de Investigación + Sello I.I.I.S. y P. -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaChaoUrl}" class="img-firma-autoridad" alt="Firma Resp. IIISP" style="height: 72px; bottom: 22px;" onerror="this.style.display='none'">
-                                    <img src="${selloIispUrl}" class="img-sello-oficial" alt="Sello IIISP" style="right: -18px;" onerror="this.style.display='none'">
+                                    <img src="${firmaChaoUrl}" class="img-firma-autoridad firma-chao-img" alt="Firma Resp. IIISP" onerror="this.style.display='none'">
+                                    <img src="${selloIispUrl}" class="img-sello-oficial sello-iisp-img" alt="Sello IIISP" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
                                         <h4>M.SC. LIC. WILLIAM CHAO RIVERO</h4>
                                         <p>RESP. INSTITUTO DE INVESTIGACIÓN I.I.I.S. y P.</p>
