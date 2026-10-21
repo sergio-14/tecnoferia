@@ -488,7 +488,7 @@ window.procesarInformeActual = async function(e) {
     window.imprimirInformeActual(e);
 };
 // =========================================================================
-// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES (POSICIÓN Y TAMAÑO DE FIRMAS CORREGIDO) 🔥
+// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES CON REGISTRO AUTOMÁTICO EN BD 🔥
 // =========================================================================
 window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     try {
@@ -507,11 +507,23 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             if (p.estado_evaluacion === "Evaluado" || p.estado_evaluacion === "Pre-seleccionado") {
                 const catRaw = (p.categoria || "").toLowerCase();
                 const catKey = catRaw.includes('estudiante') ? 'estudiantes' : catRaw.includes('docente') ? 'docentes' : 'emprendimientos';
-                const catNombre = catKey === 'estudiantes' ? 'Estudiantes Universitarios' : catKey === 'docentes' ? 'Docentes Investigadores' : 'Emprendimientos Tecnológicos';
+                const catNombre = catKey === 'estudiantes' 
+                    ? 'Estudiantes Universitarios' 
+                    : catKey === 'docentes' 
+                        ? 'Docentes Investigadores' 
+                        : 'Emprendimientos Tecnológicos';
 
                 statsProyectos[p.id] = {
-                    proyecto: p, id: p.id, titulo: p.titulo || "Sin Título", catKey, catNombre,
-                    sumaTribunal: 0, cantTribunal: 0, sumaImpacto: 0, sumaPublico: 0, cantPublico: 0,
+                    proyecto: p,
+                    id: p.id,
+                    titulo: p.titulo || "Sin Título",
+                    catKey,
+                    catNombre,
+                    sumaTribunal: 0,
+                    cantTribunal: 0,
+                    sumaImpacto: 0,
+                    sumaPublico: 0,
+                    cantPublico: 0,
                     miembros: obtenerMiembrosProyecto(p, expositores)
                 };
             }
@@ -544,13 +556,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         ['estudiantes', 'docentes', 'emprendimientos'].forEach(catK => {
             const deCat = listaCalculada.filter(x => x.catKey === catK && x.notaFinal > 0).sort((a, b) => b.notaFinal - a.notaFinal);
             deCat.slice(0, 3).forEach((proy, idx) => {
-                podiosPorProyecto[proy.id] = { lugar: idx + 1, etiquetaLugar: `${idx + 1}° LUGAR`, notaFinal: proy.notaFinal, catNombre: proy.catNombre };
+                podiosPorProyecto[proy.id] = {
+                    lugar: idx + 1,
+                    etiquetaLugar: `${idx + 1}° LUGAR`,
+                    notaFinal: proy.notaFinal,
+                    catNombre: proy.catNombre
+                };
             });
         });
 
-        const ganadoresImpactoLista = [...listaCalculada].filter(x => x.promImp > 0).sort((a, b) => b.promImp - a.promImp || b.notaFinal - a.notaFinal).slice(0, 3);
+        const ganadoresImpactoLista = [...listaCalculada]
+            .filter(x => x.promImp > 0)
+            .sort((a, b) => b.promImp - a.promImp || b.notaFinal - a.notaFinal)
+            .slice(0, 3);
         const idsGanadoresImpacto = new Set(ganadoresImpactoLista.map(x => x.id));
         const ganadorImpacto = ganadoresImpactoLista[0] || null;
+
         const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
 
         let personaNombre = "";
@@ -575,7 +596,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return "";
         };
 
-        correoDestinatarioDetectado = buscarCorreoEnLista(colaboradores) || buscarCorreoEnLista(expositores) || buscarCorreoEnLista(tribunales) || buscarCorreoEnLista(visitantes);
+        correoDestinatarioDetectado = 
+            buscarCorreoEnLista(colaboradores) ||
+            buscarCorreoEnLista(expositores) ||
+            buscarCorreoEnLista(tribunales) ||
+            buscarCorreoEnLista(visitantes);
 
         let esAdminBD = false;
         if (!termRaw.includes(' ')) {
@@ -600,11 +625,42 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 tipo: 'admin_sistema_ambos',
                 temaCSS: 'tema-admin',
                 botonLabel: '💻 Desarrollo + Administración (Unidos)',
-                colorPrimario: '#0f172a', colorAcento: '#0284c7', colorFondoSuave: '#f0f9ff',
-                iconoMedalla: 'fa-laptop-code', watermarkIcon: 'fa-microchip',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+            certificadosDetectados.push({
+                tipo: 'admin_sistema_desarrollo',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 1. Desarrollo e Implementación Tecnológica',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+            certificadosDetectados.push({
+                tipo: 'admin_sistema_administracion',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 2. Administración e Implementación de la Plataforma',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
@@ -613,9 +669,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         if (orgMatch) {
             if (!personaNombre) personaNombre = orgMatch.nombre;
             certificadosDetectados.push({
-                tipo: 'organizador', temaCSS: 'tema-organizador', botonLabel: '🏛️ Comité Organizador',
-                colorPrimario: '#1e1b4b', colorAcento: '#b8860b', colorFondoSuave: '#fefce8',
-                iconoMedalla: 'fa-sitemap', watermarkIcon: 'fa-landmark',
+                tipo: 'organizador',
+                temaCSS: 'tema-organizador',
+                botonLabel: '🏛️ Comité Organizador',
+                colorPrimario: '#1e1b4b',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fefce8',
+                iconoMedalla: 'fa-sitemap',
+                watermarkIcon: 'fa-landmark',
                 ornamentoSuperior: '✦ DIRECCIÓN Y GESTIÓN INSTITUCIONAL · I.I.I.S. y P. - C.I.S. ✦',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COMITÉ ORGANIZADOR Y DIRECCIÓN ACADÉMICA DEL EVENTO',
@@ -626,12 +687,19 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const tribMatch = (tribunales || []).find(t => coincidePersona(t.ci || t.usuario_tribunal, t.nombre_completo));
         if (tribMatch) {
             let nomTrib = tribMatch.nombre_completo || "Evaluador";
-            if (!nomTrib.toLowerCase().startsWith('ing') && !nomTrib.toLowerCase().startsWith('lic') && !nomTrib.toLowerCase().startsWith('m.sc')) nomTrib = "Ing. " + nomTrib;
+            if (!nomTrib.toLowerCase().startsWith('ing') && !nomTrib.toLowerCase().startsWith('lic') && !nomTrib.toLowerCase().startsWith('m.sc')) {
+                nomTrib = "Ing. " + nomTrib;
+            }
             if (!personaNombre) personaNombre = nomTrib;
             certificadosDetectados.push({
-                tipo: 'tribunal', temaCSS: 'tema-tribunal', botonLabel: '⚖️ Tribunal Evaluador',
-                colorPrimario: '#1e293b', colorAcento: '#92400e', colorFondoSuave: '#fffbeb',
-                iconoMedalla: 'fa-gavel', watermarkIcon: 'fa-balance-scale',
+                tipo: 'tribunal',
+                temaCSS: 'tema-tribunal',
+                botonLabel: '⚖️ Tribunal Evaluador',
+                colorPrimario: '#1e293b',
+                colorAcento: '#92400e',
+                colorFondoSuave: '#fffbeb',
+                iconoMedalla: 'fa-gavel',
+                watermarkIcon: 'fa-balance-scale',
                 ornamentoSuperior: '⚖ HONORABLE TRIBUNAL CALIFICADOR · EVALUACIÓN CIENTÍFICA ⚖',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
@@ -650,9 +718,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                 if (infoPodio) {
                     certificadosDetectados.push({
-                        tipo: `ganador_categoria_${infoPodio.lugar}`, temaCSS: 'tema-ganador', botonLabel: `🏆 ${infoPodio.etiquetaLugar} (${sp.catNombre})`,
-                        colorPrimario: '#002b5c', colorAcento: '#b8860b', colorFondoSuave: '#fffdf5',
-                        iconoMedalla: 'fa-trophy', watermarkIcon: 'fa-trophy',
+                        tipo: `ganador_categoria_${infoPodio.lugar}`,
+                        temaCSS: 'tema-ganador',
+                        botonLabel: `🏆 ${infoPodio.etiquetaLugar} (${sp.catNombre})`,
+                        colorPrimario: '#002b5c',
+                        colorAcento: '#b8860b',
+                        colorFondoSuave: '#fffdf5',
+                        iconoMedalla: 'fa-trophy',
+                        watermarkIcon: 'fa-trophy',
                         ornamentoSuperior: '★ ★ ★ CUADRO DE HONOR Y EXCELENCIA TECNOLÓGICA ★ ★ ★',
                         tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: `${infoPodio.etiquetaLugar} — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
@@ -662,9 +735,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                 if (idsGanadoresImpacto.has(sp.id)) {
                     certificadosDetectados.push({
-                        tipo: 'premio_impacto', temaCSS: 'tema-impacto', botonLabel: '🌱 Premio Impacto Social',
-                        colorPrimario: '#064e3b', colorAcento: '#16a34a', colorFondoSuave: '#f0fdf4',
-                        iconoMedalla: 'fa-seedling', watermarkIcon: 'fa-globe-americas',
+                        tipo: 'premio_impacto',
+                        temaCSS: 'tema-impacto',
+                        botonLabel: '🌱 Premio Impacto Social',
+                        colorPrimario: '#064e3b',
+                        colorAcento: '#16a34a',
+                        colorFondoSuave: '#f0fdf4',
+                        iconoMedalla: 'fa-seedling',
+                        watermarkIcon: 'fa-globe-americas',
                         ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
                         tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
@@ -674,9 +752,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                 if (ganadorPublico && ganadorPublico.id === sp.id) {
                     certificadosDetectados.push({
-                        tipo: 'premio_publico', temaCSS: 'tema-publico', botonLabel: '👍 Premio del Público',
-                        colorPrimario: '#1e3a8a', colorAcento: '#2563eb', colorFondoSuave: '#f0f7ff',
-                        iconoMedalla: 'fa-thumbs-up', watermarkIcon: 'fa-thumbs-up',
+                        tipo: 'premio_publico',
+                        temaCSS: 'tema-publico',
+                        botonLabel: '👍 Premio del Público',
+                        colorPrimario: '#1e3a8a',
+                        colorAcento: '#2563eb',
+                        colorFondoSuave: '#f0f7ff',
+                        iconoMedalla: 'fa-thumbs-up',
+                        watermarkIcon: 'fa-thumbs-up',
                         ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
                         tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: 'Premio del Público',
@@ -685,9 +768,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 }
 
                 certificadosDetectados.push({
-                    tipo: 'participacion', temaCSS: 'tema-participacion', botonLabel: '🎓 Participación (Expositor)',
-                    colorPrimario: '#002b5c', colorAcento: '#0284c7', colorFondoSuave: '#f8fbff',
-                    iconoMedalla: 'fa-award', watermarkIcon: 'fa-graduation-cap',
+                    tipo: 'participacion',
+                    temaCSS: 'tema-participacion',
+                    botonLabel: '🎓 Participación (Expositor)',
+                    colorPrimario: '#002b5c',
+                    colorAcento: '#0284c7',
+                    colorFondoSuave: '#f8fbff',
+                    iconoMedalla: 'fa-award',
+                    watermarkIcon: 'fa-graduation-cap',
                     ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
                     tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                     subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
@@ -700,9 +788,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         if (colabMatch) {
             if (!personaNombre) personaNombre = colabMatch.nombre_completo;
             certificadosDetectados.unshift({
-                tipo: 'colaborador', temaCSS: 'tema-colaborador', botonLabel: '🤝 Colaborador Oficial',
-                colorPrimario: '#115e59', colorAcento: '#0d9488', colorFondoSuave: '#f0fdfa',
-                iconoMedalla: 'fa-hands-helping', watermarkIcon: 'fa-hands-helping',
+                tipo: 'colaborador',
+                temaCSS: 'tema-colaborador',
+                botonLabel: '🤝 Colaborador Oficial',
+                colorPrimario: '#115e59',
+                colorAcento: '#0d9488',
+                colorFondoSuave: '#f0fdfa',
+                iconoMedalla: 'fa-hands-helping',
+                watermarkIcon: 'fa-hands-helping',
                 ornamentoSuperior: '❖ INTERACCIÓN SOCIAL, LOGÍSTICA Y PROMOCIÓN UNIVERSITARIA ❖',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
@@ -711,11 +804,40 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         }
 
         if (certificadosDetectados.length === 0) {
+            const expMatch = (expositores || []).find(e => coincidePersona(e.ci, e.nombre_completo));
+            const visMatch = (visitantes || []).find(v => coincidePersona(v.ci, v.nombre_completo));
+
+            if (expMatch || visMatch) {
+                const u = expMatch || visMatch;
+                personaNombre = u.nombre_completo;
+                certificadosDetectados.push({
+                    tipo: 'participacion',
+                    temaCSS: 'tema-participacion',
+                    botonLabel: '🎓 Participación en la Feria',
+                    colorPrimario: '#002b5c',
+                    colorAcento: '#0284c7',
+                    colorFondoSuave: '#f8fbff',
+                    iconoMedalla: 'fa-award',
+                    watermarkIcon: 'fa-graduation-cap',
+                    ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
+                    tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                    subtituloCertificado: 'ASISTENCIA Y PARTICIPACIÓN ACADÉMICA',
+                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>${NOMBRE_EVENTO}</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                });
+            }
+        }
+
+        if (certificadosDetectados.length === 0) {
             personaNombre = termRaw.toUpperCase();
             certificadosDetectados.push({
-                tipo: 'participacion', temaCSS: 'tema-participacion', botonLabel: '🎓 Participación General',
-                colorPrimario: '#002b5c', colorAcento: '#0284c7', colorFondoSuave: '#f8fbff',
-                iconoMedalla: 'fa-award', watermarkIcon: 'fa-graduation-cap',
+                tipo: 'participacion',
+                temaCSS: 'tema-participacion',
+                botonLabel: '🎓 Participación General',
+                colorPrimario: '#002b5c',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f8fbff',
+                iconoMedalla: 'fa-award',
+                watermarkIcon: 'fa-graduation-cap',
                 ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
                 tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                 subtituloCertificado: 'EXPOSICIÓN ACADÉMICA Y TECNOLÓGICA',
@@ -723,7 +845,134 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         }
 
-        const plantillasManuales = certificadosDetectados;
+        const esDocentePorTitulo = /^(ing\.|lic\.|m\.sc\.|dr\.|arq\.)/i.test(personaNombre.trim());
+        const catIndividual = categoryDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios');
+        const proyIndividual = tituloProyectoDetectado || 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)';
+
+        const crearPlantillaPodioManual = (codigo, numLugar, nombreCat) => ({
+            tipo: `manual_ganador_${codigo}_${numLugar}`,
+            temaCSS: 'tema-ganador',
+            botonLabel: `🏆 ${numLugar}° Lugar: ${nombreCat}`,
+            colorPrimario: '#002b5c',
+            colorAcento: '#b8860b',
+            colorFondoSuave: '#fffdf5',
+            iconoMedalla: 'fa-trophy',
+            watermarkIcon: 'fa-trophy',
+            ornamentoSuperior: '★ ★ ★ CUADRO DE HONOR Y EXCELENCIA TECNOLÓGICA ★ ★ ★',
+            tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+            subtituloCertificado: `${numLugar}° LUGAR — CATEGORÍA ${nombreCat.toUpperCase()}`,
+            cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+        });
+
+        const plantillasManuales = [
+            ...certificadosDetectados,
+            crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios'),
+            crearPlantillaPodioManual('est', 2, 'Estudiantes Universitarios'),
+            crearPlantillaPodioManual('est', 3, 'Estudiantes Universitarios'),
+            crearPlantillaPodioManual('doc', 1, 'Docentes Investigadores'),
+            crearPlantillaPodioManual('doc', 2, 'Docentes Investigadores'),
+            crearPlantillaPodioManual('doc', 3, 'Docentes Investigadores'),
+            crearPlantillaPodioManual('emp', 1, 'Emprendimientos Tecnológicos'),
+            {
+                tipo: 'manual_participacion',
+                temaCSS: 'tema-participacion',
+                botonLabel: '🎓 Participación en la Feria (Expositores)',
+                colorPrimario: '#002b5c',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f8fbff',
+                iconoMedalla: 'fa-award',
+                watermarkIcon: 'fa-graduation-cap',
+                ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
+                tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
+                subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${catIndividual.toUpperCase()}`,
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>${NOMBRE_EVENTO}</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_impacto',
+                temaCSS: 'tema-impacto',
+                botonLabel: '🌱 Premio Especial: Impacto Social',
+                colorPrimario: '#064e3b',
+                colorAcento: '#16a34a',
+                colorFondoSuave: '#f0fdf4',
+                iconoMedalla: 'fa-seedling',
+                watermarkIcon: 'fa-globe-americas',
+                ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
+                cuerpoHTML: `Con el proyecto:<br><b style="color:#064e3b; font-size:1.12em;">"${proyIndividual !== 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)' ? proyIndividual : (ganadorImpacto ? ganadorImpacto.titulo : proyIndividual)}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_publico',
+                temaCSS: 'tema-publico',
+                botonLabel: '👍 Premio Especial: Premio del Público',
+                colorPrimario: '#1e3a8a',
+                colorAcento: '#2563eb',
+                colorFondoSuave: '#f0f7ff',
+                iconoMedalla: 'fa-thumbs-up',
+                watermarkIcon: 'fa-thumbs-up',
+                ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'Premio del Público',
+                cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía con la innovación:<br><b style="color:#1e3a8a; font-size:1.12em;">"${ganadorPublico ? ganadorPublico.titulo : proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_colaborador',
+                temaCSS: 'tema-colaborador',
+                botonLabel: '🤝 Colaboradores Oficiales (Apoyo y Promoción)',
+                colorPrimario: '#115e59',
+                colorAcento: '#0d9488',
+                colorFondoSuave: '#f0fdfa',
+                iconoMedalla: 'fa-hands-helping',
+                watermarkIcon: 'fa-hands-helping',
+                ornamentoSuperior: '❖ INTERACCIÓN SOCIAL, LOGÍSTICA Y PROMOCIÓN UNIVERSITARIA ❖',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_tribunal',
+                temaCSS: 'tema-tribunal',
+                botonLabel: '⚖️ Tribunales Evaluadores (Jurado Calificador)',
+                colorPrimario: '#1e293b',
+                colorAcento: '#92400e',
+                colorFondoSuave: '#fffbeb',
+                iconoMedalla: 'fa-gavel',
+                watermarkIcon: 'fa-balance-scale',
+                ornamentoSuperior: '⚖ HONORABLE TRIBUNAL CALIFICADOR · EVALUACIÓN CIENTÍFICA ⚖',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
+                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_organizador',
+                temaCSS: 'tema-organizador',
+                botonLabel: '🏛️ Comité Organizador del Evento',
+                colorPrimario: '#1e1b4b',
+                colorAcento: '#b8860b',
+                colorFondoSuave: '#fefce8',
+                iconoMedalla: 'fa-sitemap',
+                watermarkIcon: 'fa-landmark',
+                ornamentoSuperior: '✦ DIRECCIÓN Y GESTIÓN INSTITUCIONAL · I.I.I.S. y P. - C.I.S. ✦',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'COMITÉ ORGANIZADOR Y DIRECCIÓN ACADÉMICA DEL EVENTO',
+                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL</b> en la realización de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_ambos',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 Admin: Desarrollo + Administración (Unidos)',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            }
+        ];
+
         const codigoAleatorioInicial = generarCodigoAleatorioQR();
         const urlValidacion = `${window.location.origin}/?validar_certificado=${encodeURIComponent(codigoAleatorioInicial)}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(urlValidacion)}`;
@@ -813,12 +1062,28 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .cinta-diag-br { bottom: -70px; right: -70px; transform: rotate(-45deg); }
                     .franja-imperial { display: none; position: absolute; left: 0; right: 0; height: 6px; z-index: 3; pointer-events: none; }
                     .franja-imp-top { top: 0; } .franja-imp-bot { bottom: 0; }
+                    .circuito-tech-svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.16; }
 
                     .tema-ganador .certificado-marco-externo { border: 4px solid #002b5c; background: radial-gradient(circle at center, #ffffff 0%, #fffdf2 70%, #fef3c7 100%); }
                     .tema-ganador .certificado-marco-interno { border: 4px double #b8860b; box-shadow: inset 0 0 0 2px rgba(212, 175, 55, 0.2); }
+                    .tema-ganador .esquina-ornamento { border-color: #b8860b; }
+                    .tema-ganador .franja-imperial { display: block; background: linear-gradient(90deg, #002b5c 0%, #d4af37 25%, #fff3b0 50%, #d4af37 75%, #002b5c 100%); }
+                    .tema-participacion .cinta-esquina-diag { display: block; background: linear-gradient(180deg, #002b5c 0%, #002b5c 60%, #0284c7 60%, #0284c7 75%, #d32f2f 75%, #d32f2f 100%); opacity: 0.9; }
                     .tema-participacion .certificado-marco-interno { border: 2px solid #0284c7; }
-                    .tema-admin .certificado-marco-externo { border: 3.5px solid #0f172a; background-color: #f8fafc; }
-                    .tema-admin .certificado-marco-interno { border: 2px solid #0284c7; }
+                    .tema-impacto .certificado-marco-externo { border: 3.5px solid #064e3b; border-radius: 18px; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 55%, #dcfce7 100%); }
+                    .tema-impacto .certificado-marco-interno { border: 2px dashed #16a34a; border-radius: 14px; }
+                    .tema-publico .certificado-marco-externo { border: 4px solid #1e3a8a; border-left: 12px solid #1d4ed8; border-right: 12px solid #1d4ed8; background: radial-gradient(circle at center, #ffffff 0%, #f0f7ff 75%, #dbeafe 100%); }
+                    .tema-publico .certificado-marco-interno { border: 2.5px solid #2563eb; }
+                    .tema-publico .franja-imperial { display: block; background: linear-gradient(90deg, #1e3a8a 0%, #38bdf8 50%, #1e3a8a 100%); }
+                    .tema-colaborador .certificado-marco-externo { border: 3px solid #115e59; background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 60%, #ccfbf1 100%); }
+                    .tema-colaborador .cinta-esquina-diag { display: block; background: linear-gradient(180deg, #0d9488 0%, #0d9488 55%, #002b5c 55%, #002b5c 80%, #d32f2f 80%, #d32f2f 100%); }
+                    .tema-tribunal .certificado-marco-externo { border: 3px solid #1e293b; background: linear-gradient(135deg, #fffdf9 0%, #fef9ee 50%, #fffdf9 100%); }
+                    .tema-tribunal .certificado-marco-interno { border-top: 2px solid #92400e; border-bottom: 2px solid #92400e; border-left: 8px double #1e293b; border-right: 8px double #1e293b; }
+                    .tema-organizador .certificado-marco-externo { border: 4px solid #1e1b4b; background: linear-gradient(135deg, #ffffff 0%, #fefce8 60%, #fef9c3 100%); }
+                    .tema-organizador .certificado-marco-interno { border: 3px double #b8860b; }
+                    .tema-admin .certificado-marco-externo { border: 3.5px solid #0f172a; background-color: #f8fafc; background-image: linear-gradient(rgba(2, 132, 199, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(2, 132, 199, 0.06) 1px, transparent 1px); background-size: 22px 22px; }
+                    .tema-admin .certificado-marco-interno { border: 2px solid #0284c7; box-shadow: inset 0 0 20px rgba(2, 132, 199, 0.08); }
+                    .tema-admin .circuito-tech-svg { display: block; }
 
                     .cert-top-row { display: grid; grid-template-columns: 130px 1fr 130px; align-items: center; width: 100%; padding: 0 6px; position: relative; z-index: 5; }
                     .medalla-esquina-izq { display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -846,19 +1111,13 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .body-text { font-size: 0.91rem; color: #1e293b; line-height: 1.42; max-width: 90%; margin: 0 auto 4px; outline: none; }
                     .fecha-lugar { font-size: 0.81rem; color: #475569; font-weight: 600; margin: 2px 0 0; }
 
-                    /* 🔥 SECCIÓN DE FIRMAS GRANDES Y SELLOS PERFECTAMENTE POSICIONADOS 🔥 */
-                    .firmas-container { display: grid; grid-template-columns: repeat(3, 1fr); align-items: flex-end; justify-items: center; gap: 20px; width: 100%; padding: 0 15px; margin-top: 10px; position: relative; }
-                    .firma-bloque { position: relative; text-align: center; width: 100%; max-width: 275px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
-                    .firma-linea-divisor { width: 100%; border-top: 1.8px solid #0f172a; padding-top: 5px; margin-top: 75px; position: relative; z-index: 3; }
-                    
-                    /* FIRMAS AMPLIADAS Y CENTRADAS EXACTAMENTE SOBRE SU LÍNEA */
-                    .img-firma-autoridad { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); height: 98px; width: 230px; object-fit: contain; pointer-events: none; z-index: 2; }
-                    
-                    /* SELLOS POSICIONADOS AL LADO DERECHO DE LA LÍNEA DE FIRMA CON TAMAÑO IDEAL */
-                    .img-sello-oficial { position: absolute; width: 85px; height: 85px; object-fit: contain; pointer-events: none; z-index: 4; }
-                    .sello-carrera-pos { bottom: 25px; right: -28px; transform: rotate(-6deg); }
-                    .sello-iisp-pos { bottom: 20px; right: -28px; transform: rotate(-5deg); }
-
+                    .firmas-container { display: grid; grid-template-columns: repeat(3, 1fr); align-items: flex-start; justify-items: center; gap: 24px; width: 100%; padding: 0 22px; margin-top: 8px; position: relative; }
+                    .firma-bloque { position: relative; text-align: center; width: 100%; max-width: 255px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 66px; }
+                    .firma-linea-divisor { width: 100%; border-top: 1.8px solid #0f172a; padding-top: 6px; min-height: 42px; position: relative; z-index: 3; }
+                    .img-firma-autoridad { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); height: 76px; width: 185px; object-fit: contain; pointer-events: none; z-index: 2; }
+                    .img-sello-oficial { position: absolute; width: 102px; height: 102px; object-fit: contain; pointer-events: none; z-index: 4; }
+                    .sello-carrera-pos { top: -22px; right: -32px; transform: rotate(-6deg); }
+                    .sello-iisp-pos { top: -50px; right: -28px; transform: rotate(-5deg); }
                     .firma-bloque h4 { margin: 0; font-size: 0.72rem; color: #0f172a; font-weight: 800; line-height: 1.22; white-space: nowrap; }
                     .firma-bloque p { margin: 2px 0 0; font-size: 0.65rem; color: #475569; font-weight: 700; line-height: 1.18; }
 
@@ -886,6 +1145,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         <button type="button" id="btn-enviar-correo-colab" onclick="enviarCertificadoPorCorreoColaborador()" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: #ffffff; border: none; padding: 9px 18px; border-radius: 50px; font-weight: 800; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4); display: inline-flex; align-items: center; gap: 7px; transition: 0.2s;">
                            <i class="fas fa-envelope"></i> Enviar por Correo
                         </button>
+
                         <span style="font-size:0.75rem; color:#94a3b8;"><i class="fas fa-pen"></i> Textos editables</span>
                         <button type="button" class="btn-imprimir-top" onclick="registrarYImprimir()">
                             <i class="fas fa-print"></i> Imprimir en 1 Hoja
@@ -899,6 +1159,15 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         <div class="franja-imperial franja-imp-bot"></div>
                         <div class="cinta-esquina-diag cinta-diag-tl"></div>
                         <div class="cinta-esquina-diag cinta-diag-br"></div>
+
+                        <svg class="circuito-tech-svg" viewBox="0 0 800 500" preserveAspectRatio="none">
+                            <path d="M0 60 H140 L180 100 H260" fill="none" stroke="#0284c7" stroke-width="2.5"/>
+                            <circle cx="260" cy="100" r="5" fill="#0284c7"/>
+                            <path d="M800 440 H660 L620 400 H540" fill="none" stroke="#0284c7" stroke-width="2.5"/>
+                            <circle cx="540" cy="400" r="5" fill="#0284c7"/>
+                            <path d="M0 420 H110 L150 380 H220" fill="none" stroke="#10b981" stroke-width="2"/>
+                            <circle cx="220" cy="380" r="4.5" fill="#10b981"/>
+                        </svg>
 
                         <div class="certificado-marco-interno">
                             <div class="esquina-ornamento esq-tl"></div>
@@ -1112,7 +1381,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         document.documentElement.style.setProperty('--cert-fondo', m.colorFondoSuave);
 
         const wrapper = document.getElementById('cert-page-wrapper');
-        if (wrapper) wrapper.className = 'certificado-page-wrapper ' + (m.temaCSS || 'tema-participacion');
+        if (wrapper) {
+            wrapper.className = 'certificado-page-wrapper ' + (m.temaCSS || 'tema-participacion');
+        }
 
         document.getElementById('cert-icono-medalla').className = 'fas ' + m.iconoMedalla;
         const wm = document.getElementById('cert-watermark-icon');
@@ -1133,6 +1404,70 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         regenerarCodigoQR();
         actualizarVisibilidadBotonCorreo();
     }
+
+    function limpiarFondoYRecortarImagenes() {
+        document.querySelectorAll('.img-firma-autoridad, .img-sello-oficial').forEach(img => {
+            const procesar = () => {
+                if (img.dataset.procesada === '1' || !img.naturalWidth) return;
+                img.dataset.procesada = '1';
+                try {
+                    const c = document.createElement('canvas');
+                    const w = img.naturalWidth, h = img.naturalHeight;
+                    c.width = w; c.height = h;
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imgData = ctx.getImageData(0, 0, w, h);
+                    const d = imgData.data;
+
+                    let minX = w, minY = h, maxX = 0, maxY = 0;
+
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            const i = (y * w + x) * 4;
+                            const r = d[i], g = d[i+1], b = d[i+2];
+                            const brillo = (r + g + b) / 3;
+
+                            if (brillo > 218 && (b - r) < 22) {
+                                d[i+3] = 0;
+                            } else if (d[i+3] > 20) {
+                                d[i]   = Math.max(0, r - 25);
+                                d[i+1] = Math.max(0, g - 15);
+                                d[i+2] = Math.min(255, b + 30);
+                                if (x < minX) minX = x;
+                                if (x > maxX) maxX = x;
+                                if (y < minY) minY = y;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+
+                    ctx.putImageData(imgData, 0, 0);
+
+                    if (maxX > minX && maxY > minY) {
+                        const pad = 6;
+                        const rx = Math.max(0, minX - pad);
+                        const ry = Math.max(0, minY - pad);
+                        const rw = Math.min(w - rx, (maxX - minX) + pad * 2);
+                        const rh = Math.min(h - ry, (maxY - minY) + pad * 2);
+
+                        const cRecorte = document.createElement('canvas');
+                        cRecorte.width = rw;
+                        cRecorte.height = rh;
+                        cRecorte.getContext('2d').drawImage(c, rx, ry, rw, rh, 0, 0, rw, rh);
+                        img.src = cRecorte.toDataURL('image/png');
+                    } else {
+                        img.src = c.toDataURL('image/png');
+                    }
+                } catch (e) { console.error(e); }
+            };
+
+            if (img.complete && img.naturalWidth) procesar();
+            else img.addEventListener('load', procesar, { once: true });
+        });
+    }
+
+    limpiarFondoYRecortarImagenes();
+    setTimeout(actualizarVisibilidadBotonCorreo, 100);
 </script>
             </body>
             </html>
