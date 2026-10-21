@@ -509,7 +509,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 const catRaw = (p.categoria || "").toLowerCase();
                 const catKey = catRaw.includes('estudiante') ? 'estudiantes' : catRaw.includes('docente') ? 'docentes' : 'emprendimientos';
                 const catNombre = catKey === 'estudiantes' 
-                    ? 'Estudiantes Universitarios (Pregrado)' 
+                    ? 'Estudiantes Universitarios' 
                     : catKey === 'docentes' 
                         ? 'Docentes Investigadores' 
                         : 'Emprendimientos Tecnológicos';
@@ -626,7 +626,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-laptop-code',
                 watermarkIcon: 'fa-microchip',
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
-                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
@@ -704,7 +704,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     });
                 }
 
-                // Tipo 3: Premio al Impacto Social, Ambiental o Productivo para el Beni (Sin mostrar puntaje ni criterio)
+                // Tipo 3: Premio al Impacto Social, Ambiental o Productivo para el Beni
                 if (idsGanadoresImpacto.has(sp.id)) {
                     certificadosDetectados.push({
                         tipo: 'premio_impacto',
@@ -716,26 +716,26 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         iconoMedalla: 'fa-seedling',
                         watermarkIcon: 'fa-globe-americas',
                         ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
-                        tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                        tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
                         cuerpoHTML: `Con el proyecto:<br><b style="color:#064e3b; font-size:1.12em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
-                // Tipo 4: Premio Especial a la Mayor Votación del Público (Sin mostrar puntaje)
+                // Tipo 4: Premio del Público
                 if (ganadorPublico && ganadorPublico.id === sp.id) {
                     certificadosDetectados.push({
                         tipo: 'premio_publico',
                         temaCSS: 'tema-publico',
-                        botonLabel: '👍 Premio Voto del Público',
+                        botonLabel: '👍 Premio del Público',
                         colorPrimario: '#1e3a8a',
                         colorAcento: '#2563eb',
                         colorFondoSuave: '#f0f7ff',
                         iconoMedalla: 'fa-thumbs-up',
                         watermarkIcon: 'fa-thumbs-up',
                         ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
-                        tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
-                        subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
+                        tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                        subtituloCertificado: 'Premio del Público',
                         cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía con la innovación:<br><b style="color:#1e3a8a; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
@@ -823,10 +823,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         }
 
         const esDocentePorTitulo = /^(ing\.|lic\.|m\.sc\.|dr\.|arq\.)/i.test(personaNombre.trim());
-        const catIndividual = categoriaDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios (Pregrado)');
+        const catIndividual = categoriaDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios');
         const proyIndividual = tituloProyectoDetectado || 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)';
 
-        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual (Sin mostrar puntaje)
+        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual
         const crearPlantillaPodioManual = (codigo, numLugar, nombreCat) => ({
             tipo: `manual_ganador_${codigo}_${numLugar}`,
             temaCSS: 'tema-ganador',
@@ -845,9 +845,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES
         const plantillasManuales = [
             ...certificadosDetectados,
-            crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios (Pregrado)'),
-            crearPlantillaPodioManual('est', 2, 'Estudiantes Universitarios (Pregrado)'),
-            crearPlantillaPodioManual('est', 3, 'Estudiantes Universitarios (Pregrado)'),
+            crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios'),
+            crearPlantillaPodioManual('est', 2, 'Estudiantes Universitarios'),
+            crearPlantillaPodioManual('est', 3, 'Estudiantes Universitarios'),
             crearPlantillaPodioManual('doc', 1, 'Docentes Investigadores'),
             crearPlantillaPodioManual('doc', 2, 'Docentes Investigadores'),
             crearPlantillaPodioManual('doc', 3, 'Docentes Investigadores'),
@@ -876,22 +876,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-seedling',
                 watermarkIcon: 'fa-globe-americas',
                 ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
-                tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
                 cuerpoHTML: `Con el proyecto:<br><b style="color:#064e3b; font-size:1.12em;">"${proyIndividual !== 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)' ? proyIndividual : (ganadorImpacto ? ganadorImpacto.titulo : proyIndividual)}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_publico',
                 temaCSS: 'tema-publico',
-                botonLabel: '👍 Premio Especial: Mayor Votación del Público',
+                botonLabel: '👍 Premio Especial: Premio del Público',
                 colorPrimario: '#1e3a8a',
                 colorAcento: '#2563eb',
                 colorFondoSuave: '#f0f7ff',
                 iconoMedalla: 'fa-thumbs-up',
                 watermarkIcon: 'fa-thumbs-up',
                 ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
-                tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
-                subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'Premio del Público',
                 cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía con la innovación:<br><b style="color:#1e3a8a; font-size:1.12em;">"${ganadorPublico ? ganadorPublico.titulo : proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
@@ -946,7 +946,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-laptop-code',
                 watermarkIcon: 'fa-microchip',
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
-                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
@@ -1353,7 +1353,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         line-height: 1.05;
                     }
 
-                    /* 🔥 FORMATO DE PÍLDORA UBICADO DEBAJO DEL TÍTULO PRINCIPAL (DONDE MARCASTE CON CELESTE) 🔥 */
                     .subtitulo-cert {
                         display: inline-flex;
                         align-items: center;
@@ -1416,7 +1415,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         margin: 2px 0 0;
                     }
 
-                    /* 🔥 SECCIÓN DE FIRMAS MÁS GRANDES Y SELLOS REUBICADOS 🔥 */
+                    /* SECCIÓN DE FIRMAS Y SELLOS */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
@@ -1450,7 +1449,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         z-index: 3;
                     }
 
-                    /* Firmas un poco más grandes y nítidas */
                     .img-firma-autoridad {
                         position: absolute;
                         top: -4px;
@@ -1463,7 +1461,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         z-index: 2;
                     }
 
-                    /* Sellos redondos un poco más grandes (102x102px) */
                     .img-sello-oficial {
                         position: absolute;
                         width: 102px;
@@ -1473,14 +1470,12 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         z-index: 4;
                     }
 
-                    /* Sello de Dirección de Carrera al costado derecho de la firma del Director */
                     .sello-carrera-pos {
                         top: -22px;
                         right: -32px;
                         transform: rotate(-6deg);
                     }
 
-                    /* Sello del Instituto I.I.I.S. y P. más arriba a la derecha (donde marcaste con el círculo negro) */
                     .sello-iisp-pos {
                         top: -50px;
                         right: -28px;
@@ -1613,7 +1608,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                     ${certInicial.tituloCertificado}
                                 </h1>
 
-                                <!-- Píldora en la posición marcada con celeste -->
                                 <div id="cert-subtitulo" class="subtitulo-cert" contenteditable="true" spellcheck="false">
                                     ${certInicial.subtituloCertificado}
                                 </div>
@@ -1633,9 +1627,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                 </p>
                             </div>
 
-                            <!-- 🔥 BLOQUE DE FIRMAS Y SELLOS OFICIALES CON ABREVIACIÓN ING. Y SELLO IISP ARRIBA 🔥 -->
                             <div class="firmas-container">
-                                <!-- 1. Decano de la Facultad -->
                                 <div class="firma-bloque">
                                     <img src="${firmaDecanoUrl}" class="img-firma-autoridad" alt="Firma Decano" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
@@ -1644,7 +1636,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                     </div>
                                 </div>
 
-                                <!-- 2. Director de Carrera + Sello Dirección de Carrera -->
                                 <div class="firma-bloque">
                                     <img src="${firmaMoralesUrl}" class="img-firma-autoridad" alt="Firma Director" onerror="this.style.display='none'">
                                     <img src="${selloCarreraUrl}" class="img-sello-oficial sello-carrera-pos" alt="Sello Dirección de Carrera" onerror="this.style.display='none'">
@@ -1654,7 +1645,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                     </div>
                                 </div>
 
-                                <!-- 3. Resp. Instituto de Investigación + Sello I.I.I.S. y P. en la zona marcada con negro -->
                                 <div class="firma-bloque">
                                     <img src="${firmaChaoUrl}" class="img-firma-autoridad" alt="Firma Resp. IIISP" onerror="this.style.display='none'">
                                     <img src="${selloIispUrl}" class="img-sello-oficial sello-iisp-pos" alt="Sello IIISP" onerror="this.style.display='none'">
