@@ -500,6 +500,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const termNorm = normalizarNombre(terminoBusqueda);
         const termRaw = String(terminoBusqueda).trim();
         const LUGAR_EVENTO = "Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad";
+        const NOMBRE_EVENTO = "Feria de la Construcción Ciencias y Tecnologias";
 
         // 1. CALCULAR GANADORES DE CATEGORÍAS (1°, 2° y 3°), LOS 3 DE IMPACTO SOCIAL Y EL DE MAYOR VOTACIÓN
         const statsProyectos = {};
@@ -552,7 +553,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return { ...sp, promTrib, promPub, promImp, notaFinal };
         });
 
-        // Podio por cada categoría: 1° LUGAR, 2° LUGAR y 3° LUGAR (Docentes, Estudiantes, Emprendimientos)
+        // Podio por cada categoría: 1° LUGAR, 2° LUGAR y 3° LUGAR
         const podiosPorProyecto = {};
         ['estudiantes', 'docentes', 'emprendimientos'].forEach(catK => {
             const deCat = listaCalculada.filter(x => x.catKey === catK && x.notaFinal > 0).sort((a, b) => b.notaFinal - a.notaFinal);
@@ -566,7 +567,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         });
 
-        // 🔥 LOS 3 PRIMEROS PROYECTOS EN IMPACTO SOCIAL (CRITERIO 5 - NOTA PERFECTA 15 PTS) 🔥
+        // Los 3 primeros proyectos en Impacto Social
         const ganadoresImpactoLista = [...listaCalculada]
             .filter(x => x.promImp > 0)
             .sort((a, b) => b.promImp - a.promImp || b.notaFinal - a.notaFinal)
@@ -574,7 +575,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const idsGanadoresImpacto = new Set(ganadoresImpactoLista.map(x => x.id));
         const ganadorImpacto = ganadoresImpactoLista[0] || null;
 
-        // 🔥 ÚNICO GANADOR DE MAYOR VOTACIÓN DEL PÚBLICO (SOBRE 100 PTS) 🔥
+        // Único ganador de Mayor Votación del Público
         const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
 
         // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PERFILES
@@ -598,7 +599,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             correoColaboradorDetectado = colabCorreoObj.correo.trim();
         }
 
-        // PERFIL A: Administrador / Implementador del Sistema (Tuyo)
+        // PERFIL A: Administrador / Implementador del Sistema
         let esAdminBD = false;
         if (!termRaw.includes(' ')) {
             try {
@@ -624,11 +625,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 colorFondoSuave: '#f0f9ff',
                 iconoMedalla: 'fa-laptop-code',
                 watermarkIcon: 'fa-microchip',
-                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL TECNOFERIA ⚡',
-                textoMedalla: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
                 subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
-                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> para la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
@@ -646,10 +646,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-sitemap',
                 watermarkIcon: 'fa-landmark',
                 ornamentoSuperior: '✦ DIRECCIÓN Y GESTIÓN INSTITUCIONAL · I.I.I.S. y P. - C.I.S. ✦',
-                textoMedalla: 'COMITÉ ORGANIZADOR OFICIAL · TECNOFERIA 2026',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                subtituloCertificado: 'ORGANIZACIÓN Y DIRECCIÓN ACADÉMICA DEL EVENTO',
-                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL (${orgMatch.cargo})</b> en la realización de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                subtituloCertificado: 'COMITÉ ORGANIZADOR Y DIRECCIÓN ACADÉMICA DEL EVENTO',
+                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL (${orgMatch.cargo})</b> en la realización de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
@@ -671,10 +670,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-gavel',
                 watermarkIcon: 'fa-balance-scale',
                 ornamentoSuperior: '⚖ HONORABLE TRIBUNAL CALIFICADOR · EVALUACIÓN CIENTÍFICA ⚖',
-                textoMedalla: 'COMITÉ EVALUADOR OFICIAL · JURADO CALIFICADOR',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
-                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
@@ -688,7 +686,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                 const infoPodio = podiosPorProyecto[sp.id];
 
-                // Tipo 1: Ganador de Categoría (1° LUGAR, 2° LUGAR o 3° LUGAR)
+                // Tipo 1: Ganador de Categoría (1°, 2° o 3° LUGAR — Sin mostrar puntaje)
                 if (infoPodio) {
                     certificadosDetectados.push({
                         tipo: `ganador_categoria_${infoPodio.lugar}`,
@@ -700,33 +698,31 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         iconoMedalla: 'fa-trophy',
                         watermarkIcon: 'fa-trophy',
                         ornamentoSuperior: '★ ★ ★ CUADRO DE HONOR Y EXCELENCIA TECNOLÓGICA ★ ★ ★',
-                        textoMedalla: `CUADRO DE HONOR · ${infoPodio.etiquetaLugar}`,
                         tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                         subtituloCertificado: `${infoPodio.etiquetaLugar} — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
-                        cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${infoPodio.etiquetaLugar}</b> en la categoría <b>${sp.catNombre}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"${sp.titulo}"</b><br>alcanzando una calificación final ponderada de <b>${sp.notaFinal.toFixed(2)} / 100 puntos</b> en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                        cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${infoPodio.etiquetaLugar}</b> en la categoría <b>${sp.catNombre}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
-                // Tipo 3: Premio Especial al Impacto Social (Para cualquiera de los 3 primeros proyectos con nota perfecta de 15 pts)
+                // Tipo 3: Premio al Impacto Social, Ambiental o Productivo para el Beni (Sin mostrar puntaje ni criterio)
                 if (idsGanadoresImpacto.has(sp.id)) {
                     certificadosDetectados.push({
                         tipo: 'premio_impacto',
                         temaCSS: 'tema-impacto',
-                        botonLabel: '🌱 Premio Impacto Social (15 pts)',
+                        botonLabel: '🌱 Premio Impacto Social',
                         colorPrimario: '#064e3b',
                         colorAcento: '#16a34a',
                         colorFondoSuave: '#f0fdf4',
                         iconoMedalla: 'fa-seedling',
                         watermarkIcon: 'fa-globe-americas',
                         ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
-                        textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
                         tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
-                        subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
-                        cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">calificación perfecta del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (${sp.promImp.toFixed(2)} / 15 pts)</b> con el proyecto:<br><b style="color:#064e3b; font-size:1.1em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                        subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
+                        cuerpoHTML: `Con el proyecto:<br><b style="color:#064e3b; font-size:1.12em;">"${sp.titulo}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
-                // Tipo 4: Premio Especial a la Mayor Votación del Público (Único ganador)
+                // Tipo 4: Premio Especial a la Mayor Votación del Público (Sin mostrar puntaje)
                 if (ganadorPublico && ganadorPublico.id === sp.id) {
                     certificadosDetectados.push({
                         tipo: 'premio_publico',
@@ -737,11 +733,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         colorFondoSuave: '#f0f7ff',
                         iconoMedalla: 'fa-thumbs-up',
                         watermarkIcon: 'fa-thumbs-up',
-                        ornamentoSuperior: '★ ★ ★ ★ ★ MÁXIMA CALIFICACIÓN DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
-                        textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
+                        ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
                         tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                         subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
-                        cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía, alcanzando la <b style="color:#2563eb;">mayor puntuación en la Votación Digital del Público (${sp.promPub.toFixed(2)} / 100 pts)</b> con la innovación:<br><b style="color:#1e3a8a; font-size:1.1em;">"${sp.titulo}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                        cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía con la innovación:<br><b style="color:#1e3a8a; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                     });
                 }
 
@@ -756,10 +751,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     iconoMedalla: 'fa-award',
                     watermarkIcon: 'fa-graduation-cap',
                     ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
-                    textoMedalla: 'PARTICIPACIÓN OFICIAL · EXPOSITOR',
                     tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                     subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${sp.catNombre.toUpperCase()}`,
-                    cuerpoHTML: `Por su destacada participación como <b>EXPOSITOR(A)</b> presentando el proyecto de investigación e innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"${sp.titulo}"</b><br>en el evento académico y tecnológico <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                    cuerpoHTML: `Por su destacada participación como <b>EXPOSITOR(A)</b> presentando el proyecto de investigación e innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${sp.titulo}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                 });
             }
         });
@@ -778,10 +772,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-hands-helping',
                 watermarkIcon: 'fa-hands-helping',
                 ornamentoSuperior: '❖ INTERACCIÓN SOCIAL, LOGÍSTICA Y PROMOCIÓN UNIVERSITARIA ❖',
-                textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
-                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
@@ -803,10 +796,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     iconoMedalla: 'fa-award',
                     watermarkIcon: 'fa-graduation-cap',
                     ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
-                    textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
                     tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                     subtituloCertificado: 'ASISTENCIA Y PARTICIPACIÓN ACADÉMICA',
-                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                    cuerpoHTML: `Por su destacada participación en el evento de exposición académica, científica y tecnológica <b>${NOMBRE_EVENTO}</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
                 });
             }
         }
@@ -824,10 +816,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-award',
                 watermarkIcon: 'fa-graduation-cap',
                 ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
-                textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
                 tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                 subtituloCertificado: 'EXPOSICIÓN ACADÉMICA Y TECNOLÓGICA',
-                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>${NOMBRE_EVENTO}</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
 
@@ -835,7 +826,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const catIndividual = categoriaDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios (Pregrado)');
         const proyIndividual = tituloProyectoDetectado || 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)';
 
-        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual
+        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual (Sin mostrar puntaje)
         const crearPlantillaPodioManual = (codigo, numLugar, nombreCat) => ({
             tipo: `manual_ganador_${codigo}_${numLugar}`,
             temaCSS: 'tema-ganador',
@@ -846,10 +837,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             iconoMedalla: 'fa-trophy',
             watermarkIcon: 'fa-trophy',
             ornamentoSuperior: '★ ★ ★ CUADRO DE HONOR Y EXCELENCIA TECNOLÓGICA ★ ★ ★',
-            textoMedalla: `CUADRO DE HONOR · ${numLugar}° LUGAR`,
             tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
             subtituloCertificado: `${numLugar}° LUGAR — CATEGORÍA ${nombreCat.toUpperCase()}`,
-            cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.1em;">"${proyIndividual}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
         });
 
         // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES
@@ -872,25 +862,23 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-award',
                 watermarkIcon: 'fa-graduation-cap',
                 ornamentoSuperior: '◆ EXPOSICIÓN CIENTÍFICA E INNOVACIÓN TECNOLÓGICA · U.A.B.J.B. ◆',
-                textoMedalla: 'PARTICIPACIÓN OFICIAL · TECNOFERIA 2026',
                 tituloCertificado: 'CERTIFICADO DE PARTICIPACIÓN',
                 subtituloCertificado: `EXPOSITOR(A) — CATEGORÍA ${catIndividual.toUpperCase()}`,
-                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su destacada participación en el evento de exposición académica y tecnológica <b>${NOMBRE_EVENTO}</b>, desarrollado el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_impacto',
                 temaCSS: 'tema-impacto',
-                botonLabel: '🌱 Premio Especial: Impacto Social (15 pts)',
+                botonLabel: '🌱 Premio Especial: Impacto Social',
                 colorPrimario: '#064e3b',
                 colorAcento: '#16a34a',
                 colorFondoSuave: '#f0fdf4',
                 iconoMedalla: 'fa-seedling',
                 watermarkIcon: 'fa-globe-americas',
                 ornamentoSuperior: '🌿 DESARROLLO SOSTENIBLE Y TRANSFORMACIÓN REGIONAL DEL BENI 🌿',
-                textoMedalla: 'PREMIO ESPECIAL · IMPACTO SOCIAL',
                 tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
-                subtituloCertificado: 'PREMIO AL IMPACTO SOCIAL Y PRODUCTIVO (CRITERIO 5)',
-                cuerpoHTML: `Por haber obtenido la <b style="color:#15803d;">calificación perfecta del Tribunal Evaluador en el Criterio de Impacto Social, Ambiental y Productivo (15.00 / 15 pts)</b> con el proyecto:<br><b style="color:#064e3b; font-size:1.1em;">"${proyIndividual !== 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)' ? proyIndividual : (ganadorImpacto ? ganadorImpacto.titulo : proyIndividual)}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                subtituloCertificado: 'Premio al Impacto Social, Ambiental o Productivo para el Beni',
+                cuerpoHTML: `Con el proyecto:<br><b style="color:#064e3b; font-size:1.12em;">"${proyIndividual !== 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)' ? proyIndividual : (ganadorImpacto ? ganadorImpacto.titulo : proyIndividual)}"</b><br>destacándose por su aporte directo al desarrollo sostenible del departamento del Beni en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_publico',
@@ -901,11 +889,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 colorFondoSuave: '#f0f7ff',
                 iconoMedalla: 'fa-thumbs-up',
                 watermarkIcon: 'fa-thumbs-up',
-                ornamentoSuperior: '★ ★ ★ ★ ★ MÁXIMA CALIFICACIÓN DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
-                textoMedalla: 'PREMIO ESPECIAL · VOTO DEL PÚBLICO',
+                ornamentoSuperior: '★ ★ ★ ★ ★ RECONOCIMIENTO DE LA COMUNIDAD Y VISITANTES ★ ★ ★ ★ ★',
                 tituloCertificado: 'CERTIFICADO DE DISTINCIÓN ESPECIAL',
                 subtituloCertificado: 'PREMIO A LA MAYOR VOTACIÓN DEL PÚBLICO ASISTENTE',
-                cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía, alcanzando la <b style="color:#2563eb;">mayor puntuación en la Votación Digital del Público (${ganadorPublico ? ganadorPublico.promPub.toFixed(2) : '98.82'} / 100 pts)</b> con la innovación:<br><b style="color:#1e3a8a; font-size:1.1em;">"${ganadorPublico ? ganadorPublico.titulo : proyIndividual}"</b><br>en la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por haberse consagrado como el proyecto favorito de la comunidad universitaria y ciudadanía con la innovación:<br><b style="color:#1e3a8a; font-size:1.12em;">"${ganadorPublico ? ganadorPublico.titulo : proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_colaborador',
@@ -917,10 +904,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-hands-helping',
                 watermarkIcon: 'fa-hands-helping',
                 ornamentoSuperior: '❖ INTERACCIÓN SOCIAL, LOGÍSTICA Y PROMOCIÓN UNIVERSITARIA ❖',
-                textoMedalla: 'STAFF Y APOYO LOGÍSTICO OFICIAL',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'COLABORADOR OFICIAL Y PROMOCIÓN ACADÉMICA UABJB',
-                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su valioso compromiso y desempeño como <b>COLABORADOR(A) OFICIAL</b> en la logística del evento, guiando a los visitantes en el sistema de votación digital QR e impulsando la promoción de las nuevas carreras de la <b>Universidad Autónoma del Beni "José Ballivián"</b> durante la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_tribunal',
@@ -932,10 +918,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-gavel',
                 watermarkIcon: 'fa-balance-scale',
                 ornamentoSuperior: '⚖ HONORABLE TRIBUNAL CALIFICADOR · EVALUACIÓN CIENTÍFICA ⚖',
-                textoMedalla: 'COMITÉ EVALUADOR OFICIAL · JURADO CALIFICADOR',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'TRIBUNAL EVALUADOR OFICIAL DE PROYECTOS TECNOLÓGICOS',
-                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su valiosa contribución académica, rigor científico e imparcialidad en el desempeño de sus funciones como <b>TRIBUNAL EVALUADOR OFICIAL</b> en la calificación de los proyectos de investigación e innovación tecnológica de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_organizador',
@@ -947,10 +932,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 iconoMedalla: 'fa-sitemap',
                 watermarkIcon: 'fa-landmark',
                 ornamentoSuperior: '✦ DIRECCIÓN Y GESTIÓN INSTITUCIONAL · I.I.I.S. y P. - C.I.S. ✦',
-                textoMedalla: 'COMITÉ ORGANIZADOR OFICIAL · TECNOFERIA 2026',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                subtituloCertificado: 'ORGANIZACIÓN Y DIRECCIÓN ACADÉMICA DEL EVENTO',
-                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL</b> en la realización de la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                subtituloCertificado: 'COMITÉ ORGANIZADOR Y DIRECCIÓN ACADÉMICA DEL EVENTO',
+                cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL</b> en la realización de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
                 tipo: 'manual_admin_sistema',
@@ -961,11 +945,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 colorFondoSuave: '#f0f9ff',
                 iconoMedalla: 'fa-laptop-code',
                 watermarkIcon: 'fa-microchip',
-                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL TECNOFERIA ⚡',
-                textoMedalla: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO ESPECIAL',
                 subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
-                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> para la <b>TECNOFERIA 2026: "Innovación Tecnológica - Asegurando el futuro"</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
         ];
 
@@ -977,7 +960,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
         const logoIisp = `${window.location.origin}/assets/img/logo_iisp.png`;
 
-        // 🔥 RUTAS DE LAS 3 FIRMAS Y LOS 2 SELLOS OFICIALES 🔥
+        // RUTAS DE LAS 3 FIRMAS Y LOS 2 SELLOS OFICIALES
         const firmaDecanoUrl = `${window.location.origin}/assets/img/firma_decano.png`;
         const firmaMoralesUrl = `${window.location.origin}/assets/img/firma_morales.jpg`;
         const firmaChaoUrl = `${window.location.origin}/assets/img/firma_chao.jpg`;
@@ -1355,44 +1338,37 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .texto-institucional {
                         font-size: 0.82rem;
                         color: #334155;
-                        margin: 0 0 3px;
+                        margin: 0 0 4px;
                         font-weight: 600;
                         line-height: 1.3;
                     }
 
-                    .insignia-categoria {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 8px;
-                        background: var(--cert-primario);
-                        color: #ffffff;
-                        padding: 3px 18px;
-                        border-radius: 50px;
-                        font-size: 0.7rem;
-                        font-weight: 800;
-                        letter-spacing: 1.2px;
-                        text-transform: uppercase;
-                        border: 1.5px solid var(--cert-acento);
-                        margin-bottom: 3px;
-                    }
-
                     h1.titulo-cert {
                         font-family: 'Cinzel', 'Georgia', serif;
-                        font-size: 2.05rem;
+                        font-size: 2.12rem;
                         color: var(--cert-primario);
-                        margin: 1px 0;
+                        margin: 2px 0 5px;
                         font-weight: 800;
                         letter-spacing: 2px;
                         line-height: 1.05;
                     }
 
+                    /* 🔥 FORMATO DE PÍLDORA UBICADO DEBAJO DEL TÍTULO PRINCIPAL (DONDE MARCASTE CON CELESTE) 🔥 */
                     .subtitulo-cert {
-                        font-size: 0.83rem;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: var(--cert-primario);
+                        color: #ffffff;
+                        padding: 5px 24px;
+                        border-radius: 50px;
+                        font-size: 0.8rem;
                         font-weight: 800;
-                        color: var(--cert-acento);
-                        letter-spacing: 1.3px;
-                        text-transform: uppercase;
-                        margin: 1px 0 4px;
+                        letter-spacing: 1.1px;
+                        border: 1.8px solid var(--cert-acento);
+                        margin: 2px 0 8px;
+                        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+                        outline: none;
                     }
 
                     .otorgado-a-label {
@@ -1406,7 +1382,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .editable-name {
                         font-family: 'Playfair Display', 'Georgia', serif;
-                        font-size: 1.9rem;
+                        font-size: 1.94rem;
                         font-weight: 700;
                         font-style: italic;
                         color: #0f172a;
@@ -1415,32 +1391,32 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         min-width: 58%;
                         max-width: 90%;
                         padding: 0 20px 2px;
-                        margin: 1px 0 5px;
+                        margin: 1px 0 6px;
                         outline: none;
                     }
 
                     .editable-name:focus, .body-text:focus, .subtitulo-cert:focus {
-                        background: rgba(77, 184, 255, 0.12);
+                        background: rgba(77, 184, 255, 0.15);
                         border-radius: 6px;
                     }
 
                     .body-text {
-                        font-size: 0.89rem;
+                        font-size: 0.91rem;
                         color: #1e293b;
-                        line-height: 1.4;
+                        line-height: 1.42;
                         max-width: 90%;
-                        margin: 0 auto 3px;
+                        margin: 0 auto 4px;
                         outline: none;
                     }
 
                     .fecha-lugar {
-                        font-size: 0.8rem;
+                        font-size: 0.81rem;
                         color: #475569;
                         font-weight: 600;
-                        margin: 1px 0 0;
+                        margin: 2px 0 0;
                     }
 
-                    /* 🔥 SECCIÓN DE FIRMAS Y SELLOS CON TRANSPARENCIA REAL Y TAMAÑO UNIFORME 🔥 */
+                    /* 🔥 SECCIÓN DE FIRMAS MÁS GRANDES Y SELLOS REUBICADOS 🔥 */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
@@ -1449,7 +1425,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         gap: 24px;
                         width: 100%;
                         padding: 0 22px;
-                        margin-top: 10px;
+                        margin-top: 8px;
                         position: relative;
                     }
 
@@ -1457,12 +1433,12 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         position: relative;
                         text-align: center;
                         width: 100%;
-                        max-width: 250px;
+                        max-width: 255px;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
                         justify-content: flex-start;
-                        padding-top: 58px;
+                        padding-top: 66px;
                     }
 
                     .firma-linea-divisor {
@@ -1474,35 +1450,46 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         z-index: 3;
                     }
 
-                    /* Las 3 firmas recortadas al ras tendrán exactamente la misma caja visual */
+                    /* Firmas un poco más grandes y nítidas */
                     .img-firma-autoridad {
                         position: absolute;
-                        top: 2px;
+                        top: -4px;
                         left: 50%;
                         transform: translateX(-50%);
-                        height: 62px;
-                        width: 155px;
+                        height: 76px;
+                        width: 185px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 2;
                     }
 
-                    /* Los 2 sellos redondos recortados al ras medirán exactamente 88x88px */
+                    /* Sellos redondos un poco más grandes (102x102px) */
                     .img-sello-oficial {
                         position: absolute;
-                        top: -10px;
-                        right: -22px;
-                        width: 88px;
-                        height: 88px;
+                        width: 102px;
+                        height: 102px;
                         object-fit: contain;
-                        transform: rotate(-6deg);
                         pointer-events: none;
                         z-index: 4;
                     }
 
+                    /* Sello de Dirección de Carrera al costado derecho de la firma del Director */
+                    .sello-carrera-pos {
+                        top: -22px;
+                        right: -32px;
+                        transform: rotate(-6deg);
+                    }
+
+                    /* Sello del Instituto I.I.I.S. y P. más arriba a la derecha (donde marcaste con el círculo negro) */
+                    .sello-iisp-pos {
+                        top: -50px;
+                        right: -28px;
+                        transform: rotate(-5deg);
+                    }
+
                     .firma-bloque h4 {
                         margin: 0;
-                        font-size: 0.74rem;
+                        font-size: 0.72rem;
                         color: #0f172a;
                         font-weight: 800;
                         line-height: 1.22;
@@ -1614,7 +1601,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                             <div class="cert-center-body">
                                 <div id="cert-ornamento-sup" class="ornamento-rol-superior" contenteditable="true" spellcheck="false">
-                                    ${certInicial.ornamentoSuperior || '★ TECNOFERIA 2026 · U.A.B.J.B. ★'}
+                                    ${certInicial.ornamentoSuperior || '★ FERIA DE LA CONSTRUCCIÓN CIENCIAS Y TECNOLOGIAS · U.A.B.J.B. ★'}
                                 </div>
 
                                 <p class="texto-institucional">
@@ -1622,14 +1609,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                     la Carrera de Ingeniería de Sistemas y el Instituto de Investigación Interacción Social y Posgrado (I.I.I.S. y P.), confiere el presente:
                                 </p>
 
-                                <div id="cert-badge-medalla" class="insignia-categoria" contenteditable="true" spellcheck="false">
-                                    ${certInicial.textoMedalla}
-                                </div>
-
                                 <h1 id="cert-titulo-principal" class="titulo-cert" contenteditable="true" spellcheck="false">
                                     ${certInicial.tituloCertificado}
                                 </h1>
 
+                                <!-- Píldora en la posición marcada con celeste -->
                                 <div id="cert-subtitulo" class="subtitulo-cert" contenteditable="true" spellcheck="false">
                                     ${certInicial.subtituloCertificado}
                                 </div>
@@ -1649,31 +1633,31 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                                 </p>
                             </div>
 
-                            <!-- 🔥 BLOQUE DE FIRMAS Y SELLOS OFICIALES CALIBRADOS AL MISMO TAMAÑO 🔥 -->
+                            <!-- 🔥 BLOQUE DE FIRMAS Y SELLOS OFICIALES CON ABREVIACIÓN ING. Y SELLO IISP ARRIBA 🔥 -->
                             <div class="firmas-container">
                                 <!-- 1. Decano de la Facultad -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaDecanoUrl}" class="img-firma-autoridad firma-decano-img" alt="Firma Decano" onerror="this.style.display='none'">
+                                    <img src="${firmaDecanoUrl}" class="img-firma-autoridad" alt="Firma Decano" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
-                                        <h4>M.SC. SAUD YUJA GÓMEZ</h4>
+                                        <h4>M.SC. ING. SAUD YUJA GÓMEZ</h4>
                                         <p>DECANO F.I.T. - U.A.B.J.B.</p>
                                     </div>
                                 </div>
 
                                 <!-- 2. Director de Carrera + Sello Dirección de Carrera -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaMoralesUrl}" class="img-firma-autoridad firma-morales-img" alt="Firma Director" onerror="this.style.display='none'">
-                                    <img src="${selloCarreraUrl}" class="img-sello-oficial sello-carrera-img" alt="Sello Dirección de Carrera" onerror="this.style.display='none'">
+                                    <img src="${firmaMoralesUrl}" class="img-firma-autoridad" alt="Firma Director" onerror="this.style.display='none'">
+                                    <img src="${selloCarreraUrl}" class="img-sello-oficial sello-carrera-pos" alt="Sello Dirección de Carrera" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
-                                        <h4>M.SC. EDUARDO S. MORALES BARROSO</h4>
+                                        <h4>M.SC. ING. EDUARDO S. MORALES BARROSO</h4>
                                         <p>DIRECTOR CIS U.A.B.J.B.</p>
                                     </div>
                                 </div>
 
-                                <!-- 3. Resp. Instituto de Investigación + Sello I.I.I.S. y P. -->
+                                <!-- 3. Resp. Instituto de Investigación + Sello I.I.I.S. y P. en la zona marcada con negro -->
                                 <div class="firma-bloque">
-                                    <img src="${firmaChaoUrl}" class="img-firma-autoridad firma-chao-img" alt="Firma Resp. IIISP" onerror="this.style.display='none'">
-                                    <img src="${selloIispUrl}" class="img-sello-oficial sello-iisp-img" alt="Sello IIISP" onerror="this.style.display='none'">
+                                    <img src="${firmaChaoUrl}" class="img-firma-autoridad" alt="Firma Resp. IIISP" onerror="this.style.display='none'">
+                                    <img src="${selloIispUrl}" class="img-sello-oficial sello-iisp-pos" alt="Sello IIISP" onerror="this.style.display='none'">
                                     <div class="firma-linea-divisor">
                                         <h4>M.SC. LIC. WILLIAM CHAO RIVERO</h4>
                                         <p>RESP. INSTITUTO DE INVESTIGACIÓN I.I.I.S. y P.</p>
@@ -1792,9 +1776,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         if (wm) wm.className = 'fas ' + (m.watermarkIcon || m.iconoMedalla) + ' watermark-central';
 
         const orn = document.getElementById('cert-ornamento-sup');
-        if (orn) orn.innerHTML = m.ornamentoSuperior || '★ TECNOFERIA 2026 · U.A.B.J.B. ★';
+        if (orn) orn.innerHTML = m.ornamentoSuperior || '★ FERIA DE LA CONSTRUCCIÓN CIENCIAS Y TECNOLOGIAS · U.A.B.J.B. ★';
 
-        document.getElementById('cert-badge-medalla').innerHTML = m.textoMedalla;
         document.getElementById('cert-titulo-principal').innerHTML = m.tituloCertificado;
         document.getElementById('cert-subtitulo').innerHTML = m.subtituloCertificado;
         document.getElementById('cert-cuerpo-texto').innerHTML = m.cuerpoHTML;
@@ -1807,7 +1790,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         regenerarCodigoQR();
         actualizarVisibilidadBotonCorreo();
     }
-    // 🔥 QUITAR FONDO BLANCO Y RECORTAR BORDES VACÍOS AUTOMÁTICAMENTE A FIRMAS Y SELLOS 🔥
+
+    // QUITAR FONDO BLANCO Y RECORTAR BORDES VACÍOS AUTOMÁTICAMENTE A FIRMAS Y SELLOS
     function limpiarFondoYRecortarImagenes() {
         document.querySelectorAll('.img-firma-autoridad, .img-sello-oficial').forEach(img => {
             const procesar = () => {
@@ -1830,11 +1814,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                             const r = d[i], g = d[i+1], b = d[i+2];
                             const brillo = (r + g + b) / 3;
 
-                            // Si el píxel es blanco o gris claro del papel, volverlo 100% transparente
                             if (brillo > 218 && (b - r) < 22) {
                                 d[i+3] = 0;
                             } else if (d[i+3] > 20) {
-                                // Realzar el color azul de la tinta/sello
                                 d[i]   = Math.max(0, r - 25);
                                 d[i+1] = Math.max(0, g - 15);
                                 d[i+2] = Math.min(255, b + 30);
@@ -1848,7 +1830,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     ctx.putImageData(imgData, 0, 0);
 
-                    // Recortar los márgenes blancos sobrantes para que todas las firmas y sellos tengan el mismo tamaño real
                     if (maxX > minX && maxY > minY) {
                         const pad = 6;
                         const rx = Math.max(0, minX - pad);
@@ -1873,7 +1854,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     }
 
     limpiarFondoYRecortarImagenes();
-
     setTimeout(actualizarVisibilidadBotonCorreo, 100);
 </script>
             </body>
