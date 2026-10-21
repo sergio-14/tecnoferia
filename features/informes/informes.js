@@ -630,10 +630,26 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         if (esAdminBD || termNorm.includes('luis alex fernandez') || termNorm === 'admin' || termNorm === 'administrador') {
             if (!personaNombre) personaNombre = "Luis Alex Fernández Tejaya";
+            // Modelo 1: Ambos subtítulos integrados (Desarrollo primero + Administración después)
             certificadosDetectados.push({
-                tipo: 'admin_sistema',
+                tipo: 'admin_sistema_ambos',
                 temaCSS: 'tema-admin',
-                botonLabel: '💻 Implementación del Sistema (Admin)',
+                botonLabel: '💻 Desarrollo + Administración (Unidos)',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+            // Modelo 2: Primero Desarrollo e Implementación Tecnológica
+            certificadosDetectados.push({
+                tipo: 'admin_sistema_desarrollo',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 1. Desarrollo e Implementación Tecnológica',
                 colorPrimario: '#0f172a',
                 colorAcento: '#0284c7',
                 colorFondoSuave: '#f0f9ff',
@@ -642,6 +658,21 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            });
+            // Modelo 3: Administración e Implementación de la Plataforma Oficial
+            certificadosDetectados.push({
+                tipo: 'admin_sistema_administracion',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 2. Administración e Implementación de la Plataforma',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
@@ -859,7 +890,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
         });
 
-        // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES
+        // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES + LAS VARIANTES DE ADMIN
         const plantillasManuales = [
             ...certificadosDetectados,
             crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios'),
@@ -954,9 +985,23 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 cuerpoHTML: `Por su excelente liderazgo, planificación y compromiso como miembro del <b>COMITÉ ORGANIZADOR OFICIAL</b> en la realización de la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             },
             {
-                tipo: 'manual_admin_sistema',
+                tipo: 'manual_admin_ambos',
                 temaCSS: 'tema-admin',
-                botonLabel: '💻 Administrador: Implementación del Sistema',
+                botonLabel: '💻 Admin: Desarrollo + Administración (Unidos)',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_desarrollo',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 Admin: Desarrollo e Implementación Tecnológica',
                 colorPrimario: '#0f172a',
                 colorAcento: '#0284c7',
                 colorFondoSuave: '#f0f9ff',
@@ -965,6 +1010,20 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_administracion',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 Admin: Administración e Implementación de la Plataforma',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
         ];
@@ -1378,15 +1437,16 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         justify-content: center;
                         background: var(--cert-primario);
                         color: #ffffff;
-                        padding: 5px 24px;
+                        padding: 5px 22px;
                         border-radius: 50px;
-                        font-size: 0.8rem;
+                        font-size: 0.76rem;
                         font-weight: 800;
-                        letter-spacing: 1.1px;
+                        letter-spacing: 1px;
                         border: 1.8px solid var(--cert-acento);
                         margin: 2px 0 8px;
                         box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
                         outline: none;
+                        max-width: 96%;
                     }
 
                     .otorgado-a-label {
