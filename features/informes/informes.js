@@ -3494,3 +3494,267 @@ window.eliminarAdminAuditoria = async function(ci, nombre) {
         alert("❌ " + e.message);
     }
 };
+// =========================================================================
+// 🔥 AUDITORÍA VISUAL DE VOTOS, HORAS Y EVOLUCIÓN DE NOTA EN EL SISTEMA 🔥
+// =========================================================================
+window.abrirAuditorVotos = async function(filtroProyecto = "") {
+    try {
+        const res = await fetch('/api/datos_informes');
+        if (!res.ok) throw new Error("No se pudo conectar con /api/datos_informes");
+        const db = await res.json();
+        const { proyectos = [], votos = [], evaluaciones = [], visitantes = [] } = db;
+
+        // Mapa rápido de nombres de visitantes por CI/Celular
+        const mapaVisitantes = {};
+        visitantes.forEach(vis => {
+            if (vis.ci) mapaVisitantes[String(vis.ci).trim()] = vis.nombre_completo;
+        });
+
+        // Detectar automáticamente cómo se llama la columna de fecha/hora en la tabla votos
+        const posiblesCamposFecha = ['fecha_voto', 'fecha', 'created_at', 'hora', 'timestamp', 'fecha_registro', 'creado_el', 'date'];
+        
+        const extraerHoraFormateada = (votoObj) => {
+            let valorBruto = null;
+            let nombreColumna = null;
+
+            // 1. Buscar en nombres conocidos
+            for (const key of posiblesCamposFecha) {
+                if (votoObj[key]) {
+                    valorBruto = votoObj[key];
+                    nombreColumna = key;
+                    break;
+                }
+            }
+
+            // 2. Si tiene otro nombre, buscar cualquier propiedad que parezca fecha ISO o hora
+            if (!valorBruto) {
+                for (const [k, val] of Object.entries(votoObj)) {
+                    if (['id', 'id_proyecto', 'nota', 'ci_visitante', 'device_id'].includes(k)) continue;
+                    if (val && (String(val).includes('2026') || String(val).includes(':') || String(val).includes('T'))) {
+                        valorBruto = val;
+                        nombreColumna = k;
+                        break;
+                    }
+                }
+            }
+
+            if (!valorBruto) return { tieneFecha: false, texto: "Sin columna de hora (Orden por ID)", col: null };
+
+            try {
+                const fechaObj = new Date(valorBruto);
+                if (!isNaN(fechaObj.getTime())) {
+                    const fechaStr = fechaObj.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    const horaStr = fechaObj.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                    return { tieneFecha: true, texto: `${fechaStr} — ⏰ ${horaStr}`, col: nombreColumna };
+                }
+            } catch (e) {}
+
+            return { tieneFecha: true, texto: `⏰ ${String(valorBruto)}`, col: nombreColumna };
+        };
+
+        // Filtrar proyectos con votos
+        const listaProyectos = proyectos.filter(p => {
+            if (!filtroProyecto) return true;
+            return (p.titulo || "").toLowerCase().includes(filtroProyecto.toLowerCase()) || String(p.id) === String(filtroProyecto);
+        });
+
+        // Crear o limpiar el modal en pantalla
+        let modal = document.getElementById('modal-auditor-votos-sistema');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'modal-auditor-votos-sistema';
+        modal.style.cssText = `
+            position: fixed; inset: 0; background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(6px); z-index: 99999; display: flex;
+            align-items: center; justify-content: center; padding: 20px;
+            font-family: 'Montserrat', system-ui, sans-serif;
+        `;
+
+        // Verificar qué columnas existen realmente en el primer voto de la BD
+        const primerVoto = votos[0] || {};
+        const columnasExistentes = Object.keys(primerVoto);
+
+        // Construir selector de proyectos
+        const opcionesProyectosHTML = proyectos.map(p => {
+            const cant = votos.filter(v => String(v.id_proyecto) === String(p.id)).length;
+            const sel = (filtroProyecto && ((p.titulo || "").toLowerCase().includes(filtroProyecto.toLowerCase()) || String(p.id) === String(filtroProyecto))) ? 'selected' : '';
+            return `<option value="${p.id}" ${sel}>[${cant} votos] ${p.titulo}</option>`;
+        }).join('');
+
+        modal.innerHTML = `
+            <div style="background: #1e293b; color: #f8fafc; width: 100%; max-width: 1080px; max-height: 90vh; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); display: flex; flex-direction: column; overflow: hidden;">
+                
+                <!-- CABECERA -->
+                <div style="padding: 18px 24px; background: #0f172a; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.15rem; color: #38bdf8; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-user-shield"></i> Auditoría de Votos del Público y Evolución de Nota en Vivo
+                        </h3>
+                        <p style="margin: 4px 0 0; font-size: 0.78rem; color: #94a3b8;">
+                            Columnas detectadas en la tabla <b>votos_publico</b>: <code style="color: #fbbf24; background: #1e293b; padding: 2px 6px; border-radius: 4px;">${columnasExistentes.join(', ') || 'Sin registros'}</code>
+                        </p>
+                    </div>
+                    <button onclick="document.getElementById('modal-auditor-votos-sistema').remove()" style="background: #ef4444; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer;">
+                        ✖ Cerrar
+                    </button>
+                </div>
+
+                <!-- SELECTOR DE PROYECTO -->
+                <div style="padding: 14px 24px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <label style="font-size: 0.85rem; font-weight: 700; color: #cbd5e1;">Seleccionar Proyecto a Auditar:</label>
+                    <select id="select-proy-auditor" style="flex: 1; min-width: 260px; padding: 9px 12px; border-radius: 8px; background: #0f172a; color: #fff; border: 1px solid #475569; font-weight: 600;">
+                        ${opcionesProyectosHTML}
+                    </select>
+                </div>
+
+                <!-- CONTENIDO DE LA TABLA -->
+                <div id="contenedor-tabla-auditoria" style="padding: 20px 24px; overflow-y: auto; flex: 1;"></div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const renderizarDetalleProyecto = (idProy) => {
+            const proy = proyectos.find(p => String(p.id) === String(idProy)) || proyectos[0];
+            if (!proy) return;
+
+            // Calcular el 80% del Tribunal de este proyecto
+            const evsProy = evaluaciones.filter(e => String(e.id_proyecto) === String(proy.id));
+            const promTribunal = evsProy.length > 0 
+                ? evsProy.reduce((acc, e) => acc + (parseFloat(e.nota) || 0), 0) / evsProy.length 
+                : 0;
+            const puntosTribunal80 = promTribunal * 0.80;
+
+            // Ordenar votos por ID o Fecha (orden cronológico de llegada)
+            const votosProy = votos
+                .filter(v => String(v.id_proyecto) === String(proy.id))
+                .sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+
+            let sumaAcumulada = 0;
+            const filasHTML = votosProy.map((v, index) => {
+                const numOrden = index + 1;
+                const notaVoto = Math.min(parseFloat(v.nota) || 0, 100);
+                const estrellas = Math.round(notaVoto / 20);
+                const estrellasIconos = '⭐'.repeat(estrellas) + '☆'.repeat(Math.max(0, 5 - estrellas));
+
+                // Cálculo acumulado en el momento exacto en que entró este voto
+                sumaAcumulada += notaVoto;
+                const promPublicoMomento = sumaAcumulada / numOrden;
+                const aporte20Momento = promPublicoMomento * 0.20;
+                const notaFinalMomento = puntosTribunal80 + aporte20Momento;
+
+                const infoHora = extraerHoraFormateada(v);
+                const nombreVis = mapaVisitantes[String(v.ci_visitante || "").trim()] || "Visitante QR";
+
+                return `
+                    <tr style="border-bottom: 1px solid #334155; background: ${numOrden === votosProy.length ? 'rgba(16, 185, 129, 0.12)' : 'transparent'};">
+                        <td style="padding: 10px 12px; font-weight: 800; color: #94a3b8;">#${numOrden} <span style="font-size:0.7rem; color:#64748b;">(ID: ${v.id ?? '-'})</span></td>
+                        <td style="padding: 10px 12px; font-weight: 600; color: ${infoHora.tieneFecha ? '#38bdf8' : '#94a3b8'};">
+                            ${infoHora.texto}
+                        </td>
+                        <td style="padding: 10px 12px;">
+                            <div style="font-weight: 700; color: #f8fafc;">${nombreVis}</div>
+                            <div style="font-size: 0.72rem; color: #94a3b8;">Cel/CI: ${v.ci_visitante || 'Anónimo'} | Disp: ${(v.device_id || 'N/A').slice(0, 10)}...</div>
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            <span style="background: #0f172a; padding: 4px 10px; border-radius: 6px; font-weight: 800; color: #fbbf24; border: 1px solid #475569;">
+                                ${notaVoto} pts (${estrellasIconos})
+                            </span>
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: #e2e8f0;">
+                            ${promPublicoMomento.toFixed(2)} pts
+                            <div style="font-size: 0.7rem; color: #38bdf8;">(20% = ${aporte20Momento.toFixed(2)})</div>
+                        </td>
+                        <td style="padding: 10px 12px; text-align: center;">
+                            <span style="background: ${numOrden <= 5 ? '#1e3a8a' : '#065f46'}; color: #fff; padding: 5px 12px; border-radius: 50px; font-weight: 800; font-size: 0.9rem;">
+                                ${notaFinalMomento.toFixed(2)}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            const promPubFinal = votosProy.length > 0 ? (sumaAcumulada / votosProy.length) : 0;
+            const aportePub20Final = promPubFinal * 0.20;
+            const notaFinalCierre = puntosTribunal80 + aportePub20Final;
+
+            document.getElementById('contenedor-tabla-auditoria').innerHTML = `
+                <!-- RESUMEN SUPERIOR DEL PROYECTO -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px;">
+                    <div style="background: #0f172a; padding: 12px 16px; border-radius: 10px; border-left: 4px solid #f59e0b;">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">NOTA TRIBUNAL (80% FIJO)</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: #fbbf24;">${puntosTribunal80.toFixed(2)} pts</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">Promedio Jurado: ${promTribunal.toFixed(2)} / 100</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 12px 16px; border-radius: 10px; border-left: 4px solid #38bdf8;">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">PROMEDIO PÚBLICO (${votosProy.length} VOTOS)</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: #38bdf8;">${promPubFinal.toFixed(2)} / 100</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">Suma total: ${sumaAcumulada} pts ÷ ${votosProy.length} votos</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 12px 16px; border-radius: 10px; border-left: 4px solid #10b981;">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">APORTE PÚBLICO (20%)</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: #34d399;">${aportePub20Final.toFixed(2)} pts</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">${promPubFinal.toFixed(2)} × 0.20</div>
+                    </div>
+                    <div style="background: #0f172a; padding: 12px 16px; border-radius: 10px; border-left: 4px solid #a855f7;">
+                        <div style="font-size: 0.75rem; color: #94a3b8;">NOTA FINAL OFICIAL</div>
+                        <div style="font-size: 1.35rem; font-weight: 800; color: #c084fc;">${notaFinalCierre.toFixed(2)} pts</div>
+                        <div style="font-size: 0.72rem; color: #64748b;">${puntosTribunal80.toFixed(2)} (Trib) + ${aportePub20Final.toFixed(2)} (Púb)</div>
+                    </div>
+                </div>
+
+                <!-- TABLA CRONOLÓGICA VOTO POR VOTO -->
+                <div style="overflow-x: auto; border: 1px solid #334155; border-radius: 10px;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+                        <thead>
+                            <tr style="background: #0f172a; color: #cbd5e1; border-bottom: 2px solid #334155;">
+                                <th style="padding: 12px;">Orden / ID</th>
+                                <th style="padding: 12px;">Fecha y Hora Registrada</th>
+                                <th style="padding: 12px;">Visitante / Dispositivo</th>
+                                <th style="padding: 12px; text-align: center;">Calificación Dada</th>
+                                <th style="padding: 12px; text-align: center;">Promedio Público Acumulado</th>
+                                <th style="padding: 12px; text-align: center;">Nota Final en ese Momento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasHTML || '<tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">Este proyecto no tiene votos registrados.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        };
+
+        const selectEl = document.getElementById('select-proy-auditor');
+        selectEl.addEventListener('change', (e) => renderizarDetalleProyecto(e.target.value));
+
+        // Buscar GeoVector por defecto si no se pasó otro filtro
+        const proyInicial = listaProyectos.find(p => (p.titulo || "").toLowerCase().includes('geovector')) || listaProyectos[0] || proyectos[0];
+        if (proyInicial) {
+            selectEl.value = proyInicial.id;
+            renderizarDetalleProyecto(proyInicial.id);
+        }
+
+    } catch (err) {
+        console.error(err);
+        alert("Error al abrir el auditor de votos: " + err.message);
+    }
+};
+
+// Crear botón flotante en la pantalla de Informes para abrir el Auditor con 1 clic
+(function inyectarBotonAuditorFlotante() {
+    if (document.getElementById('btn-flotante-auditor-votos')) return;
+    const btn = document.createElement('button');
+    btn.id = 'btn-flotante-auditor-votos';
+    btn.innerHTML = '🕵️‍♂️ Auditar Votos y Horas';
+    btn.style.cssText = `
+        position: fixed; bottom: 22px; right: 22px; z-index: 9999;
+        background: linear-gradient(135deg, #0284c7 0%, #1e3a8a 100%);
+        color: #ffffff; border: 2px solid #38bdf8; padding: 12px 20px;
+        border-radius: 50px; font-weight: 800; font-size: 0.88rem;
+        cursor: pointer; box-shadow: 0 10px 25px rgba(2, 132, 199, 0.5);
+        display: flex; align-items: center; gap: 8px;
+    `;
+    btn.onclick = () => window.abrirAuditorVotos('GeoVector');
+    document.body.appendChild(btn);
+})();
