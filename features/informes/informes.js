@@ -488,7 +488,7 @@ window.procesarInformeActual = async function(e) {
     window.imprimirInformeActual(e);
 };
 // =========================================================================
-// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES CON FIRMAS GRANDES Y QR CORREGIDO 🔥
+// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES (POSICIÓN Y TAMAÑO DE FIRMAS CORREGIDO) 🔥
 // =========================================================================
 window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     try {
@@ -725,7 +725,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         const plantillasManuales = certificadosDetectados;
         const codigoAleatorioInicial = generarCodigoAleatorioQR();
-        // CORRECCIÓN CLAVE: El QR apunta directamente a la ruta que lee el sistema para validar de forma exitosa
         const urlValidacion = `${window.location.origin}/?validar_certificado=${encodeURIComponent(codigoAleatorioInicial)}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(urlValidacion)}`;
 
@@ -814,7 +813,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .cinta-diag-br { bottom: -70px; right: -70px; transform: rotate(-45deg); }
                     .franja-imperial { display: none; position: absolute; left: 0; right: 0; height: 6px; z-index: 3; pointer-events: none; }
                     .franja-imp-top { top: 0; } .franja-imp-bot { bottom: 0; }
-                    .circuito-tech-svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.16; }
 
                     .tema-ganador .certificado-marco-externo { border: 4px solid #002b5c; background: radial-gradient(circle at center, #ffffff 0%, #fffdf2 70%, #fef3c7 100%); }
                     .tema-ganador .certificado-marco-interno { border: 4px double #b8860b; box-shadow: inset 0 0 0 2px rgba(212, 175, 55, 0.2); }
@@ -848,18 +846,18 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     .body-text { font-size: 0.91rem; color: #1e293b; line-height: 1.42; max-width: 90%; margin: 0 auto 4px; outline: none; }
                     .fecha-lugar { font-size: 0.81rem; color: #475569; font-weight: 600; margin: 2px 0 0; }
 
-                    /* FIRMAS MÁS GRANDES Y SELLOS AJUSTADOS */
-                    .firmas-container { display: grid; grid-template-columns: repeat(3, 1fr); align-items: flex-start; justify-items: center; gap: 24px; width: 100%; padding: 0 22px; margin-top: 4px; position: relative; }
-                    .firma-bloque { position: relative; text-align: center; width: 100%; max-width: 270px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 76px; }
-                    .firma-linea-divisor { width: 100%; border-top: 1.8px solid #0f172a; padding-top: 5px; min-height: 40px; position: relative; z-index: 3; }
+                    /* 🔥 SECCIÓN DE FIRMAS GRANDES Y SELLOS PERFECTAMENTE POSICIONADOS 🔥 */
+                    .firmas-container { display: grid; grid-template-columns: repeat(3, 1fr); align-items: flex-end; justify-items: center; gap: 20px; width: 100%; padding: 0 15px; margin-top: 10px; position: relative; }
+                    .firma-bloque { position: relative; text-align: center; width: 100%; max-width: 275px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+                    .firma-linea-divisor { width: 100%; border-top: 1.8px solid #0f172a; padding-top: 5px; margin-top: 75px; position: relative; z-index: 3; }
                     
-                    /* FIRMAS AMPLIADAS SIGNIFICATIVAMENTE */
-                    .img-firma-autoridad { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); height: 95px; width: 225px; object-fit: contain; pointer-events: none; z-index: 2; }
+                    /* FIRMAS AMPLIADAS Y CENTRADAS EXACTAMENTE SOBRE SU LÍNEA */
+                    .img-firma-autoridad { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); height: 98px; width: 230px; object-fit: contain; pointer-events: none; z-index: 2; }
                     
-                    /* SELLOS CON TAMAÑO IDEAL (NO TAN GRANDES) */
+                    /* SELLOS POSICIONADOS AL LADO DERECHO DE LA LÍNEA DE FIRMA CON TAMAÑO IDEAL */
                     .img-sello-oficial { position: absolute; width: 85px; height: 85px; object-fit: contain; pointer-events: none; z-index: 4; }
-                    .sello-carrera-pos { top: -12px; right: -25px; transform: rotate(-6deg); }
-                    .sello-iisp-pos { top: -38px; right: -22px; transform: rotate(-5deg); }
+                    .sello-carrera-pos { bottom: 25px; right: -28px; transform: rotate(-6deg); }
+                    .sello-iisp-pos { bottom: 20px; right: -28px; transform: rotate(-5deg); }
 
                     .firma-bloque h4 { margin: 0; font-size: 0.72rem; color: #0f172a; font-weight: 800; line-height: 1.22; white-space: nowrap; }
                     .firma-bloque p { margin: 2px 0 0; font-size: 0.65rem; color: #475569; font-weight: 700; line-height: 1.18; }
