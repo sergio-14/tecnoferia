@@ -488,7 +488,7 @@ window.procesarInformeActual = async function(e) {
     window.imprimirInformeActual(e);
 };
 // =========================================================================
-// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES CON REGISTRO AUTOMÁTICO EN BD 🔥
+// 🔥 MOTOR DE LOS CERTIFICADOS OFICIALES CON DISEÑO ÚNICO POR ROL Y QR 🔥
 // =========================================================================
 window.generarCertificadoParticipacion = async function(terminoBusqueda) {
     try {
@@ -502,6 +502,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const LUGAR_EVENTO = "Campo Ferial Luis Zambrano Ibañez Fexpo Beni – Trinidad";
         const NOMBRE_EVENTO = "Feria de la Construcción Ciencias y Tecnologias";
 
+        // 1. CALCULAR GANADORES DE CATEGORÍAS (1°, 2° y 3°), LOS 3 DE IMPACTO SOCIAL Y EL DE MAYOR VOTACIÓN
         const statsProyectos = {};
         proyectos.forEach(p => {
             if (p.estado_evaluacion === "Evaluado" || p.estado_evaluacion === "Pre-seleccionado") {
@@ -552,6 +553,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return { ...sp, promTrib, promPub, promImp, notaFinal };
         });
 
+        // Podio por cada categoría: 1° LUGAR, 2° LUGAR y 3° LUGAR
         const podiosPorProyecto = {};
         ['estudiantes', 'docentes', 'emprendimientos'].forEach(catK => {
             const deCat = listaCalculada.filter(x => x.catKey === catK && x.notaFinal > 0).sort((a, b) => b.notaFinal - a.notaFinal);
@@ -565,6 +567,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         });
 
+        // Los 3 primeros proyectos en Impacto Social
         const ganadoresImpactoLista = [...listaCalculada]
             .filter(x => x.promImp > 0)
             .sort((a, b) => b.promImp - a.promImp || b.notaFinal - a.notaFinal)
@@ -572,10 +575,14 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const idsGanadoresImpacto = new Set(ganadoresImpactoLista.map(x => x.id));
         const ganadorImpacto = ganadoresImpactoLista[0] || null;
 
+        // Único ganador de Mayor Votación del Público
         const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
 
+        // 2. BUSCAR A LA PERSONA Y SU CORREO EN TODAS LAS TABLAS Y PERFILES
         let personaNombre = "";
         let correoDestinatarioDetectado = "";
+        let categoriaDetectadaPersona = "";
+        let tituloProyectoDetectado = "";
         const certificadosDetectados = [];
 
         const coincidePersona = (ciComparar, nombreComparar) => {
@@ -586,6 +593,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return false;
         };
 
+        // Buscar correo automáticamente en todas las tablas disponibles
         const buscarCorreoEnLista = (lista) => {
             for (const item of (lista || [])) {
                 if (coincidePersona(item.ci || item.id || item.usuario_tribunal || item.celular, item.nombre_completo || item.nombre)) {
@@ -602,6 +610,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             buscarCorreoEnLista(tribunales) ||
             buscarCorreoEnLista(visitantes);
 
+        // PERFIL A: Administrador / Implementador del Sistema
         let esAdminBD = false;
         if (!termRaw.includes(' ')) {
             try {
@@ -621,6 +630,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         if (esAdminBD || termNorm.includes('luis alex fernandez') || termNorm === 'admin' || termNorm === 'administrador') {
             if (!personaNombre) personaNombre = "Luis Alex Fernández Tejaya";
+            // Modelo 1: Ambos subtítulos integrados (Desarrollo primero + Administración después)
             certificadosDetectados.push({
                 tipo: 'admin_sistema_ambos',
                 temaCSS: 'tema-admin',
@@ -635,6 +645,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
+            // Modelo 2: Primero Desarrollo e Implementación Tecnológica
             certificadosDetectados.push({
                 tipo: 'admin_sistema_desarrollo',
                 temaCSS: 'tema-admin',
@@ -649,6 +660,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
+            // Modelo 3: Administración e Implementación de la Plataforma Oficial
             certificadosDetectados.push({
                 tipo: 'admin_sistema_administracion',
                 temaCSS: 'tema-admin',
@@ -665,6 +677,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         }
 
+        // PERFIL B: Comité Organizador del Evento
         const orgMatch = LISTA_COMITE_ORGANIZADOR.find(o => coincidePersona('', o.nombre));
         if (orgMatch) {
             if (!personaNombre) personaNombre = orgMatch.nombre;
@@ -684,6 +697,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         }
 
+        // PERFIL C: Tribunal Evaluador Oficial
         const tribMatch = (tribunales || []).find(t => coincidePersona(t.ci || t.usuario_tribunal, t.nombre_completo));
         if (tribMatch) {
             let nomTrib = tribMatch.nombre_completo || "Evaluador";
@@ -707,6 +721,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         }
 
+        // PERFIL D: Líder o Integrante en Proyectos (1°, 2° y 3° Lugar, Los 3 de Impacto Social, Mayor Votación y Participación)
         listaCalculada.forEach(sp => {
             const miembroHallado = sp.miembros.find(m => coincidePersona(m.ci, m.nombre));
             if (miembroHallado) {
@@ -714,8 +729,12 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 if (!correoDestinatarioDetectado && (miembroHallado.correo || sp.proyecto.correo_lider || sp.proyecto.correo)) {
                     correoDestinatarioDetectado = (miembroHallado.correo || sp.proyecto.correo_lider || sp.proyecto.correo).trim();
                 }
+                categoriaDetectadaPersona = sp.catNombre;
+                tituloProyectoDetectado = sp.titulo;
+
                 const infoPodio = podiosPorProyecto[sp.id];
 
+                // Tipo 1: Ganador de Categoría (1°, 2° o 3° LUGAR — Sin mostrar puntaje)
                 if (infoPodio) {
                     certificadosDetectados.push({
                         tipo: `ganador_categoria_${infoPodio.lugar}`,
@@ -733,6 +752,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     });
                 }
 
+                // Tipo 3: Premio al Impacto Social, Ambiental o Productivo para el Beni
                 if (idsGanadoresImpacto.has(sp.id)) {
                     certificadosDetectados.push({
                         tipo: 'premio_impacto',
@@ -750,6 +770,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     });
                 }
 
+                // Tipo 4: Premio del Público
                 if (ganadorPublico && ganadorPublico.id === sp.id) {
                     certificadosDetectados.push({
                         tipo: 'premio_publico',
@@ -767,6 +788,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     });
                 }
 
+                // Tipo 2: Certificado de Participación en la Feria
                 certificadosDetectados.push({
                     tipo: 'participacion',
                     temaCSS: 'tema-participacion',
@@ -784,6 +806,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             }
         });
 
+        // PERFIL E: Colaboradores Oficiales (Tipo 5)
         const colabMatch = (colaboradores || []).find(c => coincidePersona(c.id, c.nombre_completo) || coincidePersona(c.celular, c.nombre_completo));
         if (colabMatch) {
             if (!personaNombre) personaNombre = colabMatch.nombre_completo;
@@ -803,6 +826,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             });
         }
 
+        // PERFIL F: Expositor sin proyecto o Visitante general
         if (certificadosDetectados.length === 0) {
             const expMatch = (expositores || []).find(e => coincidePersona(e.ci, e.nombre_completo));
             const visMatch = (visitantes || []).find(v => coincidePersona(v.ci, v.nombre_completo));
@@ -827,6 +851,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             }
         }
 
+        // Si escribió un nombre libre que no estaba en BD
         if (certificadosDetectados.length === 0) {
             personaNombre = termRaw.toUpperCase();
             certificadosDetectados.push({
@@ -846,9 +871,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         }
 
         const esDocentePorTitulo = /^(ing\.|lic\.|m\.sc\.|dr\.|arq\.)/i.test(personaNombre.trim());
-        const catIndividual = categoryDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios');
+        const catIndividual = categoriaDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios');
         const proyIndividual = tituloProyectoDetectado || 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)';
 
+        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual
         const crearPlantillaPodioManual = (codigo, numLugar, nombreCat) => ({
             tipo: `manual_ganador_${codigo}_${numLugar}`,
             temaCSS: 'tema-ganador',
@@ -864,6 +890,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
         });
 
+        // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES + LAS VARIANTES DE ADMIN
         const plantillasManuales = [
             ...certificadosDetectados,
             crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios'),
@@ -970,6 +997,34 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_desarrollo',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 Admin: Desarrollo e Implementación Tecnológica',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
+            },
+            {
+                tipo: 'manual_admin_administracion',
+                temaCSS: 'tema-admin',
+                botonLabel: '💻 Admin: Administración e Implementación de la Plataforma',
+                colorPrimario: '#0f172a',
+                colorAcento: '#0284c7',
+                colorFondoSuave: '#f0f9ff',
+                iconoMedalla: 'fa-laptop-code',
+                watermarkIcon: 'fa-microchip',
+                ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
+                tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
+                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
         ];
 
@@ -981,6 +1036,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const logoCis = `${window.location.origin}/assets/img/LogoAcreditadaa.png`;
         const logoIisp = `${window.location.origin}/assets/img/logo_iisp.png`;
 
+        // RUTAS DE LAS 3 FIRMAS Y LOS 2 SELLOS OFICIALES
         const firmaDecanoUrl = `${window.location.origin}/assets/img/firma_decano.png`;
         const firmaMoralesUrl = `${window.location.origin}/assets/img/firma_morales.jpg`;
         const firmaChaoUrl = `${window.location.origin}/assets/img/firma_chao.jpg`;
@@ -1016,116 +1072,537 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         --cert-acento: ${certInicial.colorAcento};
                         --cert-fondo: ${certInicial.colorFondoSuave};
                     }
-                    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+                    * {
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
                     body {
-                        margin: 0; padding: 85px 20px 30px; background: #0f172a;
+                        margin: 0;
+                        padding: 85px 20px 30px;
+                        background: #0f172a;
                         font-family: 'Montserrat', Arial, sans-serif;
-                        display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
                     }
+
+                    /* BARRA SUPERIOR DE CONTROL (NO SE IMPRIME) */
                     .barra-control-cert {
-                        position: fixed; top: 0; left: 0; right: 0; background: rgba(15, 23, 42, 0.96);
-                        backdrop-filter: blur(10px); border-bottom: 2px solid #334155; padding: 10px 24px;
-                        display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 9999; color: #fff; flex-wrap: wrap;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        background: rgba(15, 23, 42, 0.96);
+                        backdrop-filter: blur(10px);
+                        border-bottom: 2px solid #334155;
+                        padding: 10px 24px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 12px;
+                        z-index: 9999;
+                        color: #fff;
+                        flex-wrap: wrap;
                     }
+
                     .barra-izq { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-                    .badge-auto { background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; color: #34d399; padding: 5px 12px; border-radius: 50px; font-size: 0.76rem; font-weight: 700; }
-                    .btn-selector-cert { background: #334155; color: #e2e8f0; border: 1px solid #475569; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 0.8rem; transition: 0.2s; }
-                    .btn-selector-cert.activo, .btn-selector-cert:hover { background: #2563eb; color: #ffffff; border-color: #60a5fa; }
-                    .select-plantilla-manual { background: #0f172a; color: #f8fafc; border: 1px solid #475569; padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; outline: none; cursor: pointer; }
-                    .btn-random-qr { background: #0f172a; color: #38bdf8; border: 1px solid #0284c7; padding: 7px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
+                    .badge-auto {
+                        background: rgba(16, 185, 129, 0.2);
+                        border: 1px solid #10b981;
+                        color: #34d399;
+                        padding: 5px 12px;
+                        border-radius: 50px;
+                        font-size: 0.76rem;
+                        font-weight: 700;
+                    }
+                    .btn-selector-cert {
+                        background: #334155;
+                        color: #e2e8f0;
+                        border: 1px solid #475569;
+                        padding: 7px 12px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 700;
+                        font-size: 0.8rem;
+                        transition: 0.2s;
+                    }
+                    .btn-selector-cert.activo, .btn-selector-cert:hover {
+                        background: #2563eb;
+                        color: #ffffff;
+                        border-color: #60a5fa;
+                    }
+                    .select-plantilla-manual {
+                        background: #0f172a;
+                        color: #f8fafc;
+                        border: 1px solid #475569;
+                        padding: 7px 12px;
+                        border-radius: 8px;
+                        font-size: 0.8rem;
+                        font-weight: 600;
+                        outline: none;
+                        cursor: pointer;
+                    }
+                    .btn-random-qr {
+                        background: #0f172a;
+                        color: #38bdf8;
+                        border: 1px solid #0284c7;
+                        padding: 7px 12px;
+                        border-radius: 8px;
+                        font-size: 0.8rem;
+                        font-weight: 700;
+                        cursor: pointer;
+                        transition: 0.2s;
+                    }
                     .btn-random-qr:hover { background: #0284c7; color: #ffffff; }
                     .btn-imprimir-top {
-                        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; border: none; padding: 10px 22px; border-radius: 50px; font-weight: 800; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4); display: flex; align-items: center; gap: 8px;
+                        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+                        color: #ffffff;
+                        border: none;
+                        padding: 10px 22px;
+                        border-radius: 50px;
+                        font-weight: 800;
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                        box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
                     }
+
+                    /* LIENZO BASE DEL CERTIFICADO */
                     .certificado-page-wrapper {
-                        width: 279.4mm; height: 205mm; background: #ffffff; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
-                        position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; padding: 8.5mm; transition: all 0.3s ease;
+                        width: 279.4mm;
+                        height: 205mm;
+                        background: #ffffff;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+                        position: relative;
+                        overflow: hidden;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 8.5mm;
+                        transition: all 0.3s ease;
                     }
+
                     .certificado-marco-externo {
-                        width: 100%; height: 100%; border: 3px solid var(--cert-primario); padding: 6px; position: relative;
+                        width: 100%;
+                        height: 100%;
+                        border: 3px solid var(--cert-primario);
+                        padding: 6px;
+                        position: relative;
                         background: linear-gradient(135deg, #ffffff 0%, var(--cert-fondo) 50%, #ffffff 100%);
-                        display: flex; align-items: center; justify-content: center; overflow: hidden;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        overflow: hidden;
                     }
+
                     .certificado-marco-interno {
-                        width: 100%; height: 100%; border: 2px solid var(--cert-acento); padding: 18px 44px 18px; position: relative;
-                        display: flex; flex-direction: column; justify-content: space-between; text-align: center; overflow: hidden; z-index: 4;
+                        width: 100%;
+                        height: 100%;
+                        border: 2px solid var(--cert-acento);
+                        padding: 18px 44px 18px;
+                        position: relative;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        text-align: center;
+                        overflow: hidden;
+                        z-index: 4;
                     }
-                    .watermark-central { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 190px; color: var(--cert-primario); opacity: 0.045; pointer-events: none; z-index: 1; }
-                    .ornamento-rol-superior { font-size: 0.68rem; font-weight: 800; letter-spacing: 2.2px; color: var(--cert-acento); text-transform: uppercase; margin-bottom: 2px; }
-                    .esquina-ornamento { position: absolute; width: 32px; height: 32px; border-color: var(--cert-acento); border-style: solid; z-index: 3; pointer-events: none; }
+
+                    .watermark-central {
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        font-size: 190px;
+                        color: var(--cert-primario);
+                        opacity: 0.045;
+                        pointer-events: none;
+                        z-index: 1;
+                    }
+
+                    .ornamento-rol-superior {
+                        font-size: 0.68rem;
+                        font-weight: 800;
+                        letter-spacing: 2.2px;
+                        color: var(--cert-acento);
+                        text-transform: uppercase;
+                        margin-bottom: 2px;
+                    }
+
+                    .esquina-ornamento {
+                        position: absolute;
+                        width: 32px;
+                        height: 32px;
+                        border-color: var(--cert-acento);
+                        border-style: solid;
+                        z-index: 3;
+                        pointer-events: none;
+                        transition: all 0.3s ease;
+                    }
                     .esq-tl { top: 8px; left: 8px; border-width: 3.5px 0 0 3.5px; }
                     .esq-tr { top: 8px; right: 8px; border-width: 3.5px 3.5px 0 0; }
                     .esq-bl { bottom: 8px; left: 8px; border-width: 0 0 3.5px 3.5px; }
                     .esq-br { bottom: 8px; right: 8px; border-width: 0 3.5px 3.5px 0; }
+
                     .cinta-esquina-diag { display: none; position: absolute; width: 140px; height: 140px; pointer-events: none; z-index: 2; }
                     .cinta-diag-tl { top: -70px; left: -70px; transform: rotate(-45deg); }
                     .cinta-diag-br { bottom: -70px; right: -70px; transform: rotate(-45deg); }
+
                     .franja-imperial { display: none; position: absolute; left: 0; right: 0; height: 6px; z-index: 3; pointer-events: none; }
-                    .franja-imp-top { top: 0; } .franja-imp-bot { bottom: 0; }
+                    .franja-imp-top { top: 0; }
+                    .franja-imp-bot { bottom: 0; }
+
                     .circuito-tech-svg { display: none; position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; opacity: 0.16; }
 
-                    .tema-ganador .certificado-marco-externo { border: 4px solid #002b5c; background: radial-gradient(circle at center, #ffffff 0%, #fffdf2 70%, #fef3c7 100%); }
-                    .tema-ganador .certificado-marco-interno { border: 4px double #b8860b; box-shadow: inset 0 0 0 2px rgba(212, 175, 55, 0.2); }
-                    .tema-ganador .esquina-ornamento { border-color: #b8860b; }
-                    .tema-ganador .franja-imperial { display: block; background: linear-gradient(90deg, #002b5c 0%, #d4af37 25%, #fff3b0 50%, #d4af37 75%, #002b5c 100%); }
-                    .tema-participacion .cinta-esquina-diag { display: block; background: linear-gradient(180deg, #002b5c 0%, #002b5c 60%, #0284c7 60%, #0284c7 75%, #d32f2f 75%, #d32f2f 100%); opacity: 0.9; }
+                    /* TEMAS VISUALES POR ROL */
+                    .tema-ganador .certificado-marco-externo {
+                        border: 4px solid #002b5c;
+                        background: radial-gradient(circle at center, #ffffff 0%, #fffdf2 70%, #fef3c7 100%);
+                    }
+                    .tema-ganador .certificado-marco-interno {
+                        border: 4px double #b8860b;
+                        box-shadow: inset 0 0 0 2px rgba(212, 175, 55, 0.2);
+                    }
+                    .tema-ganador .esquina-ornamento { width: 36px; height: 36px; border-color: #b8860b; }
+                    .tema-ganador .franja-imperial {
+                        display: block;
+                        background: linear-gradient(90deg, #002b5c 0%, #d4af37 25%, #fff3b0 50%, #d4af37 75%, #002b5c 100%);
+                    }
+
+                    .tema-participacion .cinta-esquina-diag {
+                        display: block;
+                        background: linear-gradient(180deg, #002b5c 0%, #002b5c 60%, #0284c7 60%, #0284c7 75%, #d32f2f 75%, #d32f2f 100%);
+                        opacity: 0.9;
+                    }
                     .tema-participacion .certificado-marco-interno { border: 2px solid #0284c7; }
-                    .tema-impacto .certificado-marco-externo { border: 3.5px solid #064e3b; border-radius: 18px; background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 55%, #dcfce7 100%); }
+
+                    .tema-impacto .certificado-marco-externo {
+                        border: 3.5px solid #064e3b;
+                        border-radius: 18px;
+                        background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 55%, #dcfce7 100%);
+                    }
                     .tema-impacto .certificado-marco-interno { border: 2px dashed #16a34a; border-radius: 14px; }
-                    .tema-publico .certificado-marco-externo { border: 4px solid #1e3a8a; border-left: 12px solid #1d4ed8; border-right: 12px solid #1d4ed8; background: radial-gradient(circle at center, #ffffff 0%, #f0f7ff 75%, #dbeafe 100%); }
+                    .tema-impacto .esquina-ornamento { border-radius: 8px; border-color: #15803d; width: 36px; height: 36px; }
+
+                    .tema-publico .certificado-marco-externo {
+                        border: 4px solid #1e3a8a;
+                        border-left: 12px solid #1d4ed8;
+                        border-right: 12px solid #1d4ed8;
+                        background: radial-gradient(circle at center, #ffffff 0%, #f0f7ff 75%, #dbeafe 100%);
+                    }
                     .tema-publico .certificado-marco-interno { border: 2.5px solid #2563eb; }
-                    .tema-publico .franja-imperial { display: block; background: linear-gradient(90deg, #1e3a8a 0%, #38bdf8 50%, #1e3a8a 100%); }
-                    .tema-colaborador .certificado-marco-externo { border: 3px solid #115e59; background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 60%, #ccfbf1 100%); }
-                    .tema-colaborador .cinta-esquina-diag { display: block; background: linear-gradient(180deg, #0d9488 0%, #0d9488 55%, #002b5c 55%, #002b5c 80%, #d32f2f 80%, #d32f2f 100%); }
-                    .tema-tribunal .certificado-marco-externo { border: 3px solid #1e293b; background: linear-gradient(135deg, #fffdf9 0%, #fef9ee 50%, #fffdf9 100%); }
-                    .tema-tribunal .certificado-marco-interno { border-top: 2px solid #92400e; border-bottom: 2px solid #92400e; border-left: 8px double #1e293b; border-right: 8px double #1e293b; }
-                    .tema-organizador .certificado-marco-externo { border: 4px solid #1e1b4b; background: linear-gradient(135deg, #ffffff 0%, #fefce8 60%, #fef9c3 100%); }
+                    .tema-publico .franja-imperial {
+                        display: block;
+                        background: linear-gradient(90deg, #1e3a8a 0%, #38bdf8 50%, #1e3a8a 100%);
+                    }
+
+                    .tema-colaborador .certificado-marco-externo {
+                        border: 3px solid #115e59;
+                        background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 60%, #ccfbf1 100%);
+                    }
+                    .tema-colaborador .cinta-esquina-diag {
+                        display: block;
+                        background: linear-gradient(180deg, #0d9488 0%, #0d9488 55%, #002b5c 55%, #002b5c 80%, #d32f2f 80%, #d32f2f 100%);
+                    }
+                    .tema-colaborador .certificado-marco-interno { border: 2px solid #14b8a6; }
+
+                    .tema-tribunal .certificado-marco-externo {
+                        border: 3px solid #1e293b;
+                        background: linear-gradient(135deg, #fffdf9 0%, #fef9ee 50%, #fffdf9 100%);
+                    }
+                    .tema-tribunal .certificado-marco-interno {
+                        border-top: 2px solid #92400e;
+                        border-bottom: 2px solid #92400e;
+                        border-left: 8px double #1e293b;
+                        border-right: 8px double #1e293b;
+                    }
+                    .tema-tribunal .esquina-ornamento { border-color: #92400e; width: 32px; height: 32px; }
+
+                    .tema-organizador .certificado-marco-externo {
+                        border: 4px solid #1e1b4b;
+                        background: linear-gradient(135deg, #ffffff 0%, #fefce8 60%, #fef9c3 100%);
+                    }
                     .tema-organizador .certificado-marco-interno { border: 3px double #b8860b; }
-                    .tema-admin .certificado-marco-externo { border: 3.5px solid #0f172a; background-color: #f8fafc; background-image: linear-gradient(rgba(2, 132, 199, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(2, 132, 199, 0.06) 1px, transparent 1px); background-size: 22px 22px; }
-                    .tema-admin .certificado-marco-interno { border: 2px solid #0284c7; box-shadow: inset 0 0 20px rgba(2, 132, 199, 0.08); }
+                    .tema-organizador .franja-imperial {
+                        display: block;
+                        height: 7px;
+                        background: linear-gradient(90deg, #002b5c 0%, #002b5c 33%, #d32f2f 33%, #d32f2f 66%, #16a34a 66%, #16a34a 100%);
+                    }
+
+                    .tema-admin .certificado-marco-externo {
+                        border: 3.5px solid #0f172a;
+                        background-color: #f8fafc;
+                        background-image: 
+                            linear-gradient(rgba(2, 132, 199, 0.06) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(2, 132, 199, 0.06) 1px, transparent 1px);
+                        background-size: 22px 22px;
+                    }
+                    .tema-admin .certificado-marco-interno {
+                        border: 2px solid #0284c7;
+                        box-shadow: inset 0 0 20px rgba(2, 132, 199, 0.08);
+                    }
+                    .tema-admin .esquina-ornamento { width: 36px; height: 36px; border-color: #0284c7; border-width: 4px; }
                     .tema-admin .circuito-tech-svg { display: block; }
 
-                    .cert-top-row { display: grid; grid-template-columns: 130px 1fr 130px; align-items: center; width: 100%; padding: 0 6px; position: relative; z-index: 5; }
+                    /* CABECERA CON MEDALLA, LOGOS Y QR */
+                    .cert-top-row {
+                        display: grid;
+                        grid-template-columns: 130px 1fr 130px;
+                        align-items: center;
+                        width: 100%;
+                        padding: 0 6px;
+                        position: relative;
+                        z-index: 5;
+                    }
+
                     .medalla-esquina-izq { display: flex; flex-direction: column; align-items: center; justify-content: center; }
                     .medalla-circulo {
-                        width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--cert-primario) 0%, #0f172a 100%);
-                        border: 3.5px solid var(--cert-acento); display: flex; align-items: center; justify-content: center; color: #fde047; font-size: 1.9rem; box-shadow: 0 5px 14px rgba(0,0,0,0.2);
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 50%;
+                        background: linear-gradient(135deg, var(--cert-primario) 0%, #0f172a 100%);
+                        border: 3.5px solid var(--cert-acento);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #fde047;
+                        font-size: 1.9rem;
+                        box-shadow: 0 5px 14px rgba(0,0,0,0.2);
                     }
+
                     .header-logos { display: flex; justify-content: center; align-items: center; gap: 36px; }
                     .header-logos img { height: 72px; object-fit: contain; }
+
                     .qr-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                    .qr-zone img { width: 82px; height: 82px; border: 2px solid var(--cert-acento); padding: 3px; background: #ffffff; border-radius: 8px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
-                    .qr-zone span { font-size: 9px; color: var(--cert-primario); margin-top: 3px; font-weight: 800; letter-spacing: 0.4px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+                    .qr-zone img {
+                        width: 82px;
+                        height: 82px;
+                        border: 2px solid var(--cert-acento);
+                        padding: 3px;
+                        background: #ffffff;
+                        border-radius: 8px;
+                        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+                    }
+                    .qr-zone span {
+                        font-size: 9px;
+                        color: var(--cert-primario);
+                        margin-top: 3px;
+                        font-weight: 800;
+                        letter-spacing: 0.4px;
+                        font-family: 'JetBrains Mono', monospace;
+                        white-space: nowrap;
+                    }
 
-                    .cert-center-body { position: relative; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 0 12px; }
-                    .texto-institucional { font-size: 0.82rem; color: #334155; margin: 0 0 4px; font-weight: 600; line-height: 1.3; }
-                    h1.titulo-cert { font-family: 'Cinzel', 'Georgia', serif; font-size: 2.12rem; color: var(--cert-primario); margin: 2px 0 5px; font-weight: 800; letter-spacing: 2px; line-height: 1.05; }
+                    /* CUERPO CENTRAL */
+                    .cert-center-body {
+                        position: relative;
+                        z-index: 5;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        flex: 1;
+                        padding: 0 12px;
+                    }
+
+                    .texto-institucional {
+                        font-size: 0.82rem;
+                        color: #334155;
+                        margin: 0 0 4px;
+                        font-weight: 600;
+                        line-height: 1.3;
+                    }
+
+                    h1.titulo-cert {
+                        font-family: 'Cinzel', 'Georgia', serif;
+                        font-size: 2.12rem;
+                        color: var(--cert-primario);
+                        margin: 2px 0 5px;
+                        font-weight: 800;
+                        letter-spacing: 2px;
+                        line-height: 1.05;
+                    }
+
                     .subtitulo-cert {
-                        display: inline-flex; align-items: center; justify-content: center; background: var(--cert-primario); color: #ffffff; padding: 5px 22px; border-radius: 50px; font-size: 0.76rem; font-weight: 800; letter-spacing: 1px; border: 1.8px solid var(--cert-acento); margin: 2px 0 8px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12); outline: none; max-width: 96%;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: var(--cert-primario);
+                        color: #ffffff;
+                        padding: 5px 22px;
+                        border-radius: 50px;
+                        font-size: 0.76rem;
+                        font-weight: 800;
+                        letter-spacing: 1px;
+                        border: 1.8px solid var(--cert-acento);
+                        margin: 2px 0 8px;
+                        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+                        outline: none;
+                        max-width: 96%;
                     }
-                    .otorgado-a-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin: 0; }
+
+                    .otorgado-a-label {
+                        font-size: 0.72rem;
+                        color: #64748b;
+                        text-transform: uppercase;
+                        letter-spacing: 2px;
+                        font-weight: 700;
+                        margin: 0;
+                    }
+
                     .editable-name {
-                        font-family: 'Playfair Display', 'Georgia', serif; font-size: 1.94rem; font-weight: 700; font-style: italic; color: #0f172a; border-bottom: 2px solid var(--cert-acento); display: inline-block; min-width: 58%; max-width: 90%; padding: 0 20px 2px; margin: 1px 0 6px; outline: none;
+                        font-family: 'Playfair Display', 'Georgia', serif;
+                        font-size: 1.94rem;
+                        font-weight: 700;
+                        font-style: italic;
+                        color: #0f172a;
+                        border-bottom: 2px solid var(--cert-acento);
+                        display: inline-block;
+                        min-width: 58%;
+                        max-width: 90%;
+                        padding: 0 20px 2px;
+                        margin: 1px 0 6px;
+                        outline: none;
                     }
-                    .editable-name:focus, .body-text:focus, .subtitulo-cert:focus { background: rgba(77, 184, 255, 0.15); border-radius: 6px; }
-                    .body-text { font-size: 0.91rem; color: #1e293b; line-height: 1.42; max-width: 90%; margin: 0 auto 4px; outline: none; }
-                    .fecha-lugar { font-size: 0.81rem; color: #475569; font-weight: 600; margin: 2px 0 0; }
 
-                    .firmas-container { display: grid; grid-template-columns: repeat(3, 1fr); align-items: flex-start; justify-items: center; gap: 24px; width: 100%; padding: 0 22px; margin-top: 8px; position: relative; }
-                    .firma-bloque { position: relative; text-align: center; width: 100%; max-width: 255px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 66px; }
-                    .firma-linea-divisor { width: 100%; border-top: 1.8px solid #0f172a; padding-top: 6px; min-height: 42px; position: relative; z-index: 3; }
-                    .img-firma-autoridad { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); height: 76px; width: 185px; object-fit: contain; pointer-events: none; z-index: 2; }
-                    .img-sello-oficial { position: absolute; width: 102px; height: 102px; object-fit: contain; pointer-events: none; z-index: 4; }
-                    .sello-carrera-pos { top: -22px; right: -32px; transform: rotate(-6deg); }
-                    .sello-iisp-pos { top: -50px; right: -28px; transform: rotate(-5deg); }
-                    .firma-bloque h4 { margin: 0; font-size: 0.72rem; color: #0f172a; font-weight: 800; line-height: 1.22; white-space: nowrap; }
-                    .firma-bloque p { margin: 2px 0 0; font-size: 0.65rem; color: #475569; font-weight: 700; line-height: 1.18; }
+                    .editable-name:focus, .body-text:focus, .subtitulo-cert:focus {
+                        background: rgba(77, 184, 255, 0.15);
+                        border-radius: 6px;
+                    }
 
+                    .body-text {
+                        font-size: 0.91rem;
+                        color: #1e293b;
+                        line-height: 1.42;
+                        max-width: 90%;
+                        margin: 0 auto 4px;
+                        outline: none;
+                    }
+
+                    .fecha-lugar {
+                        font-size: 0.81rem;
+                        color: #475569;
+                        font-weight: 600;
+                        margin: 2px 0 0;
+                    }
+
+                    /* SECCIÓN DE FIRMAS Y SELLOS */
+                    .firmas-container {
+                        display: grid;
+                        grid-template-columns: repeat(3, 1fr);
+                        align-items: flex-start;
+                        justify-items: center;
+                        gap: 24px;
+                        width: 100%;
+                        padding: 0 22px;
+                        margin-top: 8px;
+                        position: relative;
+                    }
+
+                    .firma-bloque {
+                        position: relative;
+                        text-align: center;
+                        width: 100%;
+                        max-width: 255px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: flex-start;
+                        padding-top: 66px;
+                    }
+
+                    .firma-linea-divisor {
+                        width: 100%;
+                        border-top: 1.8px solid #0f172a;
+                        padding-top: 6px;
+                        min-height: 42px;
+                        position: relative;
+                        z-index: 3;
+                    }
+
+                    .img-firma-autoridad {
+                        position: absolute;
+                        top: -4px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        height: 76px;
+                        width: 185px;
+                        object-fit: contain;
+                        pointer-events: none;
+                        z-index: 2;
+                    }
+
+                    .img-sello-oficial {
+                        position: absolute;
+                        width: 102px;
+                        height: 102px;
+                        object-fit: contain;
+                        pointer-events: none;
+                        z-index: 4;
+                    }
+
+                    .sello-carrera-pos {
+                        top: -22px;
+                        right: -32px;
+                        transform: rotate(-6deg);
+                    }
+
+                    .sello-iisp-pos {
+                        top: -50px;
+                        right: -28px;
+                        transform: rotate(-5deg);
+                    }
+
+                    .firma-bloque h4 {
+                        margin: 0;
+                        font-size: 0.72rem;
+                        color: #0f172a;
+                        font-weight: 800;
+                        line-height: 1.22;
+                        white-space: nowrap;
+                    }
+
+                    .firma-bloque p {
+                        margin: 2px 0 0;
+                        font-size: 0.65rem;
+                        color: #475569;
+                        font-weight: 700;
+                        line-height: 1.18;
+                    }
+
+                    /* IMPRESIÓN PERFECTA EN 1 SOLA PÁGINA */
                     @media print {
                         @page { size: landscape; margin: 0mm; }
-                        html, body { width: 100vw !important; height: 100vh !important; margin: 0 !important; padding: 0 !important; background: #ffffff !important; overflow: hidden !important; display: block !important; }
+                        html, body {
+                            width: 100vw !important;
+                            height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            background: #ffffff !important;
+                            overflow: hidden !important;
+                            display: block !important;
+                        }
                         .no-print { display: none !important; }
-                        .certificado-page-wrapper { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; max-height: 100vh !important; margin: 0 !important; padding: 7mm 9mm !important; box-shadow: none !important; page-break-inside: avoid !important; break-inside: avoid !important; overflow: hidden !important; }
+                        .certificado-page-wrapper {
+                            width: 100vw !important;
+                            height: 100vh !important;
+                            max-width: 100vw !important;
+                            max-height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 7mm 9mm !important;
+                            box-shadow: none !important;
+                            page-break-inside: avoid !important;
+                            break-inside: avoid !important;
+                            overflow: hidden !important;
+                        }
                     }
                 </style>
             </head>
@@ -1147,7 +1624,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         </button>
 
                         <span style="font-size:0.75rem; color:#94a3b8;"><i class="fas fa-pen"></i> Textos editables</span>
-                        <button type="button" class="btn-imprimir-top" onclick="registrarYImprimir()">
+                        <button type="button" class="btn-imprimir-top" onclick="window.print()">
                             <i class="fas fa-print"></i> Imprimir en 1 Hoja
                         </button>
                     </div>
@@ -1283,31 +1760,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         }
     }
 
-    async function registrarCertificadoEnBD() {
-        try {
-            const codigoActual = document.getElementById('cert-qr-code-text').textContent.replace(/^ID:\\s*/i, '').trim();
-            const nombreActual = document.querySelector('.editable-name').textContent.trim();
-            const subtituloActual = document.getElementById('cert-subtitulo').textContent.trim();
-
-            await fetch(ORIGEN_URL + '/api/registrar_certificado', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    codigoQr: codigoActual,
-                    nombrePersona: nombreActual,
-                    tipoCertificado: subtituloActual
-                })
-            });
-        } catch (e) {
-            console.error("No se pudo registrar el certificado en la BD:", e);
-        }
-    }
-
-    async function registrarYImprimir() {
-        await registrarCertificadoEnBD();
-        window.print();
-    }
-
     async function enviarCertificadoPorCorreoColaborador() {
         const btn = document.getElementById('btn-enviar-correo-colab');
         const nombreActual = document.querySelector('.editable-name').textContent.trim();
@@ -1316,10 +1768,10 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         CORREO_DESTINATARIO_ACTUAL = correoFinal.trim();
 
         btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando y Enviando...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF y Enviando...';
 
         try {
-            await registrarCertificadoEnBD();
+            if (typeof sincronizarCertificadoConBD === 'function') await sincronizarCertificadoConBD(false);
             const elementoCert = document.getElementById('cert-page-wrapper');
             const canvas = await html2canvas(elementoCert, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
             const imgData = canvas.toDataURL('image/jpeg', 0.92);
@@ -1349,7 +1801,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             const respData = await res.json();
             if (!res.ok) throw new Error(respData.error || "Error al enviar el correo.");
 
-            alert(respData.mensaje || "✅ Certificado registrado y enviado con éxito a " + CORREO_DESTINATARIO_ACTUAL);
+            alert(respData.mensaje || "✅ Certificado enviado con éxito a " + CORREO_DESTINATARIO_ACTUAL);
         } catch (error) {
             alert("❌ " + error.message);
         } finally {
@@ -1405,6 +1857,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         actualizarVisibilidadBotonCorreo();
     }
 
+    // QUITAR FONDO BLANCO Y RECORTAR BORDES VACÍOS AUTOMÁTICAMENTE A FIRMAS Y SELLOS
     function limpiarFondoYRecortarImagenes() {
         document.querySelectorAll('.img-firma-autoridad, .img-sello-oficial').forEach(img => {
             const procesar = () => {
