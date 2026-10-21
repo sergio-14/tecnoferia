@@ -1440,7 +1440,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         margin: 1px 0 0;
                     }
 
-                    /* 🔥 SECCIÓN DE FIRMAS Y SELLOS IGUALADOS VISUALMENTE AL MISMO TAMAÑO 🔥 */
+                    /* 🔥 SECCIÓN DE FIRMAS Y SELLOS CON TRANSPARENCIA REAL Y TAMAÑO UNIFORME 🔥 */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
@@ -1449,9 +1449,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         gap: 24px;
                         width: 100%;
                         padding: 0 22px;
-                        margin-top: 8px;
+                        margin-top: 10px;
                         position: relative;
-                        z-index: 6;
                     }
 
                     .firma-bloque {
@@ -1463,7 +1462,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         flex-direction: column;
                         align-items: center;
                         justify-content: flex-start;
-                        padding-top: 66px; /* Espacio uniforme arriba de la línea para las firmas */
+                        padding-top: 58px;
                     }
 
                     .firma-linea-divisor {
@@ -1475,59 +1474,30 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         z-index: 3;
                     }
 
-                    /* Base común para las 3 firmas (sin recuadro blanco) */
+                    /* Las 3 firmas recortadas al ras tendrán exactamente la misma caja visual */
                     .img-firma-autoridad {
                         position: absolute;
+                        top: 2px;
                         left: 50%;
+                        transform: translateX(-50%);
+                        height: 62px;
+                        width: 155px;
                         object-fit: contain;
-                        mix-blend-mode: multiply;
-                        filter: brightness(1.12) contrast(1.55);
                         pointer-events: none;
                         z-index: 2;
                     }
 
-                    /* Calibración individual para que las 3 firmas se vean igual de grandes */
-                    .firma-decano-img {
-                        height: 82px;
-                        top: -6px;
-                        transform: translateX(-50%) scale(1.15);
-                    }
-                    .firma-morales-img {
-                        height: 86px;
-                        top: -10px;
-                        transform: translateX(-50%) scale(1.75); /* Compensa el margen blanco de su foto */
-                    }
-                    .firma-chao-img {
-                        height: 84px;
-                        top: -8px;
-                        transform: translateX(-50%) scale(1.22);
-                    }
-
-                    /* Base común para los 2 sellos redondos */
+                    /* Los 2 sellos redondos recortados al ras medirán exactamente 88x88px */
                     .img-sello-oficial {
                         position: absolute;
+                        top: -10px;
+                        right: -22px;
+                        width: 88px;
+                        height: 88px;
                         object-fit: contain;
-                        mix-blend-mode: multiply;
-                        filter: brightness(1.12) contrast(1.45);
-                        opacity: 0.94;
+                        transform: rotate(-6deg);
                         pointer-events: none;
                         z-index: 4;
-                    }
-
-                    /* Ambos sellos calibrados al mismo diámetro visual exacto (aprox. 96px del círculo azul) */
-                    .sello-carrera-img {
-                        width: 96px;
-                        height: 96px;
-                        top: -18px;
-                        right: -28px;
-                        transform: scale(1.48) rotate(-6deg); /* Compensa el borde blanco extra de la imagen */
-                    }
-                    .sello-iisp-img {
-                        width: 96px;
-                        height: 96px;
-                        top: -18px;
-                        right: -28px;
-                        transform: scale(0.98) rotate(-6deg);
                     }
 
                     .firma-bloque h4 {
@@ -1837,6 +1807,72 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         regenerarCodigoQR();
         actualizarVisibilidadBotonCorreo();
     }
+    // 🔥 QUITAR FONDO BLANCO Y RECORTAR BORDES VACÍOS AUTOMÁTICAMENTE A FIRMAS Y SELLOS 🔥
+    function limpiarFondoYRecortarImagenes() {
+        document.querySelectorAll('.img-firma-autoridad, .img-sello-oficial').forEach(img => {
+            const procesar = () => {
+                if (img.dataset.procesada === '1' || !img.naturalWidth) return;
+                img.dataset.procesada = '1';
+                try {
+                    const c = document.createElement('canvas');
+                    const w = img.naturalWidth, h = img.naturalHeight;
+                    c.width = w; c.height = h;
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    const imgData = ctx.getImageData(0, 0, w, h);
+                    const d = imgData.data;
+
+                    let minX = w, minY = h, maxX = 0, maxY = 0;
+
+                    for (let y = 0; y < h; y++) {
+                        for (let x = 0; x < w; x++) {
+                            const i = (y * w + x) * 4;
+                            const r = d[i], g = d[i+1], b = d[i+2];
+                            const brillo = (r + g + b) / 3;
+
+                            // Si el píxel es blanco o gris claro del papel, volverlo 100% transparente
+                            if (brillo > 218 && (b - r) < 22) {
+                                d[i+3] = 0;
+                            } else if (d[i+3] > 20) {
+                                // Realzar el color azul de la tinta/sello
+                                d[i]   = Math.max(0, r - 25);
+                                d[i+1] = Math.max(0, g - 15);
+                                d[i+2] = Math.min(255, b + 30);
+                                if (x < minX) minX = x;
+                                if (x > maxX) maxX = x;
+                                if (y < minY) minY = y;
+                                if (y > maxY) maxY = y;
+                            }
+                        }
+                    }
+
+                    ctx.putImageData(imgData, 0, 0);
+
+                    // Recortar los márgenes blancos sobrantes para que todas las firmas y sellos tengan el mismo tamaño real
+                    if (maxX > minX && maxY > minY) {
+                        const pad = 6;
+                        const rx = Math.max(0, minX - pad);
+                        const ry = Math.max(0, minY - pad);
+                        const rw = Math.min(w - rx, (maxX - minX) + pad * 2);
+                        const rh = Math.min(h - ry, (maxY - minY) + pad * 2);
+
+                        const cRecorte = document.createElement('canvas');
+                        cRecorte.width = rw;
+                        cRecorte.height = rh;
+                        cRecorte.getContext('2d').drawImage(c, rx, ry, rw, rh, 0, 0, rw, rh);
+                        img.src = cRecorte.toDataURL('image/png');
+                    } else {
+                        img.src = c.toDataURL('image/png');
+                    }
+                } catch (e) { console.error(e); }
+            };
+
+            if (img.complete && img.naturalWidth) procesar();
+            else img.addEventListener('load', procesar, { once: true });
+        });
+    }
+
+    limpiarFondoYRecortarImagenes();
 
     setTimeout(actualizarVisibilidadBotonCorreo, 100);
 </script>
