@@ -578,9 +578,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         // Único ganador de Mayor Votación del Público
         const ganadorPublico = [...listaCalculada].filter(x => x.promPub > 0).sort((a, b) => b.promPub - a.promPub)[0] || null;
 
-        // 2. BUSCAR A LA PERSONA EN TODAS LAS TABLAS Y PERFILES
+        // 2. BUSCAR A LA PERSONA Y SU CORREO EN TODAS LAS TABLAS Y PERFILES
         let personaNombre = "";
-        let correoColaboradorDetectado = "";
+        let correoDestinatarioDetectado = "";
         let categoriaDetectadaPersona = "";
         let tituloProyectoDetectado = "";
         const certificadosDetectados = [];
@@ -593,11 +593,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             return false;
         };
 
-        // Detectar correo si es Colaborador
-        const colabCorreoObj = (colaboradores || []).find(c => coincidePersona(c.id, c.nombre_completo) || coincidePersona(c.celular, c.nombre_completo));
-        if (colabCorreoObj && colabCorreoObj.correo) {
-            correoColaboradorDetectado = colabCorreoObj.correo.trim();
-        }
+        // Buscar correo automáticamente en todas las tablas disponibles
+        const buscarCorreoEnLista = (lista) => {
+            for (const item of (lista || [])) {
+                if (coincidePersona(item.ci || item.id || item.usuario_tribunal || item.celular, item.nombre_completo || item.nombre)) {
+                    const mail = item.correo || item.email || item.correo_electronico || "";
+                    if (mail && String(mail).includes('@')) return String(mail).trim();
+                }
+            }
+            return "";
+        };
+
+        correoDestinatarioDetectado = 
+            buscarCorreoEnLista(colaboradores) ||
+            buscarCorreoEnLista(expositores) ||
+            buscarCorreoEnLista(tribunales) ||
+            buscarCorreoEnLista(visitantes);
 
         // PERFIL A: Administrador / Implementador del Sistema
         let esAdminBD = false;
@@ -609,6 +620,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                     if (usrData.rol === 'ADMIN') {
                         esAdminBD = true;
                         personaNombre = usrData.datos.nombre_completo || personaNombre;
+                        if (!correoDestinatarioDetectado && (usrData.datos.correo || usrData.datos.email)) {
+                            correoDestinatarioDetectado = (usrData.datos.correo || usrData.datos.email).trim();
+                        }
                     }
                 }
             } catch (e) {}
@@ -627,7 +641,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 watermarkIcon: 'fa-microchip',
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
         }
@@ -681,6 +695,9 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             const miembroHallado = sp.miembros.find(m => coincidePersona(m.ci, m.nombre));
             if (miembroHallado) {
                 if (!personaNombre) personaNombre = miembroHallado.nombre;
+                if (!correoDestinatarioDetectado && (miembroHallado.correo || sp.proyecto.correo_lider || sp.proyecto.correo)) {
+                    correoDestinatarioDetectado = (miembroHallado.correo || sp.proyecto.correo_lider || sp.proyecto.correo).trim();
+                }
                 categoriaDetectadaPersona = sp.catNombre;
                 tituloProyectoDetectado = sp.titulo;
 
@@ -947,7 +964,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 watermarkIcon: 'fa-microchip',
                 ornamentoSuperior: '⚡ ARQUITECTURA DE SOFTWARE · PLATAFORMA OFICIAL ⚡',
                 tituloCertificado: 'CERTIFICADO DE RECONOCIMIENTO',
-                subtituloCertificado: 'ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
+                subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             }
         ];
@@ -988,6 +1005,8 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 <title>Certificado Oficial - ${personaNombre}</title>
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
                 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,700&family=Montserrat:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap" rel="stylesheet">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
                 <style>
                     :root {
                         --cert-primario: ${certInicial.colorPrimario};
@@ -1540,7 +1559,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         </button>
                     </div>
                     <div style="display:flex; align-items:center; gap:10px; flex-wrap: wrap;">
-                        <button type="button" id="btn-enviar-correo-colab" onclick="enviarCertificadoPorCorreoColaborador()" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: #ffffff; border: none; padding: 9px 18px; border-radius: 50px; font-weight: 800; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4); display: none; align-items: center; gap: 7px; transition: 0.2s;">
+                        <button type="button" id="btn-enviar-correo-colab" onclick="enviarCertificadoPorCorreoColaborador()" style="background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%); color: #ffffff; border: none; padding: 9px 18px; border-radius: 50px; font-weight: 800; font-size: 0.84rem; cursor: pointer; box-shadow: 0 4px 15px rgba(13, 148, 136, 0.4); display: inline-flex; align-items: center; gap: 7px; transition: 0.2s;">
                            <i class="fas fa-envelope"></i> Enviar por Correo
                         </button>
 
@@ -1668,29 +1687,25 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         opts.headers['x-feria-storage'] = HEADER_STORAGE_ADMIN;
         return _fetchCertOrig.call(this, url, opts);
     };
-    let CORREO_COLABORADOR_ACTUAL = ${JSON.stringify(correoColaboradorDetectado)};
+    let CORREO_DESTINATARIO_ACTUAL = ${JSON.stringify(correoDestinatarioDetectado)};
 
     function actualizarVisibilidadBotonCorreo() {
         const btnEmail = document.getElementById('btn-enviar-correo-colab');
         if (!btnEmail) return;
-        const sel = document.querySelector('.select-plantilla-manual');
-        const idx = sel ? Number(sel.value) : 0;
-        const modelo = (typeof MODELOS_CERT !== 'undefined' && MODELOS_CERT[idx]) ? MODELOS_CERT[idx] : {};
-        const esColaborador = modelo.tipo === 'colaborador' || modelo.tipo === 'manual_colaborador';
-
-        btnEmail.style.display = esColaborador ? 'inline-flex' : 'none';
-        if (esColaborador && CORREO_COLABORADOR_ACTUAL) {
-            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar a: ' + CORREO_COLABORADOR_ACTUAL;
-        } else if (esColaborador) {
-            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar al Correo';
+        btnEmail.style.display = 'inline-flex';
+        if (CORREO_DESTINATARIO_ACTUAL) {
+            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar a: ' + CORREO_DESTINATARIO_ACTUAL;
+        } else {
+            btnEmail.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar por Correo';
         }
     }
 
     async function enviarCertificadoPorCorreoColaborador() {
         const btn = document.getElementById('btn-enviar-correo-colab');
-        const correoFinal = prompt("Confirme o ingrese el correo electrónico del Colaborador:", CORREO_COLABORADOR_ACTUAL || "");
+        const nombreActual = document.querySelector('.editable-name').textContent.trim();
+        const correoFinal = prompt("Confirme o ingrese el correo electrónico para enviar el certificado de " + nombreActual + ":", CORREO_DESTINATARIO_ACTUAL || "");
         if (!correoFinal || !correoFinal.includes('@')) return;
-        CORREO_COLABORADOR_ACTUAL = correoFinal.trim();
+        CORREO_DESTINATARIO_ACTUAL = correoFinal.trim();
 
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando PDF y Enviando...';
@@ -1707,15 +1722,16 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             const pdfBase64 = pdf.output('datauristring');
 
             const codigoActual = document.getElementById('cert-qr-code-text').textContent.replace(/^ID:\\s*/i, '').trim();
-            const nombreActual = document.querySelector('.editable-name').textContent.trim();
+            const subtituloActual = document.getElementById('cert-subtitulo').textContent.trim();
             const urlVerificacion = ORIGEN_URL + '/?validar_certificado=' + encodeURIComponent(codigoActual);
 
             const res = await fetch(ORIGEN_URL + '/api/enviar_certificado_colaborador', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    correoDestino: CORREO_COLABORADOR_ACTUAL,
+                    correoDestino: CORREO_DESTINATARIO_ACTUAL,
                     nombreColaborador: nombreActual,
+                    tipoCertificado: subtituloActual,
                     codigoQr: codigoActual,
                     pdfBase64: pdfBase64,
                     urlVerificacion: urlVerificacion
@@ -1725,7 +1741,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             const respData = await res.json();
             if (!res.ok) throw new Error(respData.error || "Error al enviar el correo.");
 
-            alert(respData.mensaje || "✅ Certificado enviado con éxito al correo del colaborador.");
+            alert(respData.mensaje || "✅ Certificado enviado con éxito a " + CORREO_DESTINATARIO_ACTUAL);
         } catch (error) {
             alert("❌ " + error.message);
         } finally {
