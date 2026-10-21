@@ -280,6 +280,30 @@ app.get('/api/certificados/verificar/:codigo', async (req, res) => {
     }
 });
 
+// =========================================================================
+// 🔥 RUTA PARA REGISTRAR CERTIFICADOS AL IMPRIMIR O ENVIAR 🔥
+// =========================================================================
+app.post('/api/registrar_certificado', exigirSesionAdmin, async (req, res) => {
+    try {
+        const { codigoQr, nombrePersona, tipoCertificado } = req.body;
+        if (!codigoQr || !nombrePersona) {
+            return res.status(400).json({ error: "Faltan datos obligatorios para registrar el certificado." });
+        }
+
+        await db.query(
+            `INSERT INTO certificados_emitidos (codigo_qr, nombre_completo, tipo_certificado) 
+             VALUES ($1, $2, $3) 
+             ON CONFLICT (codigo_qr) DO NOTHING;`,
+            [codigoQr, nombrePersona, tipoCertificado || "CERTIFICADO OFICIAL"]
+        );
+
+        res.json({ success: true, mensaje: "Certificado registrado correctamente en la base de datos." });
+    } catch (err) {
+        console.error("Error al registrar certificado:", err);
+        res.status(500).json({ error: "Error interno al guardar el certificado." });
+    }
+});
+
 app.get('/api/usuarios_admin', exigirSesionAdmin, async (req, res) => {
     try {
         const administradores = await db.query("SELECT ci as id, nombre_completo, 'ADMINISTRADOR DEL SISTEMA' as institucion, celular, correo FROM administradores ORDER BY nombre_completo ASC");
