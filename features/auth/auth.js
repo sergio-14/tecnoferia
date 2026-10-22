@@ -1,6 +1,6 @@
 // =========================================================================
 // ARCHIVO: features/auth/auth.js
-// FUNCIÓN: Manejo de interfaz de usuario, Login Seguro y Validador de Certificados
+// FUNCIÓN: Manejo de interfaz de usuario y Login Seguro
 // =========================================================================
 
 window.toggleAuthMode = function(event, mode) {
@@ -131,148 +131,15 @@ window.iniciarMonitoreoSesion = function() {
 };
 
 // =========================================================================
-// 🔥 NUEVO: MÓDULO VISUAL DE VALIDACIÓN DE CERTIFICADOS 🔥
-// =========================================================================
-window.mostrarModalValidacion = function(esValido, datos = null) {
-    const modalViejo = document.getElementById('modal-validacion-cert');
-    if (modalViejo) modalViejo.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'modal-validacion-cert';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; display: flex; justify-content: center; align-items: center; padding: 20px; font-family: Arial, sans-serif;';
-    
-    let contenidoHtml = '';
-    if (esValido) {
-        const fechaActual = new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
-        contenidoHtml = `
-            <div style="background: #e8f5e9; color: #2e7d32; padding: 15px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; text-align: center; border: 1px solid #c8e6c9;">
-                <i class="fas fa-check-circle"></i> Este certificado es válido
-            </div>
-            <div style="text-align: left; font-size: 0.95rem; color: #333;">
-                <div style="display: flex; border-bottom: 1px solid #eee; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">Nombre completo</div>
-                    <div style="width: 60%; color: #000; font-weight: bold; text-transform: capitalize;">${datos.nombre_completo.toLowerCase()}</div>
-                </div>
-                <div style="display: flex; border-bottom: 1px solid #eee; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">C.I. / ID</div>
-                    <div style="width: 60%; color: #000;">${datos.ci}</div>
-                </div>
-                <div style="display: flex; border-bottom: 1px solid #eee; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">Certificado</div>
-                    <div style="width: 60%; color: #000;">Participación en TecnoFeria 2026</div>
-                </div>
-                <div style="display: flex; border-bottom: 1px solid #eee; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">Fecha de emisión</div>
-                    <div style="width: 60%; color: #000;">14 de octubre de 2026</div>
-                </div>
-                <div style="display: flex; border-bottom: 1px solid #eee; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">Fecha de consulta</div>
-                    <div style="width: 60%; color: #000;">${fechaActual}</div>
-                </div>
-                <div style="display: flex; padding: 12px 0;">
-                    <div style="width: 40%; color: #666; font-weight: bold;">Estado</div>
-                    <div style="width: 60%; color: #28a745; font-weight: bold;">Válido Oficial</div>
-                </div>
-            </div>
-        `;
-    } else {
-        contenidoHtml = `
-            <div style="background: #ffebee; color: #c62828; padding: 15px; border-radius: 8px; font-weight: bold; margin-bottom: 20px; text-align: center; border: 1px solid #ffcdd2;">
-                <i class="fas fa-times-circle"></i> Certificado no encontrado o inválido
-            </div>
-            <p style="text-align: center; color: #666; font-size: 0.95rem; line-height: 1.5;">El código identificador ingresado no corresponde a ningún registro oficial emitido por la TecnoFeria 2026.<br><b>El documento físico podría estar alterado o falsificado.</b></p>
-        `;
-    }
-
-    modal.innerHTML = `
-        <div style="background: white; border-radius: 12px; width: 100%; max-width: 450px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.5); animation: fadeUp 0.3s ease;">
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-bottom: 1px solid #eee;">
-                <img src="assets/img/LogoAcreditadaa.png" style="height: 50px; margin-bottom: 10px;">
-                <h2 style="margin: 0; color: #002b5c; font-size: 1.3rem;">Verificación Oficial UABJB</h2>
-            </div>
-            <div style="padding: 25px;">
-                ${contenidoHtml}
-                <button onclick="document.getElementById('modal-validacion-cert').remove()" style="width: 100%; background: #002b5c; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; margin-top: 20px; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#004080'" onmouseout="this.style.background='#002b5c'">Cerrar Verificador</button>
-            </div>
-        </div>
-        <style>@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }</style>
-    `;
-    document.body.appendChild(modal);
-};
-
-// 🔥 Función para abrir el buscador manual desde la pantalla de inicio 🔥
-window.abrirBuscadorCertificados = function() {
-    const modalViejo = document.getElementById('modal-ingreso-cert');
-    if (modalViejo) modalViejo.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'modal-ingreso-cert';
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,25,50,0.9); z-index: 9999999; display: flex; justify-content: center; align-items: center; padding: 20px; font-family: Arial, sans-serif;';
-    
-    modal.innerHTML = `
-        <div style="background: white; border-radius: 12px; width: 100%; max-width: 400px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.5); animation: fadeUp 0.3s ease;">
-            <div style="background: #f8f9fa; padding: 20px; text-align: center; border-bottom: 1px solid #eee; position: relative;">
-                <h2 style="margin: 0; color: #002b5c; font-size: 1.4rem;"><i class="fas fa-shield-alt" style="color: #f39c12;"></i> Verificar Certificado</h2>
-                <button onclick="document.getElementById('modal-ingreso-cert').remove()" style="position: absolute; right: 15px; top: 18px; background: none; border: none; font-size: 1.5rem; color: #666; cursor: pointer;">&times;</button>
-            </div>
-            <div style="padding: 25px;">
-                <label style="display: block; font-weight: bold; color: #333; margin-bottom: 10px;">Código ID o C.I. del participante</label>
-                <input type="text" id="input-verif-cert" placeholder="Ej. 1234567" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 1.1rem; box-sizing: border-box; margin-bottom: 20px; outline: none; background: #fff; color: #000;">
-                
-                <button onclick="window.ejecutarValidacionManual()" style="width: 100%; background: #0056b3; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s;" onmouseover="this.style.background='#004080'" onmouseout="this.style.background='#0056b3'">
-                    <i class="fas fa-search"></i> Verificar Autenticidad
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    setTimeout(() => { document.getElementById('input-verif-cert').focus(); }, 100);
-};
-
-window.ejecutarValidacionManual = function() {
-    const ci = document.getElementById('input-verif-cert').value.trim();
-    if (!ci) { alert('⚠️ Ingrese un código válido.'); return; }
-    
-    document.getElementById('modal-ingreso-cert').remove();
-    
-    fetch(`/api/usuarios/${ci}`)
-    .then(res => res.json())
-    .then(data => {
-        if(data && data.datos) {
-            data.datos.ci = ci;
-            window.mostrarModalValidacion(true, data.datos);
-        } else {
-            window.mostrarModalValidacion(false);
-        }
-    }).catch(e => window.mostrarModalValidacion(false));
-};
-
-// =========================================================================
-// AUTO-LOGIN UNIVERSAL Y CAPTURA DEL QR
+// AUTO-LOGIN UNIVERSAL
 // =========================================================================
 window.addEventListener('DOMContentLoaded', () => {
     const parametros = new URLSearchParams(window.location.search);
     const accion = parametros.get('action');
     const idProy = parametros.get('idProy'); 
 
-    // 🔥 SI ENTRA POR ESCANEO DE QR DE CERTIFICADO 🔥
-    const validarCert = parametros.get('validar_certificado');
-    if (validarCert) {
-        fetch(`/api/usuarios/${validarCert}`)
-        .then(res => res.json())
-        .then(data => {
-            if(data && data.datos) {
-                data.datos.ci = validarCert;
-                window.mostrarModalValidacion(true, data.datos);
-            } else {
-                window.mostrarModalValidacion(false);
-            }
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }).catch(e => {
-            window.mostrarModalValidacion(false);
-            window.history.replaceState({}, document.title, window.location.pathname);
-        });
-    }
+    // Si entra escaneando el QR de un certificado, verificacion.js se encarga de todo
+    if (parametros.get('validar_certificado')) return;
 
     if (idProy) return;
 

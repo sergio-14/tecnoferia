@@ -258,11 +258,21 @@ app.post('/api/certificados/guardar', exigirSesionAdmin, async (req, res) => {
 
 app.get('/api/certificados/verificar/:codigo', async (req, res) => {
     try {
-        const rawCode = (req.params.codigo || "").replace(/^ID:\s*/i, '').trim().toUpperCase();
+        let rawInput = decodeURIComponent(req.params.codigo || "").trim().toUpperCase();
+        // Extraer automáticamente el patrón TF26-XXXX-XXXX aunque venga dentro de una URL completa
+        const matchCodigo = rawInput.match(/TF26-[A-Z0-9]{4}-[A-Z0-9]{4}/i);
+        const rawCode = matchCodigo ? matchCodigo[0].toUpperCase() : rawInput.replace(/^ID:\s*/i, '').trim();
+
         if (!rawCode) return res.status(404).json({ valido: false });
 
         const result = await db.query(
-            `SELECT codigo_qr, nombre_completo, tipo_certificado, subtitulo, insignia, detalle_reconocimiento, lugar_fecha,
+            `SELECT codigo_qr, 
+                    nombre_completo, 
+                    tipo_certificado, 
+                    COALESCE(subtitulo_certificado, tipo_certificado) AS subtitulo, 
+                    COALESCE(titulo_certificado, 'CERTIFICADO OFICIAL') AS insignia, 
+                    COALESCE(detalle_certificado, '') AS detalle_reconocimiento, 
+                    COALESCE(lugar_evento, 'Trinidad - Beni, Octubre de 2026') AS lugar_fecha,
                     TO_CHAR(fecha_emision, 'DD/MM/YYYY HH24:MI') as fecha_registro
              FROM certificados_emitidos
              WHERE UPPER(TRIM(codigo_qr)) = $1 LIMIT 1`,
@@ -273,7 +283,7 @@ app.get('/api/certificados/verificar/:codigo', async (req, res) => {
             return res.json({ valido: false });
         }
 
-        res.json({ valido: true, datos: result.rows[0] });
+        res.json({ valido: true, certificado: result.rows[0], datos: result.rows[0] });
     } catch (error) {
         console.error("Error al verificar certificado:", error);
         res.status(500).json({ error: "Error interno del servidor al verificar el certificado." });
@@ -285,19 +295,36 @@ app.get('/api/certificados/verificar/:codigo', async (req, res) => {
 // =========================================================================
 app.post('/api/registrar_certificado', exigirSesionAdmin, async (req, res) => {
     try {
-        const { codigoQr, nombrePersona, tipoCertificado } = req.body;
+        const { codigoQr, nombrePersona, tipoCertificado, tituloCertificado, subtituloCertificado, detalleCertificado, lugarEvento } = req.body;
         if (!codigoQr || !nombrePersona) {
             return res.status(400).json({ error: "Faltan datos obligatorios para registrar el certificado." });
         }
 
+        const codLimpio = String(codigoQr).replace(/^ID:\s*/i, '').trim().toUpperCase();
+
         await db.query(
-            `INSERT INTO certificados_emitidos (codigo_qr, nombre_completo, tipo_certificado) 
-             VALUES ($1, $2, $3) 
-             ON CONFLICT (codigo_qr) DO NOTHING;`,
-            [codigoQr, nombrePersona, tipoCertificado || "CERTIFICADO OFICIAL"]
+            `INSERT INTO certificados_emitidos 
+                (codigo_qr, nombre_completo, tipo_certificado, titulo_certificado, subtitulo_certificado, detalle_certificado, lugar_evento) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) 
+             ON CONFLICT (codigo_qr) DO UPDATE SET
+                nombre_completo = EXCLUDED.nombre_completo,
+                tipo_certificado = EXCLUDED.tipo_certificado,
+                titulo_certificado = EXCLUDED.titulo_certificado,
+                subtitulo_certificado = EXCLUDED.subtitulo_certificado,
+                detalle_certificado = EXCLUDED.detalle_certificado,
+                lugar_evento = EXCLUDED.lugar_evento;`,
+            [
+                codLimpio,
+                nombrePersona.trim(),
+                tipoCertificado || "CERTIFICADO OFICIAL",
+                tituloCertificado || "CERTIFICADO DE RECONOCIMIENTO",
+                subtituloCertificado || tipoCertificado || "TECNOFERIA 2026",
+                detalleCertificado || "",
+                lugarEvento || "Trinidad - Beni, Octubre de 2026"
+            ]
         );
 
-        res.json({ success: true, mensaje: "Certificado registrado correctamente en la base de datos." });
+        res.json({ ok: true, success: true, codigoQr: codLimpio });
     } catch (err) {
         console.error("Error al registrar certificado:", err);
         res.status(500).json({ error: "Error interno al guardar el certificado." });
@@ -1121,14 +1148,19 @@ app.post('/api/certificados_emitidos', exigirSesionAdmin, async (req, res) => {
     }
 });
 
-// 🔥 2. RUTA PÚBLICA PARA VERIFICAR AUTENTICIDAD POR CÓDIGO QR O ID 🔥
 app.get('/api/verificar_certificado/:codigo', async (req, res) => {
     try {
-        let codigo = (req.params.codigo || "").trim().toUpperCase();
-        codigo = codigo.replace(/^ID:\s*/i, '').trim();
+        let rawInput = decodeURIComponent(req.params.codigo || "").trim().toUpperCase();
+        const matchCodigo = rawInput.match(/TF26-[A-Z0-9]{4}-[A-Z0-9]{4}/i);
+        const codigo = matchCodigo ? matchCodigo[0].toUpperCase() : rawInput.replace(/^ID:\s*/i, '').trim();
 
         const consulta = await db.query(
-            `SELECT * FROM certificados_emitidos WHERE UPPER(TRIM(codigo_qr)) = $1 LIMIT 1`,
+            `SELECT *,
+                    COALESCE(subtitulo_certificado, tipo_certificado) AS subtitulo,
+                    COALESCE(detalle_certificado, '') AS detalle_reconocimiento,
+                    TO_CHAR(fecha_emision, 'DD/MM/YYYY HH24:MI') as fecha_registro
+             FROM certificados_emitidos 
+             WHERE UPPER(TRIM(codigo_qr)) = $1 LIMIT 1`,
             [codigo]
         );
 
@@ -1136,7 +1168,7 @@ app.get('/api/verificar_certificado/:codigo', async (req, res) => {
             return res.status(404).json({ valido: false, mensaje: "El código ingresado no existe en los registros oficiales de la TecnoFeria 2026." });
         }
 
-        res.json({ valido: true, certificado: consulta.rows[0] });
+        res.json({ valido: true, certificado: consulta.rows[0], datos: consulta.rows[0] });
     } catch (error) {
         res.status(500).json({ valido: false, error: "Error al verificar el certificado." });
     }
