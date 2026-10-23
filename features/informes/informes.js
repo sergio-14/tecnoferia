@@ -630,7 +630,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
         if (esAdminBD || termNorm.includes('luis alex fernandez') || termNorm === 'admin' || termNorm === 'administrador') {
             if (!personaNombre) personaNombre = "Luis Alex Fernández Tejaya";
-            // Modelo 1: Ambos subtítulos integrados (Desarrollo primero + Administración después)
             certificadosDetectados.push({
                 tipo: 'admin_sistema_ambos',
                 temaCSS: 'tema-admin',
@@ -645,7 +644,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA · ADMINISTRACIÓN E IMPLEMENTACIÓN DE LA PLATAFORMA OFICIAL',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
-            // Modelo 2: Primero Desarrollo e Implementación Tecnológica
             certificadosDetectados.push({
                 tipo: 'admin_sistema_desarrollo',
                 temaCSS: 'tema-admin',
@@ -660,7 +658,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                 subtituloCertificado: 'DESARROLLO E IMPLEMENTACIÓN TECNOLÓGICA',
                 cuerpoHTML: `Por su destacada labor en el diseño, desarrollo, administración e <b>implementación del Sistema Web Oficial de Gestión, Evaluación de Tribunales y Votación Digital por Código QR en Tiempo Real</b> en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
             });
-            // Modelo 3: Administración e Implementación de la Plataforma Oficial
             certificadosDetectados.push({
                 tipo: 'admin_sistema_administracion',
                 temaCSS: 'tema-admin',
@@ -874,7 +871,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
         const catIndividual = categoriaDetectadaPersona || (esDocentePorTitulo ? 'Docentes Investigadores' : 'Estudiantes Universitarios');
         const proyIndividual = tituloProyectoDetectado || 'TÍTULO DEL PROYECTO (CLIC PARA EDITAR)';
 
-        // Función auxiliar para generar las plantillas de 1°, 2° y 3° lugar en el selector manual
         const crearPlantillaPodioManual = (codigo, numLugar, nombreCat) => ({
             tipo: `manual_ganador_${codigo}_${numLugar}`,
             temaCSS: 'tema-ganador',
@@ -890,7 +886,6 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
             cuerpoHTML: `Por haber obtenido el <b style="color:#b8860b;">${numLugar}° LUGAR</b> en la categoría <b>${nombreCat}</b> con el proyecto de innovación tecnológica:<br><b style="color:#002b5c; font-size:1.12em;">"${proyIndividual}"</b><br>en la <b>${NOMBRE_EVENTO}</b>, desarrollada el 14 de Octubre de 2026 en el <b>${LUGAR_EVENTO}</b>.`
         });
 
-        // 3. PLANTILLAS COMPLETAS INCLUYENDO 1°, 2° Y 3° LUGAR DE ESTUDIANTES Y DOCENTES + LAS VARIANTES DE ADMIN
         const plantillasManuales = [
             ...certificadosDetectados,
             crearPlantillaPodioManual('est', 1, 'Estudiantes Universitarios'),
@@ -1494,7 +1489,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         margin: 2px 0 0;
                     }
 
-                    /* SECCIÓN DE FIRMAS Y SELLOS */
+                    /* SECCIÓN DE FIRMAS Y SELLOS (MISMA POSICIÓN ORIGINAL, MÁS GRANDES) */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
@@ -1530,11 +1525,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-firma-autoridad {
                         position: absolute;
-                        top: -4px;
+                        top: -14px;
                         left: 50%;
                         transform: translateX(-50%);
-                        height: 76px;
-                        width: 185px;
+                        height: 96px;
+                        width: 235px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 2;
@@ -1542,22 +1537,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-sello-oficial {
                         position: absolute;
-                        width: 102px;
-                        height: 102px;
+                        width: 114px;
+                        height: 114px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 4;
                     }
 
                     .sello-carrera-pos {
-                        top: -22px;
-                        right: -32px;
+                        top: -28px;
+                        right: -38px;
                         transform: rotate(-6deg);
                     }
 
                     .sello-iisp-pos {
-                        top: -50px;
-                        right: -28px;
+                        top: -56px;
+                        right: -34px;
                         transform: rotate(-5deg);
                     }
 
