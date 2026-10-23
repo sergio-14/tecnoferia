@@ -1525,11 +1525,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-firma-autoridad {
                         position: absolute;
-                        top: -20px;
+                        top: -28px;
                         left: 50%;
                         transform: translateX(-50%);
-                        height: 112px;
-                        width: 270px;
+                        height: 128px;
+                        width: 305px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 2;
@@ -1537,22 +1537,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-sello-oficial {
                         position: absolute;
-                        width: 128px;
-                        height: 128px;
+                        width: 144px;
+                        height: 144px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 4;
                     }
 
                     .sello-carrera-pos {
-                        top: -35px;
-                        right: -45px;
+                        top: -43px;
+                        right: -53px;
                         transform: rotate(-6deg);
                     }
 
                     .sello-iisp-pos {
-                        top: -63px;
-                        right: -41px;
+                        top: -71px;
+                        right: -49px;
                         transform: rotate(-5deg);
                     }
 
