@@ -1489,7 +1489,7 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
                         margin: 2px 0 0;
                     }
 
-                    /* SECCIÓN DE FIRMAS Y SELLOS (MISMA POSICIÓN ORIGINAL, MÁS GRANDES) */
+                    /* SECCIÓN DE FIRMAS Y SELLOS */
                     .firmas-container {
                         display: grid;
                         grid-template-columns: repeat(3, 1fr);
@@ -1525,11 +1525,11 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-firma-autoridad {
                         position: absolute;
-                        top: -14px;
+                        top: -20px;
                         left: 50%;
                         transform: translateX(-50%);
-                        height: 96px;
-                        width: 235px;
+                        height: 112px;
+                        width: 270px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 2;
@@ -1537,22 +1537,22 @@ window.generarCertificadoParticipacion = async function(terminoBusqueda) {
 
                     .img-sello-oficial {
                         position: absolute;
-                        width: 114px;
-                        height: 114px;
+                        width: 128px;
+                        height: 128px;
                         object-fit: contain;
                         pointer-events: none;
                         z-index: 4;
                     }
 
                     .sello-carrera-pos {
-                        top: -28px;
-                        right: -38px;
+                        top: -35px;
+                        right: -45px;
                         transform: rotate(-6deg);
                     }
 
                     .sello-iisp-pos {
-                        top: -56px;
-                        right: -34px;
+                        top: -63px;
+                        right: -41px;
                         transform: rotate(-5deg);
                     }
 
